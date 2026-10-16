@@ -1,21 +1,32 @@
 from datetime import date as DateType
 from enum import Enum
-from typing import Any
+import re
+from typing import Any, Literal
+from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 class EvidenceStatus(str, Enum):
     SUPPORTED = "SUPPORTED"
     INFERRED = "INFERRED"
+    MODEL_KNOWLEDGE = "MODEL_KNOWLEDGE"
+    LAB_RECORD = "LAB_RECORD"
     UNKNOWN = "UNKNOWN"
 
 class Claim(BaseModel):
     claim: str
     status: EvidenceStatus
     evidence_ids: list[int] = Field(default_factory=list)
+    experiment_refs: list[int] = Field(default_factory=list)
     @model_validator(mode="after")
     def require_evidence(self):
         if self.status in (EvidenceStatus.SUPPORTED, EvidenceStatus.INFERRED) and not self.evidence_ids:
             raise ValueError(f"{self.status.value} claims require evidence_ids")
+        if self.status == EvidenceStatus.MODEL_KNOWLEDGE and self.evidence_ids:
+            raise ValueError("MODEL_KNOWLEDGE claims cannot cite paper evidence")
+        if self.status == EvidenceStatus.LAB_RECORD and not self.experiment_refs:
+            raise ValueError("LAB_RECORD claims require experiment_refs")
+        if self.status != EvidenceStatus.LAB_RECORD and self.experiment_refs:
+            raise ValueError("Only LAB_RECORD claims can cite experiment records")
         return self
 
 class VariableIn(BaseModel):
@@ -38,23 +49,74 @@ class ResultIn(BaseModel):
     value: Any
     unit: str | None = None
 
+class ExperimentMaterialIn(BaseModel):
+    name: str
+    amount: Any = ""
+    unit: str | None = None
+    role: str = ""
+    lot_number: str = ""
+    supplier: str = ""
+
 class ObservationIn(BaseModel):
     category: str
     description: str
     severity: str | None = None
+
+class EnvironmentRecordIn(BaseModel):
+    step_index: int = Field(ge=0)
+    phase: Literal["before", "during", "after"]
+    temperature_c: float | None = None
+    relative_humidity_percent: float | None = Field(default=None, ge=0, le=100)
+    pressure_kpa: float | None = Field(default=None, gt=0)
+    notes: str = ""
+    measured_at: datetime | None = None
+
+class StepLogIn(BaseModel):
+    kind: Literal["measurement", "observation", "result"] = "measurement"
+    label: str = Field(min_length=1, max_length=200)
+    value: str = Field(default="", max_length=2000)
+    unit: str | None = Field(default=None, max_length=80)
+    notes: str = Field(default="", max_length=4000)
+    occurred_at: datetime | None = None
 
 class ExperimentIn(BaseModel):
     code: str | None = None
     name: str
     target: str
     date: DateType | None = None
+    duration_minutes: int | None = Field(default=None, ge=0, le=525600)
     operator: str | None = None
     notes: str = ""
     status: str = "planned"
     demo: bool = False
+    topic_id: int | None = None
+    method_version_id: int | None = None
     steps: list[StepIn] = Field(default_factory=list)
+    materials: list[ExperimentMaterialIn] = Field(default_factory=list)
     results: list[ResultIn] = Field(default_factory=list)
     observations: list[ObservationIn] = Field(default_factory=list)
+    environment_records: list[EnvironmentRecordIn] = Field(default_factory=list)
+
+class ResearchTopicIn(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    description: str = ""
+
+class ResearchMaterialIn(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    role: str = ""
+    unit: str = ""
+    supplier: str = ""
+    catalog_number: str = ""
+    notes: str = ""
+
+class MethodIn(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    description: str = ""
+    category: str = "custom"
+    process_map: list[dict[str, Any]] = Field(default_factory=list)
+    condition_definitions: list[dict[str, Any]] = Field(default_factory=list)
+    material_definitions: list[dict[str, Any]] = Field(default_factory=list)
+    parent_version_id: int | None = None
 
 class PaperOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -69,3 +131,57 @@ class ProcessChange(BaseModel):
     variable_name: str
     new_value: Any
     new_unit: str | None = None
+
+class AssistantAsk(BaseModel):
+    query: str = Field(min_length=3, max_length=1000)
+    allow_general_knowledge: bool = True
+    experiment_id: int | None = None
+    topic_id: int | None = None
+    context_scope: Literal["topic", "method", "step"] = "topic"
+    context_step_name: str | None = Field(default=None, max_length=200)
+
+class AnalysisExplanation(BaseModel):
+    summary: str = Field(min_length=1, max_length=1000)
+    review_notes: list[str] = Field(default_factory=list, max_length=4)
+    @model_validator(mode="after")
+    def no_numeric_measurements(self):
+        texts = [self.summary, *self.review_notes]
+        spelled_counts = re.compile(r"\b(?:one|single|double|triple|first|second|third)\b|단일|한\s*개|하나|두\s*개|세\s*개|첫\s*번째|둘째|셋째", re.IGNORECASE)
+        if any(any(character.isdigit() for character in text) or spelled_counts.search(text) for text in texts):
+            raise ValueError("Gemma explanations must not restate or invent numeric measurements")
+        if any(len(note) > 240 for note in self.review_notes):
+            raise ValueError("Review notes must be concise")
+        return self
+
+class IntegratedAnalysisRequest(BaseModel):
+    analysis_run_ids: list[int] = Field(default_factory=list, max_length=100)
+    experiment_ids: list[int] = Field(default_factory=list, max_length=200)
+    experiment_id: int | None = None
+    goal: str = Field(min_length=3, max_length=1000)
+    allow_general_knowledge: bool = True
+
+class IntegratedAnalysisClaim(BaseModel):
+    claim: str
+    status: Literal["SUPPORTED", "INFERRED", "LAB_RECORD", "ANALYSIS_OUTPUT", "MODEL_KNOWLEDGE", "UNKNOWN"]
+    evidence_ids: list[int] = Field(default_factory=list)
+    experiment_refs: list[int] = Field(default_factory=list)
+    analysis_run_refs: list[int] = Field(default_factory=list)
+    @model_validator(mode="after")
+    def require_source(self):
+        if self.status in {"SUPPORTED", "INFERRED"} and not self.evidence_ids:
+            raise ValueError(f"{self.status} claims require paper evidence IDs")
+        if self.status == "LAB_RECORD" and not self.experiment_refs:
+            raise ValueError("LAB_RECORD claims require experiment references")
+        if self.status == "ANALYSIS_OUTPUT" and not self.analysis_run_refs:
+            raise ValueError("ANALYSIS_OUTPUT claims require measurement run references")
+        if self.status == "MODEL_KNOWLEDGE" and (self.evidence_ids or self.experiment_refs or self.analysis_run_refs):
+            raise ValueError("MODEL_KNOWLEDGE claims cannot carry source references")
+        if self.status in {"SUPPORTED", "INFERRED"} and (self.experiment_refs or self.analysis_run_refs):
+            raise ValueError(f"{self.status} claims can cite paper evidence only")
+        if self.status == "ANALYSIS_OUTPUT" and (self.evidence_ids or self.experiment_refs):
+            raise ValueError("ANALYSIS_OUTPUT claims can cite measurement runs only")
+        if self.status != "ANALYSIS_OUTPUT" and self.analysis_run_refs:
+            raise ValueError("Only ANALYSIS_OUTPUT claims can reference measurement runs")
+        if self.status != "LAB_RECORD" and self.experiment_refs:
+            raise ValueError("Only LAB_RECORD claims can reference experiment records")
+        return self

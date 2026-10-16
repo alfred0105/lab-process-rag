@@ -1,5 +1,5 @@
 from datetime import date as DateType, datetime
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, JSON, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .database import Base
 
@@ -10,6 +10,7 @@ class Paper(Base):
     authors: Mapped[str] = mapped_column(Text, default="")
     year: Mapped[int | None] = mapped_column(Integer, nullable=True)
     filename: Mapped[str] = mapped_column(String(500))
+    topic_id: Mapped[int | None] = mapped_column(ForeignKey("research_topics.id", ondelete="SET NULL"), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     chunks: Mapped[list["EvidenceChunk"]] = relationship(back_populates="paper", cascade="all, delete-orphan")
 
@@ -23,6 +24,17 @@ class EvidenceChunk(Base):
     chunk_index: Mapped[int] = mapped_column(Integer)
     paper: Mapped[Paper] = relationship(back_populates="chunks")
 
+class PaperSummary(Base):
+    __tablename__ = "paper_summaries"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    paper_id: Mapped[int] = mapped_column(ForeignKey("papers.id", ondelete="CASCADE"), unique=True, index=True)
+    summary: Mapped[str] = mapped_column(Text)
+    topics: Mapped[list] = mapped_column(JSON, default=list)
+    source_chunk_ids: Mapped[list] = mapped_column(JSON, default=list)
+    method: Mapped[str] = mapped_column(String(40), default="extractive")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    paper: Mapped[Paper] = relationship()
+
 class Experiment(Base):
     __tablename__ = "experiments"
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -30,13 +42,66 @@ class Experiment(Base):
     name: Mapped[str] = mapped_column(String(300))
     target: Mapped[str] = mapped_column(String(300))
     date: Mapped[DateType | None] = mapped_column(Date, nullable=True)
+    duration_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     operator: Mapped[str | None] = mapped_column(String(200), nullable=True)
     notes: Mapped[str] = mapped_column(Text, default="")
     status: Mapped[str] = mapped_column(String(30))
     demo: Mapped[bool] = mapped_column(Boolean, default=False)
+    topic_id: Mapped[int | None] = mapped_column(ForeignKey("research_topics.id"), nullable=True, index=True)
+    method_version_id: Mapped[int | None] = mapped_column(ForeignKey("method_versions.id"), nullable=True, index=True)
+    method_run_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
     steps: Mapped[list["ProcessStep"]] = relationship(back_populates="experiment", cascade="all, delete-orphan", order_by="ProcessStep.order_index")
+    materials: Mapped[list["ExperimentMaterial"]] = relationship(back_populates="experiment", cascade="all, delete-orphan")
     results: Mapped[list["ExperimentResult"]] = relationship(back_populates="experiment", cascade="all, delete-orphan")
     observations: Mapped[list["FailureObservation"]] = relationship(back_populates="experiment", cascade="all, delete-orphan")
+    environment_records: Mapped[list["ExperimentEnvironmentRecord"]] = relationship(back_populates="experiment", cascade="all, delete-orphan", order_by="ExperimentEnvironmentRecord.measured_at")
+    step_logs: Mapped[list["ProcessStepLog"]] = relationship(back_populates="experiment", cascade="all, delete-orphan", order_by="ProcessStepLog.occurred_at")
+    attachments: Mapped[list["ExperimentAttachment"]] = relationship(back_populates="experiment", cascade="all, delete-orphan", order_by="ExperimentAttachment.created_at")
+    topic: Mapped["ResearchTopic | None"] = relationship()
+    method_version: Mapped["MethodVersion | None"] = relationship()
+
+class ResearchTopic(Base):
+    __tablename__ = "research_topics"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(200), unique=True, index=True)
+    description: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+class ResearchMaterial(Base):
+    __tablename__ = "research_materials"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    topic_id: Mapped[int] = mapped_column(ForeignKey("research_topics.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(200), index=True)
+    role: Mapped[str] = mapped_column(String(200), default="")
+    unit: Mapped[str] = mapped_column(String(80), default="")
+    supplier: Mapped[str] = mapped_column(String(200), default="")
+    catalog_number: Mapped[str] = mapped_column(String(200), default="")
+    notes: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    topic: Mapped[ResearchTopic] = relationship()
+
+class ExperimentMethod(Base):
+    __tablename__ = "experiment_methods"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    topic_id: Mapped[int] = mapped_column(ForeignKey("research_topics.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str] = mapped_column(Text, default="")
+    category: Mapped[str] = mapped_column(String(100), default="custom")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    topic: Mapped[ResearchTopic] = relationship()
+    versions: Mapped[list["MethodVersion"]] = relationship(back_populates="method", cascade="all, delete-orphan", order_by="MethodVersion.version_number")
+
+class MethodVersion(Base):
+    __tablename__ = "method_versions"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    method_id: Mapped[int] = mapped_column(ForeignKey("experiment_methods.id", ondelete="CASCADE"), index=True)
+    version_number: Mapped[int] = mapped_column(Integer)
+    parent_version_id: Mapped[int | None] = mapped_column(ForeignKey("method_versions.id"), nullable=True)
+    process_map: Mapped[list] = mapped_column(JSON, default=list)
+    condition_definitions: Mapped[list] = mapped_column(JSON, default=list)
+    material_definitions: Mapped[list] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    method: Mapped[ExperimentMethod] = relationship(back_populates="versions")
 
 class ProcessStep(Base):
     __tablename__ = "process_steps"
@@ -48,6 +113,9 @@ class ProcessStep(Base):
     description: Mapped[str] = mapped_column(Text, default="")
     experiment: Mapped[Experiment] = relationship(back_populates="steps")
     variables: Mapped[list["ProcessVariable"]] = relationship(back_populates="step", cascade="all, delete-orphan")
+    environment_records: Mapped[list["ExperimentEnvironmentRecord"]] = relationship(back_populates="step", cascade="all, delete-orphan")
+    logs: Mapped[list["ProcessStepLog"]] = relationship(back_populates="step", cascade="all, delete-orphan")
+    attachments: Mapped[list["ExperimentAttachment"]] = relationship(back_populates="step", cascade="all, delete-orphan")
 
 class ProcessVariable(Base):
     __tablename__ = "process_variables"
@@ -60,6 +128,18 @@ class ProcessVariable(Base):
     source_type: Mapped[str] = mapped_column(String(40), default="lab")
     source_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     step: Mapped[ProcessStep] = relationship(back_populates="variables")
+
+class ExperimentMaterial(Base):
+    __tablename__ = "experiment_materials"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    experiment_id: Mapped[int] = mapped_column(ForeignKey("experiments.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    amount: Mapped[str] = mapped_column(Text, default="")
+    unit: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    role: Mapped[str] = mapped_column(String(200), default="")
+    lot_number: Mapped[str] = mapped_column(String(200), default="")
+    supplier: Mapped[str] = mapped_column(String(200), default="")
+    experiment: Mapped[Experiment] = relationship(back_populates="materials")
 
 class ExperimentResult(Base):
     __tablename__ = "experiment_results"
@@ -78,3 +158,86 @@ class FailureObservation(Base):
     description: Mapped[str] = mapped_column(Text)
     severity: Mapped[str | None] = mapped_column(String(50), nullable=True)
     experiment: Mapped[Experiment] = relationship(back_populates="observations")
+
+class ExperimentEnvironmentRecord(Base):
+    __tablename__ = "experiment_environment_records"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    experiment_id: Mapped[int] = mapped_column(ForeignKey("experiments.id", ondelete="CASCADE"), index=True)
+    process_step_id: Mapped[int] = mapped_column(ForeignKey("process_steps.id", ondelete="CASCADE"), index=True)
+    phase: Mapped[str] = mapped_column(String(20))
+    temperature_c: Mapped[float | None] = mapped_column(Float, nullable=True)
+    relative_humidity_percent: Mapped[float | None] = mapped_column(Float, nullable=True)
+    pressure_kpa: Mapped[float | None] = mapped_column(Float, nullable=True)
+    notes: Mapped[str] = mapped_column(Text, default="")
+    measured_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    experiment: Mapped[Experiment] = relationship(back_populates="environment_records")
+    step: Mapped[ProcessStep] = relationship(back_populates="environment_records")
+
+class ProcessStepLog(Base):
+    __tablename__ = "process_step_logs"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    experiment_id: Mapped[int] = mapped_column(ForeignKey("experiments.id", ondelete="CASCADE"), index=True)
+    process_step_id: Mapped[int] = mapped_column(ForeignKey("process_steps.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(30), default="measurement")
+    label: Mapped[str] = mapped_column(String(200), default="")
+    value: Mapped[str] = mapped_column(Text, default="")
+    unit: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    notes: Mapped[str] = mapped_column(Text, default="")
+    occurred_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    experiment: Mapped[Experiment] = relationship(back_populates="step_logs")
+    step: Mapped[ProcessStep] = relationship(back_populates="logs")
+
+class ExperimentAttachment(Base):
+    __tablename__ = "experiment_attachments"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    experiment_id: Mapped[int] = mapped_column(ForeignKey("experiments.id", ondelete="CASCADE"), index=True)
+    process_step_id: Mapped[int] = mapped_column(ForeignKey("process_steps.id", ondelete="CASCADE"), index=True)
+    filename: Mapped[str] = mapped_column(String(500))
+    content_type: Mapped[str] = mapped_column(String(100))
+    stored_path: Mapped[str] = mapped_column(String(1000))
+    caption: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    experiment: Mapped[Experiment] = relationship(back_populates="attachments")
+    step: Mapped[ProcessStep] = relationship(back_populates="attachments")
+
+class AssistantInteraction(Base):
+    __tablename__ = "assistant_interactions"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    topic_id: Mapped[int | None] = mapped_column(ForeignKey("research_topics.id", ondelete="SET NULL"), nullable=True, index=True)
+    experiment_id: Mapped[int | None] = mapped_column(ForeignKey("experiments.id", ondelete="SET NULL"), nullable=True, index=True)
+    query: Mapped[str] = mapped_column(Text)
+    allow_general_knowledge: Mapped[bool] = mapped_column(Boolean, default=True)
+    context_scope: Mapped[str] = mapped_column(String(30), default="topic")
+    context_label: Mapped[str] = mapped_column(String(300), default="")
+    model: Mapped[str] = mapped_column(String(200), default="")
+    response_json: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+class MaterialAnalysisRun(Base):
+    __tablename__ = "material_analysis_runs"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    experiment_id: Mapped[int | None] = mapped_column(ForeignKey("experiments.id"), nullable=True, index=True)
+    topic_id: Mapped[int | None] = mapped_column(ForeignKey("research_topics.id", ondelete="SET NULL"), nullable=True, index=True)
+    modality: Mapped[str] = mapped_column(String(20), index=True)
+    tool_id: Mapped[str] = mapped_column(String(100))
+    filename: Mapped[str] = mapped_column(String(500))
+    sha256: Mapped[str] = mapped_column(String(64), index=True)
+    original_path: Mapped[str] = mapped_column(String(500))
+    artifact_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    result_json: Mapped[dict] = mapped_column(JSON)
+    analysis_status: Mapped[str] = mapped_column(String(30), default="completed")
+    result_key: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    process_step_id: Mapped[int | None] = mapped_column(ForeignKey("process_steps.id", ondelete="SET NULL"), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+class IntegratedAnalysisSession(Base):
+    __tablename__ = "integrated_analysis_sessions"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    topic_id: Mapped[int] = mapped_column(ForeignKey("research_topics.id", ondelete="CASCADE"), index=True)
+    experiment_id: Mapped[int | None] = mapped_column(ForeignKey("experiments.id", ondelete="SET NULL"), nullable=True, index=True)
+    goal: Mapped[str] = mapped_column(Text)
+    allow_general_knowledge: Mapped[bool] = mapped_column(Boolean, default=True)
+    model: Mapped[str] = mapped_column(String(200), default="")
+    analysis_run_ids: Mapped[list] = mapped_column(JSON)
+    result_json: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
