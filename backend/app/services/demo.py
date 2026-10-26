@@ -1,6 +1,10 @@
 from datetime import date, datetime, timedelta
+import math
+from pathlib import Path
 
 from sqlalchemy.orm import Session
+from app.db.database import ROOT
+from app.services.material_analysis.service import analyze as analyze_measurement, sha256 as sha256_bytes
 
 from app.db.models import (
     Experiment,
@@ -13,6 +17,8 @@ from app.db.models import (
     ProcessStep,
     ProcessStepLog,
     ProcessVariable,
+    MaterialAnalysisRun,
+    ProcessStageExperiment,
 )
 
 
@@ -40,6 +46,8 @@ def seed_demo(db: Session, topic_id: int):
         # Expand V0.1's original one-step demo records in place so users who
         # already seeded the demo can explore the richer timeline as well.
         _enrich_legacy_demo(db, existing)
+        _seed_demo_partial_experiments(db, topic_id)
+        _seed_demo_measurements(db, topic_id)
         return 0
 
     method = ExperimentMethod(
@@ -139,7 +147,75 @@ def seed_demo(db: Session, topic_id: int):
                 db.add(ExperimentEnvironmentRecord(experiment_id=experiment.id, process_step_id=step.id, phase=phase, temperature_c=temperature, relative_humidity_percent=humidity, notes="Synthetic room-condition demo value", measured_at=start + timedelta(minutes=step_index * 30 + offset)))
 
     db.commit()
+    _seed_demo_partial_experiments(db, topic_id)
+    _seed_demo_measurements(db, topic_id)
     return len(DATA)
+
+
+def _seed_demo_partial_experiments(db: Session, topic_id: int) -> None:
+    if db.query(ProcessStageExperiment).join(Experiment).filter(Experiment.topic_id == topic_id, ProcessStageExperiment.notes == "Synthetic demo partial experiment; illustrative only.").first():
+        return
+    experiments = db.query(Experiment).filter(Experiment.demo.is_(True), Experiment.topic_id == topic_id).order_by(Experiment.id).all()
+    definitions = [
+        (0, "Hydrothermal growth", "Growth temperature check A", "recorded", [("Growth temperature", "90", "°C"), ("Growth time", "60", "min")], [("Coverage", "uniform", None)], "A focused sub-experiment within the recorded growth stage."),
+        (2, "Hydrothermal growth", "Growth temperature check B", "success", [("Growth temperature", "95", "°C"), ("Growth time", "60", "min")], [("Median diameter", "92", "nm"), ("Median length", "1.5", "µm")], "Illustrative comparison row; values mirror the linked synthetic run."),
+        (3, "Washing and drying", "Drying-time check", "recorded", [("Drying temperature", "60", "°C"), ("Drying time", "30", "min")], [("Sample transfer loss", "none", None)], "A smaller check recorded within the workup stage."),
+    ]
+    for run_index, step_name, name, status, conditions, results, note in definitions:
+        if run_index >= len(experiments):
+            continue
+        experiment = experiments[run_index]
+        step = next((item for item in experiment.steps if item.name == step_name), None)
+        if step:
+            day = experiment.date or date.today()
+            db.add(ProcessStageExperiment(experiment_id=experiment.id, process_step_id=step.id, name=name,
+                performed_at=datetime.combine(day, datetime.min.time()).replace(hour=13), status=status,
+                conditions=[{"name": key, "value": value, "unit": unit} for key, value, unit in conditions],
+                results=[{"name": key, "value": value, "unit": unit} for key, value, unit in results],
+                notes=f"{note} Synthetic demo partial experiment; illustrative only."))
+    db.commit()
+
+
+def _seed_demo_measurements(db: Session, topic_id: int) -> None:
+    """Create reproducible sample instrument files and run them through the real pilot analyzers."""
+    if db.query(MaterialAnalysisRun).filter(MaterialAnalysisRun.topic_id == topic_id, MaterialAnalysisRun.result_key.in_(["DEMO XRD · Baseline pattern", "DEMO AFM · Surface topography"])).first():
+        return
+    experiments = db.query(Experiment).filter(Experiment.demo.is_(True), Experiment.topic_id == topic_id).order_by(Experiment.id).all()
+    if not experiments:
+        return
+    originals = ROOT / "data" / "material-analysis" / "originals"
+    originals.mkdir(parents=True, exist_ok=True)
+    # Synthetic peak pattern approximating a useful file shape; it is not instrument data or phase evidence.
+    xrd_lines = ["two_theta,intensity"]
+    for i in range(401):
+        angle = 20.0 + i * 0.1
+        intensity = 35 + 0.04 * i + sum(height * math.exp(-0.5 * ((angle - center) / width) ** 2) for center, height, width in [(31.8, 300, 0.22), (34.4, 520, 0.25), (36.2, 430, 0.24), (47.5, 170, 0.3), (56.6, 130, 0.32)])
+        xrd_lines.append(f"{angle:.1f},{intensity:.4f}")
+    xrd_bytes = ("\n".join(xrd_lines) + "\n").encode()
+    # Deterministic tilted surface with a small bump pattern; the analyzer levels the plane before reporting roughness.
+    afm_rows = []
+    for row in range(32):
+        values = []
+        for col in range(32):
+            bump = 5.0 * math.exp(-((col - 9) ** 2 + (row - 12) ** 2) / 22) + 3.5 * math.exp(-((col - 23) ** 2 + (row - 22) ** 2) / 18)
+            texture = 0.35 * math.sin(col * 0.8) * math.cos(row * 0.6)
+            values.append(f"{(0.08 * col + 0.04 * row + bump + texture):.4f}")
+        afm_rows.append(",".join(values))
+    afm_bytes = ("\n".join(afm_rows) + "\n").encode()
+    samples = [
+        (experiments[0], "Microscopy review", "xrd", "DEMO_XRD_baseline.csv", "DEMO XRD · Baseline pattern", xrd_bytes, "2theta_deg", 1.0),
+        (experiments[min(2, len(experiments) - 1)], "Microscopy review", "afm", "DEMO_AFM_surface.csv", "DEMO AFM · Surface topography", afm_bytes, "nm", 1.0),
+    ]
+    for experiment, step_name, modality, filename, result_key, content, unit, _ in samples:
+        step = next((item for item in experiment.steps if item.name == step_name), None)
+        output = analyze_measurement(modality, content, filename, xrd_x_unit=unit, afm_height_unit=unit)
+        stored = originals / f"demo-topic-{topic_id}-{modality}-{experiment.id}.csv"
+        stored.write_bytes(content)
+        result = {**output.result, "demo_data": True, "demo_notice": "Synthetic demonstration data generated by the app. Not a real instrument export, material measurement, or literature evidence."}
+        db.add(MaterialAnalysisRun(experiment_id=experiment.id, topic_id=topic_id, process_step_id=step.id if step else None,
+            modality=modality, tool_id=output.tool_id, filename=filename, sha256=sha256_bytes(content), original_path=str(stored),
+            result_json=result, analysis_status="completed", result_key=result_key))
+    db.commit()
 
 
 def _enrich_legacy_demo(db: Session, experiments: list[Experiment]) -> None:

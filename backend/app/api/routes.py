@@ -10,8 +10,8 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Upload
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, selectinload
 from app.db.database import ROOT, get_db
-from app.db.models import Experiment, ExperimentMaterial, ExperimentMethod, MethodVersion, ResearchTopic, ResearchMaterial, Paper, EvidenceChunk, PaperSummary, ProcessStep, ProcessVariable, ExperimentResult, FailureObservation, ExperimentEnvironmentRecord, ProcessStepLog, ExperimentAttachment, AssistantInteraction, MaterialAnalysisRun, IntegratedAnalysisSession
-from app.schemas.core import AssistantAsk, AnalysisExplanation, IntegratedAnalysisRequest, IntegratedAnalysisClaim, Claim, EvidenceStatus, ExperimentIn, ResearchTopicIn, ResearchMaterialIn, MethodIn, DesignRequest, ProcessChange, StepLogIn
+from app.db.models import Experiment, ExperimentMaterial, ExperimentMethod, MethodVersion, ResearchTopic, ResearchMaterial, Paper, EvidenceChunk, PaperSummary, ProcessStep, ProcessVariable, ExperimentResult, FailureObservation, ExperimentEnvironmentRecord, ProcessStepLog, ExperimentAttachment, ProcessStageExperiment, AssistantInteraction, MaterialAnalysisRun, IntegratedAnalysisSession
+from app.schemas.core import AssistantAsk, AnalysisExplanation, IntegratedAnalysisRequest, IntegratedAnalysisClaim, Claim, EvidenceStatus, ExperimentIn, ResearchTopicIn, ResearchMaterialIn, MethodIn, DesignRequest, ProcessChange, StepLogIn, StageExperimentIn
 from app.services.ingestion.pdf import ingest_pdf
 from app.services.retrieval.provider import SQLiteFTSProvider
 from app.services.experiment.compare import compare
@@ -20,6 +20,7 @@ from app.services.demo import seed_demo
 from app.services.calculator.service import amount, mass_from_concentration, dilution, ratio
 from app.services.llm import AISettings, LLMUnavailable, configured_provider, inference_semaphore
 from app.services.material_analysis.service import AnalysisInputError, analyze as run_material_analysis, sha256 as sha256_bytes
+from app.services.material_analysis.phase_match import ReferenceDatabaseUnavailable, match_xrd_phases
 router=APIRouter(); retrieval=SQLiteFTSProvider()
 
 ANALYSIS_ROOT = ROOT / "data" / "material-analysis"
@@ -28,15 +29,15 @@ ATTACHMENTS_ROOT = ROOT / "data" / "experiment-attachments"
 MAX_EXPERIMENT_IMAGE_BYTES = 15 * 1024 * 1024
 
 def exp_query(db):
-    return db.query(Experiment).options(selectinload(Experiment.steps).selectinload(ProcessStep.variables),selectinload(Experiment.materials),selectinload(Experiment.results),selectinload(Experiment.observations),selectinload(Experiment.environment_records).selectinload(ExperimentEnvironmentRecord.step),selectinload(Experiment.step_logs).selectinload(ProcessStepLog.step),selectinload(Experiment.attachments).selectinload(ExperimentAttachment.step))
+    return db.query(Experiment).options(selectinload(Experiment.steps).selectinload(ProcessStep.variables),selectinload(Experiment.materials),selectinload(Experiment.results),selectinload(Experiment.observations),selectinload(Experiment.environment_records).selectinload(ExperimentEnvironmentRecord.step),selectinload(Experiment.step_logs).selectinload(ProcessStepLog.step),selectinload(Experiment.attachments).selectinload(ExperimentAttachment.step),selectinload(Experiment.stage_experiments).selectinload(ProcessStageExperiment.step))
 def serialize_exp(e):
     method=e.method_version.method if e.method_version else None
-    return {"id":e.id,"code":e.code,"name":e.name,"target":e.target,"date":e.date,"duration_minutes":e.duration_minutes,"operator":e.operator,"notes":e.notes,"status":e.status,"demo":e.demo,"topic_id":e.topic_id,"method_version_id":e.method_version_id,"method_name":method.name if method else None,"method_version":e.method_version.version_number if e.method_version else None,"method_run_number":e.method_run_number,"steps":[{"id":s.id,"name":s.name,"step_type":s.step_type,"order_index":s.order_index,"description":s.description,"variables":[{"id":v.id,"name":v.name,"value":v.value,"unit":v.unit,"material":v.material,"source_type":v.source_type,"source_id":v.source_id} for v in s.variables]} for s in e.steps],"materials":[{"id":m.id,"name":m.name,"amount":m.amount,"unit":m.unit,"role":m.role,"lot_number":m.lot_number,"supplier":m.supplier} for m in e.materials],"results":[{"key":r.key,"value":r.value,"unit":r.unit} for r in e.results],"observations":[{"category":o.category,"description":o.description,"severity":o.severity} for o in e.observations],"environment_records":[{"id":r.id,"step_id":r.process_step_id,"step_name":r.step.name,"phase":r.phase,"temperature_c":r.temperature_c,"relative_humidity_percent":r.relative_humidity_percent,"pressure_kpa":r.pressure_kpa,"notes":r.notes,"measured_at":r.measured_at.isoformat()+"Z"} for r in e.environment_records],"step_logs":[{"id":r.id,"step_id":r.process_step_id,"step_name":r.step.name,"kind":r.kind,"label":r.label,"value":r.value,"unit":r.unit,"notes":r.notes,"occurred_at":r.occurred_at.isoformat()+"Z"} for r in e.step_logs],"attachments":[{"id":r.id,"step_id":r.process_step_id,"step_name":r.step.name,"filename":r.filename,"content_type":r.content_type,"caption":r.caption,"image_url":f"/api/experiments/attachments/{r.id}/image","created_at":r.created_at.isoformat()+"Z"} for r in e.attachments]}
+    return {"id":e.id,"code":e.code,"name":e.name,"target":e.target,"date":e.date,"duration_minutes":e.duration_minutes,"operator":e.operator,"notes":e.notes,"status":e.status,"demo":e.demo,"topic_id":e.topic_id,"method_version_id":e.method_version_id,"method_name":method.name if method else None,"method_version":e.method_version.version_number if e.method_version else None,"method_version_label":e.method_version.version_label if e.method_version else None,"method_run_number":e.method_run_number,"steps":[{"id":s.id,"name":s.name,"step_type":s.step_type,"order_index":s.order_index,"description":s.description,"variables":[{"id":v.id,"name":v.name,"value":v.value,"unit":v.unit,"material":v.material,"source_type":v.source_type,"source_id":v.source_id} for v in s.variables]} for s in e.steps],"materials":[{"id":m.id,"name":m.name,"amount":m.amount,"unit":m.unit,"role":m.role,"lot_number":m.lot_number,"supplier":m.supplier} for m in e.materials],"results":[{"key":r.key,"value":r.value,"unit":r.unit} for r in e.results],"observations":[{"category":o.category,"description":o.description,"severity":o.severity} for o in e.observations],"environment_records":[{"id":r.id,"step_id":r.process_step_id,"step_name":r.step.name,"phase":r.phase,"temperature_c":r.temperature_c,"relative_humidity_percent":r.relative_humidity_percent,"pressure_kpa":r.pressure_kpa,"notes":r.notes,"measured_at":r.measured_at.isoformat()+"Z"} for r in e.environment_records],"step_logs":[{"id":r.id,"step_id":r.process_step_id,"step_name":r.step.name,"kind":r.kind,"label":r.label,"value":r.value,"unit":r.unit,"notes":r.notes,"occurred_at":r.occurred_at.isoformat()+"Z"} for r in e.step_logs],"stage_experiments":[{"id":r.id,"experiment_id":r.experiment_id,"step_id":r.process_step_id,"step_name":r.step.name,"name":r.name,"performed_at":r.performed_at.isoformat()+"Z","status":r.status,"conditions":r.conditions or [],"results":r.results or [],"notes":r.notes} for r in e.stage_experiments],"attachments":[{"id":r.id,"step_id":r.process_step_id,"step_name":r.step.name,"filename":r.filename,"content_type":r.content_type,"caption":r.caption,"image_url":f"/api/experiments/attachments/{r.id}/image","created_at":r.created_at.isoformat()+"Z"} for r in e.attachments]}
 
 def serialize_method(method):
     versions=[]
     for version in method.versions:
-        versions.append({"id":version.id,"version_number":version.version_number,"parent_version_id":version.parent_version_id,"process_map":version.process_map,"condition_definitions":version.condition_definitions,"material_definitions":version.material_definitions,"created_at":version.created_at.isoformat()+"Z"})
+        versions.append({"id":version.id,"version_number":version.version_number,"version_label":version.version_label,"parent_version_id":version.parent_version_id,"process_map":version.process_map,"condition_definitions":version.condition_definitions,"material_definitions":version.material_definitions,"created_at":version.created_at.isoformat()+"Z"})
     return {"id":method.id,"topic_id":method.topic_id,"name":method.name,"description":method.description,"category":method.category,"versions":versions}
 
 def experiment_record_text(record):
@@ -69,6 +70,13 @@ def experiment_record_text(record):
                 material=f"; material: {variable['material']}" if variable.get("material") else ""
                 lines.append(f"   - {variable['name']}: {value}{material}")
     else: lines.append("No process steps have been recorded.")
+    if record.get("stage_experiments"):
+        lines.append("PARTIAL EXPERIMENTS WITHIN PROCESS STAGES")
+        for item in record["stage_experiments"]:
+            lines.append(f"- {item['step_name']} · {item['name']} · {item.get('performed_at','')} · {item.get('status','recorded')}")
+            for value in item.get("conditions",[]): lines.append(f"  Condition: {value.get('name','')} = {value.get('value','')} {value.get('unit') or ''}".rstrip())
+            for value in item.get("results",[]): lines.append(f"  Result: {value.get('name','')} = {value.get('value','')} {value.get('unit') or ''}".rstrip())
+            if item.get("notes"): lines.append(f"  Notes: {item['notes']}")
     lines.append("RECORDED RESULTS")
     lines.extend(f"- {item['key']}: {item['value']} {item.get('unit') or ''}".strip() for item in record.get("results",[]))
     if not record.get("results"): lines.append("No results have been recorded.")
@@ -107,6 +115,10 @@ def gemma_context_text(db, scope, topic_id, selected, step_name=None):
             lines.append(f"- {record['code']} · {record['name']} · {record['status']} · {record['target']}")
             lines.append(f"  Recorded conditions: {'; '.join(variables[:20]) if variables else 'none'}")
             if result_values: lines.append(f"  Results: {'; '.join(result_values[:8])}")
+            if record.get("stage_experiments"):
+                for partial in record["stage_experiments"][:20]:
+                    partial_values=[f"{value.get('name','')}={value.get('value','')} {value.get('unit') or ''}".strip() for value in partial.get("conditions",[]) + partial.get("results",[])]
+                    lines.append(f"  Partial experiment · {partial['step_name']} · {partial['name']} · {partial.get('status','recorded')}: {'; '.join(partial_values) or 'no values recorded'}")
         record_ids=[item.id for item in recent]
         if selected and selected.id not in record_ids:
             lines.extend(["USER-SELECTED EXECUTION RECORD",experiment_record_text(serialize_exp(selected))])
@@ -121,7 +133,7 @@ def gemma_context_text(db, scope, topic_id, selected, step_name=None):
     method=version.method
     record=serialize_exp(selected)
     if scope == "method":
-        lines=[f"REUSABLE METHOD: {method.name} v{version.version_number}",f"Description: {method.description}","PROCESS STEPS"]
+        lines=[f"REUSABLE METHOD: {method.name} v{version.version_label}",f"Description: {method.description}","PROCESS STEPS"]
         for step in version.process_map: lines.append(f"- {step.get('name','')}: {step.get('description','')}")
         lines.append("DEFINED CONDITIONS")
         for condition in version.condition_definitions:
@@ -129,14 +141,14 @@ def gemma_context_text(db, scope, topic_id, selected, step_name=None):
         lines.append("REQUIRED MATERIALS")
         lines.extend(f"- {item.get('name','')} ({item.get('unit','')})" for item in version.material_definitions)
         lines.extend(["SELECTED EXECUTION RECORD",experiment_record_text(record)])
-        return "\n".join(lines), {"scope":scope,"label":f"{method.name} v{version.version_number}","experiment_id":selected.id}
+        return "\n".join(lines), {"scope":scope,"label":f"{method.name} v{version.version_label}","experiment_id":selected.id}
 
     if scope == "step":
         if not step_name: raise HTTPException(422,"Select a process step for step context")
         step=next((item for item in record["steps"] if item["name"]==step_name),None)
         if not step: raise HTTPException(422,"The selected process step is not in this experiment")
         conditions=[item for item in version.condition_definitions if item.get("step_name")==step_name]
-        lines=[f"PROCESS STEP: {method.name} v{version.version_number} · {step_name}",f"Execution: {record['code']} · {record['name']} · {record['status']}"]
+        lines=[f"PROCESS STEP: {method.name} v{version.version_label} · {step_name}",f"Execution: {record['code']} · {record['name']} · {record['status']}"]
         if step.get("description"): lines.append(f"Description: {step['description']}")
         lines.append("DEFINED CONDITIONS")
         lines.extend(f"- {item.get('name','')} ({item.get('unit','')})" for item in conditions)
@@ -231,7 +243,7 @@ def analysis_tools():
     }
 
 def serialize_analysis(item: MaterialAnalysisRun):
-    return {"id":item.id,"experiment_id":item.experiment_id,"topic_id":item.topic_id,"process_step_id":item.process_step_id,"result_key":item.result_key,"analysis_status":item.analysis_status,"modality":item.modality,"tool_id":item.tool_id,"filename":item.filename,"sha256":item.sha256,"created_at":item.created_at.isoformat()+"Z","result":item.result_json}
+    return {"id":item.id,"experiment_id":item.experiment_id,"topic_id":item.topic_id,"process_step_id":item.process_step_id,"result_key":item.result_key,"analysis_status":item.analysis_status,"modality":item.modality,"tool_id":item.tool_id,"filename":item.filename,"sha256":item.sha256,"created_at":item.created_at.isoformat()+"Z","demo":bool((item.result_json or {}).get("demo_data")),"result":item.result_json}
 
 @router.get("/analysis/runs")
 def analysis_runs(topic_id:int,db:Session=Depends(get_db)):
@@ -328,6 +340,29 @@ def analysis_mask(run_id:int,db:Session=Depends(get_db)):
     path=_analysis_file(db,run_id,True)
     return FileResponse(path,media_type="image/png",filename=Path(path).name)
 
+@router.post("/analysis/runs/{run_id}/phase-match")
+async def analysis_phase_match(
+    run_id:int,
+    formulas:str=Form(...),
+    wavelength_angstrom:float=Form(1.5406),
+    tolerance_degrees:float=Form(0.3),
+    db:Session=Depends(get_db),
+):
+    item=db.get(MaterialAnalysisRun,run_id)
+    if not item: raise HTTPException(404,"Analysis run not found")
+    if item.modality.lower()!="xrd": raise HTTPException(422,"Reference phase matching is available for XRD runs only")
+    path=_analysis_file(db,run_id,False)
+    try:
+        return await match_xrd_phases(path.read_bytes(),[value.strip() for value in formulas.split(",") if value.strip()],wavelength_angstrom,tolerance_degrees)
+    except AnalysisInputError as exc:
+        raise HTTPException(422,str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(422,str(exc)) from exc
+    except ReferenceDatabaseUnavailable as exc:
+        raise HTTPException(502,"The public COD reference database could not provide usable reference structures. Retry later or review the original XRD pattern.") from exc
+    except httpx.HTTPError as exc:
+        raise HTTPException(502,"The public COD reference database could not be reached. Retry later or review the original XRD pattern.") from exc
+
 @router.post("/analysis/runs/{run_id}/explain")
 def explain_analysis_run(run_id:int,db:Session=Depends(get_db)):
     item=db.get(MaterialAnalysisRun,run_id)
@@ -384,6 +419,7 @@ def integrated_analysis(payload:IntegratedAnalysisRequest,db:Session=Depends(get
             result["observed_peaks"]=peaks[:20]
             result["omitted_peak_count"]=max(0,len(peaks)-20)
         result.pop("mask_url",None)
+        result.pop("pattern_preview",None)
         measurement_set.append({"analysis_run_id":item.id,"modality":item.modality,"filename":item.filename,"tool_id":item.tool_id,"sha256":item.sha256,"experiment_id":item.experiment_id,"computed_outputs":result})
 
     settings=AISettings.from_environment()
@@ -565,7 +601,7 @@ def create_method(topic_id:int,payload:MethodIn,db:Session=Depends(get_db)):
     if not db.get(ResearchTopic,topic_id): raise HTTPException(404,"Research topic not found")
     method=ExperimentMethod(topic_id=topic_id,name=payload.name.strip(),description=payload.description.strip(),category=payload.category)
     db.add(method); db.flush()
-    version=MethodVersion(method_id=method.id,version_number=1,process_map=payload.process_map,condition_definitions=payload.condition_definitions,material_definitions=payload.material_definitions)
+    version=MethodVersion(method_id=method.id,version_number=1,version_label="1",process_map=payload.process_map,condition_definitions=payload.condition_definitions,material_definitions=payload.material_definitions)
     db.add(version); db.commit(); db.refresh(method)
     return serialize_method(method)
 
@@ -575,8 +611,18 @@ def create_method_version(method_id:int,payload:MethodIn,db:Session=Depends(get_
     if not method: raise HTTPException(404,"Experiment method not found")
     parent=payload.parent_version_id
     if parent is not None and (not db.get(MethodVersion,parent) or db.get(MethodVersion,parent).method_id!=method_id): raise HTTPException(422,"Parent version must belong to this method")
+    if parent is None:
+        raise HTTPException(422,"A parent version is required to create a process branch")
+    parent_version=db.get(MethodVersion,parent)
+    major=parent_version.version_label.split(".")[0]
+    minor_numbers=[]
+    for existing in method.versions:
+        parts=existing.version_label.split(".")
+        if parts[0]==major and len(parts)>1 and parts[1].isdigit():
+            minor_numbers.append(int(parts[1]))
     version_number=max((v.version_number for v in method.versions),default=0)+1
-    version=MethodVersion(method_id=method.id,version_number=version_number,parent_version_id=parent,process_map=payload.process_map,condition_definitions=payload.condition_definitions,material_definitions=payload.material_definitions)
+    version_label=f"{major}.{max(minor_numbers,default=0)+1}"
+    version=MethodVersion(method_id=method.id,version_number=version_number,version_label=version_label,parent_version_id=parent,process_map=payload.process_map,condition_definitions=payload.condition_definitions,material_definitions=payload.material_definitions)
     db.add(version); db.commit(); db.refresh(method)
     return serialize_method(method)
 
@@ -621,6 +667,29 @@ def delete_step_log(experiment_id:int,log_id:int,db:Session=Depends(get_db)):
     item=db.query(ProcessStepLog).filter_by(id=log_id,experiment_id=experiment_id).first()
     if not item: raise HTTPException(404,"Process log not found")
     db.delete(item); db.commit(); return {"deleted":log_id}
+
+@router.post("/experiments/{experiment_id}/steps/{step_id}/subexperiments")
+def add_stage_experiment(experiment_id:int,step_id:int,payload:StageExperimentIn,db:Session=Depends(get_db)):
+    step=db.query(ProcessStep).filter_by(id=step_id,experiment_id=experiment_id).first()
+    if not step: raise HTTPException(404,"Process step not found in this experiment")
+    item=ProcessStageExperiment(experiment_id=experiment_id,process_step_id=step_id,name=payload.name.strip(),performed_at=payload.performed_at or datetime.utcnow(),status=payload.status,conditions=[value.model_dump() for value in payload.conditions],results=[value.model_dump() for value in payload.results],notes=payload.notes.strip())
+    db.add(item); db.commit(); db.refresh(item)
+    return {"id":item.id,"experiment_id":experiment_id,"step_id":step_id,"step_name":step.name,"name":item.name,"performed_at":item.performed_at.isoformat()+"Z","status":item.status,"conditions":item.conditions,"results":item.results,"notes":item.notes}
+
+@router.put("/experiments/{experiment_id}/steps/{step_id}/subexperiments/{record_id}")
+def update_stage_experiment(experiment_id:int,step_id:int,record_id:int,payload:StageExperimentIn,db:Session=Depends(get_db)):
+    item=db.query(ProcessStageExperiment).filter_by(id=record_id,experiment_id=experiment_id,process_step_id=step_id).first()
+    if not item: raise HTTPException(404,"Partial experiment not found in this process step")
+    item.name=payload.name.strip(); item.performed_at=payload.performed_at or item.performed_at; item.status=payload.status
+    item.conditions=[value.model_dump() for value in payload.conditions]; item.results=[value.model_dump() for value in payload.results]; item.notes=payload.notes.strip()
+    db.commit(); db.refresh(item)
+    return {"id":item.id,"experiment_id":experiment_id,"step_id":step_id,"step_name":item.step.name,"name":item.name,"performed_at":item.performed_at.isoformat()+"Z","status":item.status,"conditions":item.conditions,"results":item.results,"notes":item.notes}
+
+@router.delete("/experiments/{experiment_id}/steps/{step_id}/subexperiments/{record_id}")
+def delete_stage_experiment(experiment_id:int,step_id:int,record_id:int,db:Session=Depends(get_db)):
+    item=db.query(ProcessStageExperiment).filter_by(id=record_id,experiment_id=experiment_id,process_step_id=step_id).first()
+    if not item: raise HTTPException(404,"Partial experiment not found in this process step")
+    db.delete(item); db.commit(); return {"deleted":record_id}
 
 @router.post("/experiments/{experiment_id}/steps/{step_id}/attachments")
 async def attach_step_image(experiment_id:int,step_id:int,file:UploadFile=File(...),caption:str=Form(""),db:Session=Depends(get_db)):

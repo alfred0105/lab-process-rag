@@ -10,5 +10,15 @@ data/material-analysis/
 data/experiment-attachments/
 data/logs/
 
+# Local model weights and caches are downloaded separately from the source code.
+models/
+.ollama/
+.cache/huggingface/
+*.gguf
+*.safetensors
+*.pt
+*.pth
+*.onnx
+
 .DS_Store
 *.tsbuildinfo

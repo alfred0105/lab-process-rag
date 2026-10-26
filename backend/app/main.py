@@ -31,6 +31,10 @@ def migrate_legacy_experiments():
             connection.exec_driver_sql("ALTER TABLE material_analysis_runs ADD COLUMN result_key VARCHAR(200)")
         if "process_step_id" not in analysis_columns:
             connection.exec_driver_sql("ALTER TABLE material_analysis_runs ADD COLUMN process_step_id INTEGER REFERENCES process_steps(id) ON DELETE SET NULL")
+        version_columns={row[1] for row in connection.exec_driver_sql("PRAGMA table_info(method_versions)").fetchall()}
+        if "version_label" not in version_columns:
+            connection.exec_driver_sql("ALTER TABLE method_versions ADD COLUMN version_label VARCHAR(40)")
+        connection.exec_driver_sql("UPDATE method_versions SET version_label = CAST(version_number AS TEXT) WHERE version_label IS NULL OR version_label = ''")
     db=SessionLocal()
     try:
         old_runs=db.query(Experiment).filter(Experiment.method_version_id.is_(None)).all()
@@ -48,7 +52,7 @@ def migrate_legacy_experiments():
                 for variable in step.variables:
                     conditions.append({"step_name":step.name,"name":variable.name,"unit":variable.unit or "","value_type":"text","required":False})
             materials=[{"name":item.name,"role":item.role,"unit":item.unit or "","lot_number":item.lot_number,"supplier":item.supplier} for item in run.materials]
-            version=MethodVersion(method_id=method.id,version_number=1,process_map=process_map,condition_definitions=conditions,material_definitions=materials)
+            version=MethodVersion(method_id=method.id,version_number=1,version_label="1",process_map=process_map,condition_definitions=conditions,material_definitions=materials)
             db.add(version); db.flush()
             run.topic_id=topic.id; run.method_version_id=version.id; run.method_run_number=1
         for paper in old_papers: paper.topic_id=topic.id

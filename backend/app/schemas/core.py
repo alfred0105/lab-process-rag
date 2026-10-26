@@ -79,6 +79,19 @@ class StepLogIn(BaseModel):
     notes: str = Field(default="", max_length=4000)
     occurred_at: datetime | None = None
 
+class StageValueIn(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    value: str = Field(default="", max_length=2000)
+    unit: str | None = Field(default=None, max_length=80)
+
+class StageExperimentIn(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    performed_at: datetime | None = None
+    status: Literal["recorded", "success", "failed", "inconclusive"] = "recorded"
+    conditions: list[StageValueIn] = Field(default_factory=list, max_length=100)
+    results: list[StageValueIn] = Field(default_factory=list, max_length=100)
+    notes: str = Field(default="", max_length=4000)
+
 class ExperimentIn(BaseModel):
     code: str | None = None
     name: str

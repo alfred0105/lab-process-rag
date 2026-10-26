@@ -56,6 +56,12 @@ def analyze_xrd(data: bytes, filename: str, x_unit: str = "2theta_deg") -> Analy
         else:
             peaks.append(index)
     max_intensity = float(np.max(y))
+    # Keep a bounded, deterministic preview of the measured curve for the UI.
+    # Always retain detected peak samples even when a long scan is decimated.
+    preview_limit = 1200
+    stride = max(1, math.ceil(len(x) / preview_limit))
+    preview_indices = set(range(0, len(x), stride)) | set(peaks)
+    preview_indices.add(len(x) - 1)
     return AnalysisOutput("xrd.local_peaks.v1", {
         "analysis_kind": "observed_pattern_features",
         "filename": filename,
@@ -64,6 +70,10 @@ def analyze_xrd(data: bytes, filename: str, x_unit: str = "2theta_deg") -> Analy
         "intensity_unit": "instrument_reported",
         "baseline_min": float(np.min(y)),
         "intensity_max": max_intensity,
+        "pattern_preview": [
+            {"x": float(x[i]), "intensity": float(y[i])}
+            for i in sorted(preview_indices)
+        ],
         "observed_peaks": [
             {"x": float(x[i]), "intensity": float(y[i]), "relative_intensity_percent": float(y[i] / max_intensity * 100) if max_intensity else 0.0}
             for i in peaks[:200]

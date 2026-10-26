@@ -57,6 +57,7 @@ class Experiment(Base):
     environment_records: Mapped[list["ExperimentEnvironmentRecord"]] = relationship(back_populates="experiment", cascade="all, delete-orphan", order_by="ExperimentEnvironmentRecord.measured_at")
     step_logs: Mapped[list["ProcessStepLog"]] = relationship(back_populates="experiment", cascade="all, delete-orphan", order_by="ProcessStepLog.occurred_at")
     attachments: Mapped[list["ExperimentAttachment"]] = relationship(back_populates="experiment", cascade="all, delete-orphan", order_by="ExperimentAttachment.created_at")
+    stage_experiments: Mapped[list["ProcessStageExperiment"]] = relationship(back_populates="experiment", cascade="all, delete-orphan", order_by="ProcessStageExperiment.performed_at")
     topic: Mapped["ResearchTopic | None"] = relationship()
     method_version: Mapped["MethodVersion | None"] = relationship()
 
@@ -96,6 +97,7 @@ class MethodVersion(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     method_id: Mapped[int] = mapped_column(ForeignKey("experiment_methods.id", ondelete="CASCADE"), index=True)
     version_number: Mapped[int] = mapped_column(Integer)
+    version_label: Mapped[str] = mapped_column(String(40), default="1")
     parent_version_id: Mapped[int | None] = mapped_column(ForeignKey("method_versions.id"), nullable=True)
     process_map: Mapped[list] = mapped_column(JSON, default=list)
     condition_definitions: Mapped[list] = mapped_column(JSON, default=list)
@@ -116,6 +118,22 @@ class ProcessStep(Base):
     environment_records: Mapped[list["ExperimentEnvironmentRecord"]] = relationship(back_populates="step", cascade="all, delete-orphan")
     logs: Mapped[list["ProcessStepLog"]] = relationship(back_populates="step", cascade="all, delete-orphan")
     attachments: Mapped[list["ExperimentAttachment"]] = relationship(back_populates="step", cascade="all, delete-orphan")
+    stage_experiments: Mapped[list["ProcessStageExperiment"]] = relationship(back_populates="step", cascade="all, delete-orphan", order_by="ProcessStageExperiment.performed_at")
+
+class ProcessStageExperiment(Base):
+    """A focused/partial experiment performed within one process stage of a run."""
+    __tablename__ = "process_stage_experiments"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    experiment_id: Mapped[int] = mapped_column(ForeignKey("experiments.id", ondelete="CASCADE"), index=True)
+    process_step_id: Mapped[int] = mapped_column(ForeignKey("process_steps.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    performed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    status: Mapped[str] = mapped_column(String(30), default="recorded")
+    conditions: Mapped[list] = mapped_column(JSON, default=list)
+    results: Mapped[list] = mapped_column(JSON, default=list)
+    notes: Mapped[str] = mapped_column(Text, default="")
+    experiment: Mapped[Experiment] = relationship(back_populates="stage_experiments")
+    step: Mapped[ProcessStep] = relationship(back_populates="stage_experiments")
 
 class ProcessVariable(Base):
     __tablename__ = "process_variables"
