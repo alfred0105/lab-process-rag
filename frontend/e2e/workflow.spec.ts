@@ -69,7 +69,7 @@ test('PHREEQC planner accepts structured analytical inputs only after explicit a
   await inputs.locator('input[type=checkbox]').check();
   await page.getByRole('button', { name: '계획 만들기' }).click();
   await expect(page.getByText('계획한 작업 등록')).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByText(/phreeqc\.aqueous_equilibrium\.v1/)).toBeVisible();
+  await expect(page.locator('.workflow-plan ol li').filter({ hasText: 'phreeqc.aqueous_equilibrium.v1' })).toBeVisible();
   const queuedResponse = page.waitForResponse(response => response.url().includes('/workflows/plan') && response.request().method() === 'POST');
   await page.getByRole('button', { name: '계획한 작업 등록' }).click();
   const queued = await queuedResponse;
