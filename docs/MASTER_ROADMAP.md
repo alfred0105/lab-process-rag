@@ -140,6 +140,43 @@
 | P3-PERF-01 | 선택 정확도, abstain, 성공율, 실행/선택 시간, LLM 비율, RAM 측정 | P2 | NOT_STARTED | — | 측정 없음 (임의 성능 주장 없음) | — | 대표 평가셋과 MacBook에서 재현 가능한 profiling harness |
 | P3-CI-01 | Phase 3 회귀/evaluation 테스트를 GitHub Actions에서 실행 | P1 | IMPLEMENTED | `.github/workflows/ci.yml` runs full pytest and npm build; new tests are included automatically | Workflow config reviewed; local 91 pytest and build pass | 34439b6 | GitHub-hosted workflow execution result remains unverified |
 
+## Phase 3 잔여 요구사항 검증 갱신 — 2026-10-30
+
+첨부된 “Phase 3 잔여 요구사항 전체 해결 및 최종 검증”을 위 감사 표의 세부 항목으로 연결해 추적한다. 이 표의 `IN_PROGRESS` 및 `BLOCKED`는 Phase 3 완료를 뜻하지 않는다. 코드·테스트 커밋: `381e6838f051a1c461e7425ded15c255bb9013d3`. 문서 검증 기록은 별도 커밋으로 남긴다.
+
+| ID | 요구사항 상세 | 우선순위 | 상태 | 관련 소스·구현/대안 | 완료 조건 및 현재 검증 | 커밋 | 남은 작업·의존성 |
+|---|---|---:|---|---|---|---|---|
+| P3R-DATA-01 | Topic 범위는 분석 cache, 원본·mask, review, 설명, XRD phase match 및 simulation run 세부조회까지 일관되게 강제한다. | P0 | VERIFIED | `backend/app/api/routes.py`, `frontend/src/api/client.ts`, `AnalysisPanel.tsx`, `MaterialDataReview.tsx` | 동일 파일의 서로 다른 Topic 분석 격리, 같은 Topic 캐시 재사용, 타 Topic 원본·mask·review·simulation run 접근 404 테스트; 전체 pytest 통과 | 381e683 | 비인증 네트워크 배포 정책과 모든 API object-ID 격리 지속 회귀검토 |
+| P3R-DATA-02 | source correction은 기존 행을 보존하고 append-only 감사 이벤트를 남긴다. 문헌·합성·실측·분석·시뮬 분류를 혼합하지 않는다. | P0 | IMPLEMENTED | `main.py`, `ScientificDataAuditEvent`, migration `0005` | source correction 이력 저장 구현; backfill 회귀 필요 | 381e683 | 별도 영속 migration report 및 전체 legacy source 검토 |
+| P3R-DATA-03 | 최적화 입력은 승인된 비합성 실측만 허용한다. | P0 | VERIFIED | `GET /api/optimization/observations/approved` | 기존 source/review 필터 테스트·API 확인 | 0ccad66 | 승인 실측 자료가 없는 경우 실제 optimizer 적합성은 검증 불가 |
+| P3R-QUEUE-01 | 작업 소유자, lease, heartbeat, timeout, retry 횟수, 취소요청, 오류코드를 영속화한다. | P0 | IMPLEMENTED | `SimulationRun`, migration `0005`, PHREEQC/OpenFOAM routes | 만료 lease만 복구하고 유효 lease 소유 작업은 유지하는 회귀 테스트 | 381e683 | PHREEQC는 동기 실행이며 공통 durable queue worker는 아님 |
+| P3R-QUEUE-02 | DB 원자적 claim과 idempotency로 동시 중복 실행을 막고 모델·DB·설정·입력 변경 시 결과를 재사용하지 않는다. | P0 | IN_PROGRESS | `routes.py`, unique `SimulationRun.idempotency_key` | PHREEQC 동일 입력 재사용 테스트, OpenFOAM claim 구현 | 381e683 | 다중 프로세스 동시 claim/commit 경합 테스트와 여러 서버 worker 검증 |
+| P3R-QUEUE-03 | 명시적 승인, retry, 실제 cancel, timeout, 실패 후 정리 및 리소스 제한을 보장한다. | P0 | IN_PROGRESS | OpenFOAM 승인·queue, DB cancel field | 승인 없이는 VM 실행 거부; 1개 thread / 프로세스 제한, 30분 timeout | 381e683 | 실행 중인 guest process 취소, CPU/RAM 감시, 공통 retry/cancel lifecycle 및 장애 테스트 |
+| P3R-REG-01 | Registry가 도구별 typed physical input, 단위·범위·필수값·실행정책과 명확한 readiness 상태를 사용한다. | P0 | IN_PROGRESS | `tool_registry.py`, `schemas/core.py` | PHREEQC typed 입력, OpenFOAM geometry gate, 완료 분석 상태 및 주요 분기 테스트 | 381e683 | 전 도구 Pydantic typed schema, normalized observation/material 상태 연결 |
+| P3R-ADAPT-01 | XRD, SEM/TEM, AFM은 기존 실행 엔진을 유지하며 원본·알고리즘·설정·출력을 함께 검증/저장한다. | P0 | IN_PROGRESS | `material_analysis/service.py`, analysis API, `ResultValidator` | 분석 API 통합 테스트 및 production build | 381e683 | common adapter contract, full settings provenance, scale/artifact scientific QA |
+| P3R-ADAPT-02 | 기존 혼합·교반·수열·spin coating·건조·열처리 도구는 실제 실행 여부와 탐색적 모델 범위를 구분한다. | P0 | IN_PROGRESS | `backend/app/services/simulation/`, `tool_registry.py` | 개별 deterministic simulator 테스트가 존재함 | 381e683 | 전 모델 입력/출력 공통 adapter, independent golden/reference validation 및 persisted provenance |
+| P3R-VAL-01 | 구조·수치·과학 타당성을 구분하고 도구별 단위/적용범위/불확도/수렴을 검증한다. | P0 | IN_PROGRESS | `ResultValidator` | PHREEQC/XRD/AFM/microscopy/OpenFOAM shape/finite checks; output pH에 0–14 임의 제한 제거 | 381e683 | 전문 validators, input/output unit compatibility, quantitative model validation and uncertainty |
+| P3R-VAL-02 | PHREEQC 계산 결과는 실제 계산의 모델/DB/입력/산출과 제한을 보존한다. | P0 | IN_PROGRESS | `phreeqc.py`, `PHREEQCAdapter`, `routes.py` | 실제 phreeqpython Calcite reference test: SI≈0.3068, 종/저장/재사용 테스트 | 381e683 | 독립 공식 기준 사례와 전하수지 측정값·DB hash 검증 |
+| P3R-ORCH-01 | 목표→도구 선택→gate→실행→검증→저장 파이프라인을 다단계 DAG, 중간결과 typed handoff, 실패전파까지 제공한다. | P0 | IN_PROGRESS | `tool_registry.py`, integration APIs | 단일 PHREEQC/Data Quality 및 specialist analysis 실행경로 테스트 | 381e683 | 재개 가능한 durable DAG 엔진·진행률 API/UI·계보 handoff 없음 |
+| P3R-SIM-01 | 공식 PHREEQC 기준 사례를 기록하고 OpenFOAM 실제 VM/template/mesh/solver/convergence 자원을 검증한다. | P0 | IN_PROGRESS | `tests/test_tool_orchestration_api.py`, `openfoam_runner.py` | 실제 PHREEQC Calcite 계산 SI=0.3067868, 8종; Multipass `lab-rag-openfoam` 실행 중, Ubuntu 24.04.5, OpenFOAM 14 template 감지, 6 vCPU/7.7 GiB VM 확인; 실제 CFD run은 사용자 명시 실행 승인을 요구하므로 미실행 | 381e683 | 승인된 테스트 케이스 실행 및 mesh/convergence/solver resource 실증; PHREEQC 독립 공식 reference fixture/charge balance 검증 |
+| P3R-UI-01 | 브라우저에서 분석·승인·작업 진행·실패·재시도·결과·이력 전체를 사용할 수 있어야 한다. | P1 | IN_PROGRESS | `frontend/src/components/`, `api/client.ts` | TypeScript production build 성공; OpenFOAM 승인 확인창 및 topic-scoped polling 연결 | 381e683 | Playwright E2E, 공통 queue progress/cancel/error/resume UI |
+| P3R-PERF-01 | 도구선택·실행시간·메모리·동시성 및 M5 24GB 리소스를 재현 가능하게 측정한다. | P1 | IN_PROGRESS | PHREEQC local smoke/profile; Multipass `lab-rag-openfoam` | Apple M5 / 24 GiB 확인; PHREEQC 1회 cold process 0.194 s 계산, process max RSS 38,502,400 bytes; tool-selection/다회 분포/혼합 부하 profile 미수행 | 381e683 | 재현 가능한 benchmark harness, p50/p95, tool selection latency, 동시 AI+VM peak memory |
+| P3R-TEST-01 | 첨부 명시 12개 과학·통합 시나리오와 주제격리·경합·retry·cancel·timeout·재분석·handoff 검사를 수행한다. | P0 | IN_PROGRESS | `backend/tests/` | 전체 backend `93 passed`; PHREEQC 실제 기준 API/persist/reuse, topic isolation, lease recovery 및 OpenFOAM validator 검사 포함; 12개 전체 시나리오와 cancel/handoff가 아직 각각 완결 검증된 것은 아님 | 381e683 | 첨부의 12개 모두를 각각 연결한 테스트 매트릭스와 경합/cancel/timeout/reanalysis tests 추가 |
+| P3R-INT-01 | ZnO 실험→XRD 원본→분석→검증→저장 통합흐름 | P0 | IN_PROGRESS | XRD analysis API/service, `tests/test_material_analysis_api.py` | XRD 분석 엔진과 API 저장은 존재하나 ZnO 실제 원본파일 기반 end-to-end 검증은 없음 | existing | 실제 ZnO XRD 파일, 장비 파장/축 메타데이터와 검토자 승인 필요 |
+| P3R-INT-02 | SEM/TEM 픽셀 보정→분할→원본·마스크 저장 | P0 | IMPLEMENTED | microscopy analyzer, analysis API | TEM test image upload, pixel scale, Otsu component, original/mask hash/API 저장 회귀 통과; 실제 장비 이미지 정확도는 별도 미검증 | 381e683 | scale calibration 및 overlap QA와 실제 장비 이미지 검증 |
+| P3R-INT-03 | AFM 높이맵→평면 보정→거칠기 지표 계산 | P0 | IMPLEMENTED | AFM analyzer/tests | deterministic plane-level/roughness calculation tests 통과; 장비 파일별 reference 검증은 미완료 | existing | 캘리브레이션된 장비 높이맵과 독립 거칠기 기준값 필요 |
+| P3R-INT-04 | 용액 조성→PHREEQC→종/포화지수→저장 | P0 | VERIFIED | `phreeqc.py`, `test_tool_orchestration_api.py` | 실제 PHREEQC 실행 및 API persist 검증: Calcite SI=0.3067868, species 결과 8개 | 381e683 | 공식 독립 fixture·전하수지 percent error 연결 필요 |
+| P3R-INT-05 | 필수 화학종 또는 단위 누락 시 계산 차단 | P0 | VERIFIED | `PHREEQCAdapter.validate_inputs`, request schema | 빈 총량 및 잘못된 화학 입력이 실행 전 거부되는 회귀 테스트 | existing | 실제 데이터베이스별 지원 종/단위 매트릭스 완성 |
+| P3R-INT-06 | 부적절한 CFD 기하학을 실제 실행 전에 차단 | P0 | IN_PROGRESS | `openfoam.py`, OpenFOAM run route | 불지원 형상 준비 단계 거부 테스트 존재; API에 승인해 실행한 VM 통합 테스트는 미실행 | 381e683 | 실제 VM 통합 승인 테스트 및 mesh-quality 결과 검증 |
+| P3R-INT-07 | 문헌→분석 파생을 실측 최적화 자료에서 제외 | P0 | VERIFIED | `scientific_data.py`, approval optimization API | 문헌 실험 연계 분석의 `LITERATURE_ANALYSIS_OUTPUT` 분류 및 최적화 조회 제외 테스트 | existing | legacy 독립원본이 없는 분석 파생의 provenance migration report |
+| P3R-INT-08 | 동일 계산 입력은 성공 결과를 재사용해 중복 계산하지 않음 | P0 | VERIFIED | PHREEQC idempotency key and completed-run reuse | 동일 PHREEQC payload를 두 번 보내 한 번만 실제 계산하고 `REUSED` 반환하는 API 통합 테스트 | 381e683 | 서로 다른 worker/process의 동시 요청 stress test |
+| P3R-INT-09 | 계산 실패를 기록하고 의존 후속 작업을 차단 | P0 | IN_PROGRESS | PHREEQC failure persistence; no general DAG executor | 계산 실패 기록 및 explicit retry 테스트; dependent DAG step 차단 흐름은 아직 없음 | 381e683 | 다단계 DAG와 failure propagation integration test |
+| P3R-INT-10 | 재시작 후 lease 기반으로 중단/유효 작업을 구분해 복구 | P0 | IN_PROGRESS | `main.py` recovery, `SimulationRun` lease | 만료 lease 작업만 실패 처리하고 유효 lease 작업은 RUNNING 유지하는 복구 함수 테스트; 실제 프로세스 kill/restart는 미검증 | 381e683 | worker crash/queue resume/다중프로세스 통합 시험 |
+| P3R-INT-11 | 연구 목표가 달라지면 추천 도구와 행동이 달라지거나 보류 | P0 | IN_PROGRESS | `RuleBasedDecisionPolicy`, recommendation API | 목표 기반 data-quality action 테스트는 통과; 목표 쌍 간 정책 회귀 matrix 미완료 | 381e683 | 다양한 목표·모호/범위 외 목표의 labeled evaluation set |
+| P3R-INT-12 | 승인되지 않은 결과를 최적화 조회에서 배제 | P0 | VERIFIED | `/optimization/observations/approved` | review status 및 source class 필터 API 테스트 | existing | 승인된 실측 campaign 자료가 제공되면 실데이터 audit 수행 |
+| P3R-CI-01 | CI에서 backend, migration, API, frontend 검사를 실행하고 원격 Actions 결과를 확인한다. | P1 | IN_PROGRESS | `.github/workflows/ci.yml` | 로컬 pytest 93 passed; `npm run build` 성공 (Vite 6.4.3, 1756 modules); 로컬 Uvicorn startup 및 health/registry/simulation-status 200; 원격 Actions 확인 전 | 381e683 | 푸시 뒤 GitHub Actions 결과 확인 |
+| P3R-SAFE-01 | 외부 실행 승인·로컬 파일/네트워크 격리·인증·자원제한을 실제 경계에서 강제한다. | P0 | IN_PROGRESS | OpenFOAM approval, upload handlers, CORS | CFD 요청은 명시 승인 없이는 거부 | 381e683 | 다중 사용자 인증/인가, guest 프로세스 강제 종료·자원 제한, 전체 security test |
+
 ### Phase 3 최종 보완 기록 (2026-10-30)
 
 | ID | 요구사항 상세 | 우선순위 | 상태 | 관련 소스·구현/대안 | 완료 조건 및 현재 검증 | 커밋 | 남은 작업·의존성 |
@@ -266,3 +303,4 @@ Phase 3는 핵심 조각을 연결했지만 전체 orchestration 완료는 아�
 | 날짜 | 변경 | 검증 근거 |
 |---|---|---|
 | 2026-10-30 | 전체 개선 프롬프트, Phase 3 요구사항, 이전 제품 흐름과 감사자료를 ID 로드맵으로 통합. 문헌 출처 오분류 수정, goal 기반 tool policy, PHREEQC 실행/검증/persist 및 일부 UI를 추가. | 89 backend tests; npm build; real PHREEQC calculation; 265 local observations source audit. Phase 3 구현 커밋 34439b6. |
+| 2026-10-30 | Topic별 분석·simulation run ID 격리, lease 기반 작업 필드·복구, OpenFOAM 사용자 승인/단일 worker 큐 및 로드맵 잔여 항목 업데이트. | backend 93 passed; frontend build; Uvicorn health/registry/simulation status 200; PHREEQC SI 0.3067868 / 0.194 s / 38.5 MB max RSS on Apple M5; OpenFOAM 14 VM detected, CFD execution not started behind explicit approval gate. Code commit 381e683. |
