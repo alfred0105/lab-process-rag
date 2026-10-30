@@ -21,7 +21,7 @@
 | 단위 handoff | Pint 물리 차원 변환 및 불확도 변환 | uL→mL 실제 workflow handoff, C→K·비호환·pH/SI 거부 테스트 | 지정 경로 통과 |
 | 전체 backend | 현재 저장소의 pytest 전체 | `pytest -q` | 153 passed, 164 warnings (13.31 s) |
 | PHREEQC 성능 | 실제 설치 Adapter 반복 실행 | Apple M5, 24 GiB RAM, Python 3.12.14, 30회 | p50 1.902 ms, nearest-rank p95 3.168 ms, 최대 75.226 ms, 프로세스 최대 RSS 140.72 MB. Import+엔진 포함. 전체 API/worker 동시 실행 메모리는 아님 |
-| 브라우저 E2E | 격리 DB·임시 파일·별도 API/worker/Vite | Playwright 실제 브라우저에서 계획→등록→대기 중 취소→Worker 기동→완료→새로고침/상태 복원→잘못된 XRD 실패→재시도→재실패 및 타 Topic 조회 격리를 검증 | 1 passed. 합성 테스트 입력은 임시 DB와 명시 test flag에서만 workflow 실행 허용 |
+| 브라우저 E2E | 격리 DB·임시 파일·별도 API/worker/Vite | Playwright 실제 브라우저에서 계획→등록→대기 중 취소→Worker 기동→완료→새로고침/상태 복원→잘못된 XRD 실패→재시도→재실패 및 타 Topic 조회 격리를 검증 | 로컬 1 passed; GitHub Actions run 41009238796 browser-e2e job passed. 합성 테스트 입력은 임시 DB와 명시 test flag에서만 workflow 실행 허용 |
 
 ## 외부·미완료 요구사항
 
@@ -36,3 +36,7 @@
 ## 경고
 
 전체 pytest에서 기존 `datetime.utcnow()` 및 일부 의존성 deprecation 경고가 보고됐다. 기능 실패는 아니나 후속 호환성 정리가 필요하다. `npm audit`은 신규 Playwright 의존성 포함 0 vulnerabilities. 테스트는 운영 DB나 원본 연구 자료를 사용하지 않는다.
+
+## Remote CI
+
+GitHub Actions run [41009238796](https://github.com/alfred0105/lab-process-rag/actions/runs/41009238796) for commit `51953fc` completed successfully: `backend`, `frontend`, and `browser-e2e` all passed. Re-run results will be attached to the final documentation commit after it is pushed.
