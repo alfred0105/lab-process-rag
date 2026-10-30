@@ -68,7 +68,7 @@ The existing approved-observation endpoint can emit topic, experiment, method ve
 
 ## Current local verification record
 
-Latest full backend run: `169 passed`; `209` warnings remain (SQLAlchemy `datetime.utcnow()`, SWIG, Starlette TestClient/httpx deprecations). Latest frontend production build: successful, TypeScript passed, Vite transformed 1,757 modules. Latest full Playwright run: `2 passed`, including the PHREEQC browser path. CI for the new commit is still required before claiming remote verification.
+Latest full backend run: `169 passed`; `209` warnings remain (SQLAlchemy `datetime.utcnow()`, SWIG, Starlette TestClient/httpx deprecations). Latest frontend production build: successful, TypeScript passed, Vite transformed 1,757 modules. Latest full Playwright run: `2 passed`, including the PHREEQC browser path. GitHub Actions run [41016536590](https://github.com/alfred0105/lab-process-rag/actions/runs/41016536590) for code commit `278f66824010113f390fa9185627001f4707123e` passed backend, frontend, and browser E2E jobs.
 
 ## Limits and follow-up
 
