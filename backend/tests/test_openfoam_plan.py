@@ -1,5 +1,5 @@
 from app.services.simulation.openfoam import plan_simple_rushton_case
-from app.services.simulation.openfoam_runner import parse_power_trace
+from app.services.simulation.openfoam_runner import parse_power_trace, probe_openfoam_installation
 from app.schemas.core import IntegratedAnalysisClaim, IntegratedAnalysisRequest
 from pydantic import ValidationError
 import pytest
@@ -80,3 +80,30 @@ def test_integrated_analysis_claims_keep_simulation_outputs_distinct_from_measur
 def test_integrated_analysis_request_accepts_simulation_run_ids():
     request = IntegratedAnalysisRequest(simulation_run_ids=[9], goal="Explain the model result alongside the records.")
     assert request.simulation_run_ids == [9]
+
+
+def test_openfoam_probe_checks_actual_runner_template(monkeypatch):
+    import subprocess
+    calls=[]
+    def fake_run(args, timeout=40):
+        calls.append(args)
+        if "foamRun -help" in args[-1]:
+            return subprocess.CompletedProcess(args,0,"Usage: foamRun","")
+        return subprocess.CompletedProcess(args,0,"","")
+    monkeypatch.setattr("app.services.simulation.openfoam_runner._run",fake_run)
+    result=probe_openfoam_installation("test-vm")
+    assert result == {"installed":True,"version":"14","template_available":True}
+    assert "simpleRushtonMRF" in calls[1][-1]
+    assert "mixerVessel2DMRF" not in calls[1][-1]
+
+
+def test_openfoam_probe_does_not_report_template_when_missing(monkeypatch):
+    import subprocess
+    def fake_run(args, timeout=40):
+        if "foamRun -help" in args[-1]:
+            return subprocess.CompletedProcess(args,0,"Usage: foamRun","")
+        return subprocess.CompletedProcess(args,1,"","")
+    monkeypatch.setattr("app.services.simulation.openfoam_runner._run",fake_run)
+    result=probe_openfoam_installation("test-vm")
+    assert result["installed"] is True
+    assert result["template_available"] is False

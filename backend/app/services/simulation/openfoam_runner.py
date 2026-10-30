@@ -20,6 +20,33 @@ def _run(args: list[str], timeout: int = 40) -> subprocess.CompletedProcess:
     return subprocess.run(args, text=True, capture_output=True, timeout=timeout, check=False)
 
 
+def probe_openfoam_installation(instance: str | None = None) -> dict:
+    """Check the same VM, installation, and tutorial template used by the runner."""
+    instance_name = (instance or INSTANCE).strip()
+    if not instance_name:
+        return {"installed": False, "version": None, "template_available": False}
+    try:
+        install = _run([
+            MULTIPASS, "exec", instance_name, "--", "bash", "-lc",
+            ". /opt/openfoam14/etc/bashrc >/dev/null 2>&1 && foamRun -help",
+        ], timeout=12)
+        output = f"{install.stdout}\n{install.stderr}"
+        installed = install.returncode == 0 and "Usage" in output
+        if not installed:
+            return {"installed": False, "version": None, "template_available": False}
+        template = _run([
+            MULTIPASS, "exec", instance_name, "--", "bash", "-lc",
+            f"test -d {TUTORIAL} && test -f {TUTORIAL}/system/blockMeshDict.orig",
+        ], timeout=8)
+        return {
+            "installed": True,
+            "version": "14",
+            "template_available": template.returncode == 0,
+        }
+    except (OSError, subprocess.TimeoutExpired):
+        return {"installed": False, "version": None, "template_available": False}
+
+
 POWER_COLUMNS = ("time_s", "divStressU", "divStressDotU", "stressDDotGradU", "divPU", "gradPU", "pDivU", "divTauU", "divTauDotU", "tauDDotGradU")
 
 

@@ -13,5 +13,6 @@ Pillow>=10,<13
 pymatgen>=2025.1,<2027
 phreeqpython==1.6.2
 thermo>=0.6.1,<1
+pint>=0.24,<1
 
 iapws>=1.5,<2

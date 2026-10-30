@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.db.database import ROOT, SessionLocal, get_db
 from app.db.models import Experiment, ExperimentMaterial, ExperimentMethod, MethodVersion, ResearchTopic, ResearchMaterial, Paper, EvidenceChunk, PaperSummary, ProcessStep, ProcessVariable, ExperimentResult, FailureObservation, ExperimentEnvironmentRecord, ProcessStepLog, ExperimentAttachment, ProcessStageExperiment, AssistantInteraction, MaterialAnalysisRun, IntegratedAnalysisSession, SimulationRun
 from app.schemas.core import AssistantAsk, SimulationInputReviewRequest, ProcessVariableUpdate, ExperimentMaterialIn, AnalysisExplanation, IntegratedAnalysisRequest, IntegratedAnalysisClaim, DecisionBrief, DecisionOption, DecisionChoiceRequest, Claim, EvidenceStatus, ExperimentIn, ResearchTopicIn, ResearchMaterialIn, MethodIn, DesignRequest, ProcessChange, StepLogIn, StageExperimentIn, PHEstimateRequest, AqueousEquilibriumRequest, AqueousSweepRequest, StirredReactionPathRequest
-from app.services.ingestion.pdf import ingest_pdf
+from app.services.ingestion.pdf import MAX_PDF_SIZE_BYTES, ingest_pdf
 from app.services.retrieval.provider import SQLiteFTSProvider
 from app.services.experiment.compare import compare
 from app.services.failure_analysis.service import analyze
@@ -24,7 +24,7 @@ from app.services.simulation.phreeqc import calculate_aqueous_equilibrium, sweep
 from app.services.material_sources import MaterialLookupUnavailable, lookup_material
 from app.services.simulation.readiness import assess_simulation_inputs
 from app.services.simulation.openfoam import plan_simple_rushton_case
-from app.services.simulation.openfoam_runner import run_openfoam
+from app.services.simulation.openfoam_runner import probe_openfoam_installation, run_openfoam
 from app.services.simulation.magnetic_stirring import characterize_magnetic_stirring
 from app.services.simulation.hydrothermal import calculate_hydrothermal_water_state, zno_literature_growth_reference
 from app.services.simulation.spin_coating import estimate_spin_coated_film
@@ -921,10 +921,14 @@ def failure_analysis(experiment_id:int,db:Session=Depends(get_db)):
     pool=exp_query(db).filter(Experiment.topic_id==e.topic_id).all(); return analyze(e,pool)
 @router.post("/papers")
 def upload_paper(file:UploadFile=File(...),topic_id:int=Form(...),title:str|None=Form(None),authors:str=Form(""),year:int|None=Form(None),db:Session=Depends(get_db)):
-    if not file.filename.lower().endswith(".pdf"): raise HTTPException(400,"PDF files only")
+    filename = (file.filename or "").replace("\\", "/").rsplit("/", 1)[-1].strip()
+    if not filename.lower().endswith(".pdf"): raise HTTPException(400,"PDF files only")
     if not db.get(ResearchTopic,topic_id): raise HTTPException(404,"Research topic not found")
     try:
-        p=ingest_pdf(db,file.file.read(),file.filename,title,authors,year)
+        payload = file.file.read(MAX_PDF_SIZE_BYTES + 1)
+        if len(payload) > MAX_PDF_SIZE_BYTES:
+            raise HTTPException(413, "PDF exceeds the 50 MB upload limit")
+        p=ingest_pdf(db,payload,filename,title,authors,year)
         p.topic_id=topic_id; db.flush()
         chunks=db.query(EvidenceChunk).filter_by(paper_id=p.id).order_by(EvidenceChunk.chunk_index).all()
         # One compact catalog summary points back to exact source chunks. Full text
@@ -952,6 +956,9 @@ def upload_paper(file:UploadFile=File(...),topic_id:int=Form(...),title:str|None
         db.add(PaperSummary(paper_id=p.id,summary=summary_text,topics=topics,source_chunk_ids=source_ids,method=method))
         db.commit()
         retrieval._fts_ready=False
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as exc: db.rollback(); raise HTTPException(400,f"Unable to parse PDF: {exc}")
     return {"id":p.id,"title":p.title,"filename":p.filename,"pages":len({c.page for c in chunks}),"chunks":len(chunks),"summary":summary_text,"summary_method":method,"topics":topics}
 @router.get("/papers")
@@ -1039,29 +1046,19 @@ def simulation_status():
         phreeqc_installed = True
     except ImportError:
         phreeqc_installed = False
-    openfoam_installed = False
-    openfoam_version = None
-    openfoam_mixer_tutorial_verified = False
     instance = os.getenv("OPENFOAM_MULTIPASS_INSTANCE", "lab-rag-openfoam").strip()
-    multipass_bin = shutil.which("multipass") or ("/usr/local/bin/multipass" if Path("/usr/local/bin/multipass").exists() else None)
-    if instance and multipass_bin:
-        try:
-            check = subprocess.run(
-                [multipass_bin, "exec", instance, "--", "bash", "-lc", ". /opt/openfoam14/etc/bashrc >/dev/null 2>&1 && foamRun -help"],
-                capture_output=True, text=True, timeout=12, check=False,
-            )
-            output = f"{check.stdout}\n{check.stderr}"
-            openfoam_installed = check.returncode == 0 and "Usage" in output
-            if openfoam_installed:
-                openfoam_version = "14"
-                case = subprocess.run(
-                    [multipass_bin, "exec", instance, "--", "bash", "-lc", "tail -n 4 /home/ubuntu/OpenFOAM/ubuntu-14/run/mixerVessel2DMRF/log.foamRun"],
-                    capture_output=True, text=True, timeout=5, check=False,
-                )
-                openfoam_mixer_tutorial_verified = case.returncode == 0 and case.stdout.rstrip().endswith("End")
-        except (OSError, subprocess.TimeoutExpired):
-            pass
-    return {"phreeqc_installed": phreeqc_installed, "aqueous_equilibrium": phreeqc_installed, "openfoam_installed": openfoam_installed, "openfoam_version": openfoam_version, "openfoam_instance": instance if openfoam_installed else None, "openfoam_mixer_tutorial_verified": openfoam_mixer_tutorial_verified, "source": "local Python environment"}
+    openfoam = probe_openfoam_installation(instance)
+    return {
+        "phreeqc_installed": phreeqc_installed,
+        "aqueous_equilibrium": phreeqc_installed,
+        "openfoam_installed": openfoam["installed"],
+        "openfoam_version": openfoam["version"],
+        "openfoam_instance": instance if openfoam["installed"] else None,
+        "openfoam_template_available": openfoam["template_available"],
+        # Kept for older clients; this means the template exists, not that a case ran.
+        "openfoam_mixer_tutorial_verified": openfoam["template_available"],
+        "source": "local Python environment",
+    }
 @router.get("/experiments/{experiment_id}/simulation-inputs")
 def experiment_simulation_inputs(experiment_id:int,db:Session=Depends(get_db)):
     experiment=exp_query(db).filter_by(id=experiment_id).first()
@@ -1102,8 +1099,8 @@ def start_openfoam_run(experiment_id:int,background:BackgroundTasks,db:Session=D
     if plan["status"]!="ready_for_review":
         raise HTTPException(422,{"message":"OpenFOAM case inputs are incomplete or incompatible; no simulation was started.","plan":plan})
     state=simulation_status()
-    if not state["openfoam_installed"] or not state["openfoam_mixer_tutorial_verified"]:
-        raise HTTPException(503,"The local OpenFOAM 14 mixer tutorial is not currently verified.")
+    if not state["openfoam_installed"] or not state["openfoam_template_available"]:
+        raise HTTPException(503,"The local OpenFOAM 14 simpleRushtonMRF template is not available.")
     checks={item["key"]:item.get("value_si") for item in plan["checks"]}
     config={"tank_diameter_m":checks["cylindrical_tank_diameter"],"tank_height_m":checks["cylindrical_tank_height"],"impeller_diameter_m":checks["impeller_diameter"],"blade_count":checks["blade_count"],"rpm":checks["stirring_speed"],"nu_m2_s":checks["kinematic_viscosity"]}
     target_step=next((step for step in experiment.steps if any("stir" in value.name.lower() or "교반" in value.name for value in step.variables)),None)

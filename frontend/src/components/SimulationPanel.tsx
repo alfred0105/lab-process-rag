@@ -8,7 +8,7 @@ import HistoricalOutcomeSimulator from './HistoricalOutcomeSimulator';
 import MaterialDataReview from './MaterialDataReview';
 import MagneticHydrothermalLab from './MagneticHydrothermalLab';
 
-type SimulationStatus = { phreeqc_installed: boolean; aqueous_equilibrium: boolean; openfoam_installed:boolean; openfoam_version:string|null; openfoam_instance:string|null; openfoam_mixer_tutorial_verified:boolean; source: string };
+type SimulationStatus = { phreeqc_installed: boolean; aqueous_equilibrium: boolean; openfoam_installed:boolean; openfoam_version:string|null; openfoam_instance:string|null; openfoam_template_available:boolean; openfoam_mixer_tutorial_verified:boolean; source: string };
 export default function SimulationPanel({ onOpenExperiments, onOpenAnalysis, onDataChanged, experiments }: { onOpenExperiments: () => void; onOpenAnalysis: () => void; onDataChanged: () => Promise<void> | void; experiments:Experiment[] }) {
   const { t } = useLanguage();
   const [status, setStatus] = useState<SimulationStatus | null>(null);
@@ -75,7 +75,7 @@ export default function SimulationPanel({ onOpenExperiments, onOpenAnalysis, onD
     </section>
 
     <MagneticHydrothermalLab experiments={mixingRuns} />
-    <SolutionMixingReadiness experiments={mixingRuns} openfoamInstalled={Boolean(status?.openfoam_installed)} mixerTutorialVerified={Boolean(status?.openfoam_mixer_tutorial_verified)} openfoamVersion={status?.openfoam_version??null}/>
+    <SolutionMixingReadiness experiments={mixingRuns} openfoamInstalled={Boolean(status?.openfoam_installed)} mixerTutorialVerified={Boolean(status?.openfoam_template_available ?? status?.openfoam_mixer_tutorial_verified)} openfoamVersion={status?.openfoam_version??null}/>
     <MaterialDataReview experiments={mixingRuns} onOpenExperiments={onOpenExperiments} onDataChanged={onDataChanged}/>
 
     <HistoricalOutcomeSimulator experiments={experiments}/>
@@ -100,10 +100,10 @@ function SolutionMixingReadiness({experiments,openfoamInstalled,mixerTutorialVer
   const present=checks.map(([label,pattern])=>({label,found:vars.some(item=>pattern.test(`${item.name} ${item.unit}`))}));
   const readyCount=present.filter(item=>item.found).length;
   return <section className="card solution-mixing-card">
-    <div className="card-head"><div><div className="card-title"><Waves size={16}/>{t('Solution mixing and reaction pathway')}</div><div className="card-sub">{t('A real liquid mixture needs flow, local concentration, chemistry, and particle formation to be treated as separate linked models.')}</div></div><span className={`simulation-state-pill ${openfoamInstalled?'ready':'waiting'}`}>{mixerTutorialVerified?`${t('MIXER TUTORIAL VERIFIED')} · OpenFOAM ${openfoamVersion??''}`:openfoamInstalled?`${t('INSTALLED IN LOCAL VM')} · OpenFOAM ${openfoamVersion??''}`:t('FLOW MODEL NOT INSTALLED')}</span></div>
+    <div className="card-head"><div><div className="card-title"><Waves size={16}/>{t('Solution mixing and reaction pathway')}</div><div className="card-sub">{t('A real liquid mixture needs flow, local concentration, chemistry, and particle formation to be treated as separate linked models.')}</div></div><span className={`simulation-state-pill ${openfoamInstalled?'ready':'waiting'}`}>{mixerTutorialVerified?`${t('MIXER TEMPLATE AVAILABLE')} · OpenFOAM ${openfoamVersion??''}`:openfoamInstalled?`${t('INSTALLED IN LOCAL VM')} · OpenFOAM ${openfoamVersion??''}`:t('FLOW MODEL NOT INSTALLED')}</span></div>
     {selected&&<label className="process-simulation-source">{t('Source experiment')}<select value={selected.id} onChange={event=>setSelectedId(Number(event.target.value))}>{experiments.map(run=><option key={run.id} value={run.id}>{run.code} · {run.name} · {run.method_name??run.target}</option>)}</select></label>}
     <div className="mixing-stage-grid">
-      <article><small>01</small><b>{t('Tank-scale flow')}</b><span>{t('Circulation, dead zones, impeller flow')}</span><em className={openfoamInstalled?'state-connected':'state-pending'}>{mixerTutorialVerified?t('OpenFOAM mixer tutorial completed; experiment case is not connected'):openfoamInstalled?t('Installed in VM; mixer case is not connected'):`OpenFOAM · ${t('not installed')}`}</em></article>
+      <article><small>01</small><b>{t('Tank-scale flow')}</b><span>{t('Circulation, dead zones, impeller flow')}</span><em className={openfoamInstalled?'state-connected':'state-pending'}>{mixerTutorialVerified?t('OpenFOAM mixer template is available; experiment case is not connected'):openfoamInstalled?t('Installed in VM; mixer case is not connected'):`OpenFOAM · ${t('not installed')}`}</em></article>
       <article><small>02</small><b>{t('Feed mixing')}</b><span>{t('Concentration gradients and mixing time')}</span><em className="state-pending">CFD + scalar transport</em></article>
       <article className="mixing-chemistry"><small>03</small><b>{t('Aqueous chemistry')}</b><span>{t('Speciation and saturation from the bulk chemistry')}</span><em className="state-connected">PHREEQC · {t('connected separately')}</em></article>
       <article><small>04</small><b>{t('Precipitation and growth')}</b><span>{t('Nucleation, particle growth, aggregation')}</span><em className="state-pending">{t('system-specific rate data needed')}</em></article>
