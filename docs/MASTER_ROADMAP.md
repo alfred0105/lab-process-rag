@@ -238,7 +238,7 @@
 | P3F-E2E-01 | 브라우저에서 planner→enqueue→상태 polling→refresh→결과/재시도/취소까지 실제 확인 | P1 | IN_PROGRESS | `frontend/src/components/DurableWorkflowPanel.tsx`, `frontend/src/api/client.ts`, `backend/app/api/workflows.py` | Build 및 UI 목표/계획 화면 렌더링 확인; backend TestClient 경로는 fixture 대상으로 통합 검증 | 이번 최종 통과 작업 | 사용자 선택 주제에 비데모 실험/분석 run이 없어 browser-driven durable workflow E2E 미실행 |
 | P3F-INT-01 | 필수 통합 시나리오 12개별로 실행 근거와 남은 제한 관리 | P0 | IN_PROGRESS | 전체 workflow/registry/analysis/simulation/optimization tests | 상세 상태는 아래 12개 시나리오 표. 가능한 시나리오는 regression/API/fixture 기반으로 검증 | 이번 최종 통과 작업 | 실제 lab data, CFD 승인 및 전체 브라우저 E2E가 필요한 항목은 미완료 |
 | P3F-PERF-01 | M5 24GB 기기에서 planning, tools, DAG latency, CPU/RAM 및 p50/p95 측정 | P2 | NOT_STARTED | — | 이번 작업에서 성능 숫자를 주장하지 않음 | — | 재현 입력/실행 script와 장비별 profiler 필요 |
-| P3F-CI-01 | CI에서 전체 신규 테스트/build를 실행하고 원격 Actions 성공 확인 | P1 | IN_PROGRESS | `.github/workflows/ci.yml` | 로컬 backend 전체 117 passed; frontend Vite production build 성공 (1757 modules) | 이번 최종 통과 작업 | push 후 GitHub Actions run을 다시 확인해야 VERIFIED 처리 가능 |
+| P3F-CI-01 | CI에서 전체 신규 테스트/build를 실행하고 원격 Actions 성공 확인 | P1 | VERIFIED | `.github/workflows/ci.yml` | GitHub Actions run [41004695605](https://github.com/alfred0105/lab-process-rag/actions/runs/41004695605)에서 backend 의존성 설치·pytest 전체 및 frontend `npm ci`·production build 모두 성공. 원격 실행은 `fe29c05374bfe63b671727487191744800da7d27` 기준. 직전 취소 테스트 portability 실패를 zombie process 상태 구분으로 수정하고 local full suite 재실행 | `fe29c05` | Runner가 actions Node 20 호환 경고 및 `ubuntu-latest` 2026년 10월 이미지 전환 안내를 표시함. 현재 작업 실패는 아님 |
 
 ### 필수 통합 시나리오 12개 결과
 
@@ -259,8 +259,9 @@
 
 ### 이번 작업의 검증 집계 및 최종 판정
 
-- `cd backend && .venv/bin/pytest -q`: 119 passed (마지막으로 추가한 Typed Handoff 회귀 2개 포함). Deprecation warnings은 기존 SQLAlchemy `utcnow`, Starlette/httpx, SWIG import 경고다.
+- `cd backend && .venv/bin/pytest -q`: 119 passed (Typed Handoff 회귀 포함). 동일 코드의 GitHub Actions 전체 pytest도 통과했다. Deprecation warnings은 기존 SQLAlchemy `utcnow`, Starlette/httpx, SWIG import 경고다.
 - `cd frontend && npm run build`: 성공, Vite 6.4.3, 1757 modules.
+- 원격 GitHub Actions run `41004695605`: backend와 frontend job 모두 성공; frontend `npm ci` 및 production build 포함.
 - Local browser: 분석 화면에서 연구 목표 입력 및 계획 미리보기 UI 렌더링을 확인. 선택 Topic의 비데모 실험이 0건이라 실제 browser E2E enqueue는 실행하지 않았다.
 - 실제 PHREEQC Worker workflow test와 synthetic XRD parser Worker workflow fixture test는 분리해 기록했다. synthetic fixture는 연구 결과 정확도의 근거가 아니다.
 - OpenFOAM VM 계산은 실행하지 않았다.
