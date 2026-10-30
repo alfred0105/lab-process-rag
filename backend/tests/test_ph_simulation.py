@@ -81,6 +81,64 @@ def test_phreeqc_calculation_records_exact_database_fingerprint():
     assert len(result["database_sha256"]) == 64
 
 
+def test_general_phreeqc_adapter_matches_independent_equivalent_input_deck():
+    """Compare the adapter against a separately authored raw PHREEQC deck.
+
+    This checks exact input translation and selected outputs; both use the
+    same PHREEQC engine/database, so it is not external model validation.
+    """
+    from phreeqpython import PhreeqPython
+    from app.services.simulation.phreeqc import calculate_aqueous_equilibrium
+
+    totals = {"Ca": 0.001, "C(4)": 0.001}
+    adapter = calculate_aqueous_equilibrium(temperature_c=25, pH=7, totals_molal=totals, phases=["Calcite"])
+    independent = PhreeqPython(database="phreeqc.dat")
+    independent.ip.run_string(
+        """SOLUTION 1 independently authored comparison case
+            units mol/kgw
+            pH 7.0
+            temp 25.0
+            Ca 0.001
+            C(4) 0.001
+        SELECTED_OUTPUT 1
+            -reset false
+            -molalities Ca+2 HCO3- CO3-2 CaCO3
+            -si Calcite
+        END
+        """
+    )
+    columns, values = independent.ip.get_selected_output_array()
+    deck = dict(zip(columns, values))
+    adapter_species = {row["name"]: row["molality"] for row in adapter["aqueous_species"]}
+    for species in ("Ca+2", "HCO3-", "CO3-2", "CaCO3"):
+        assert adapter_species[species] == pytest.approx(deck[f"m_{species}(mol/kgw)"], rel=1e-8, abs=1e-12)
+    assert adapter["saturation_indices"][0]["saturation_index"] == pytest.approx(deck["si_Calcite"], abs=1e-8)
+
+
+def test_phreeqc_adapter_pH_sweep_matches_independent_deck_at_each_point():
+    from phreeqpython import PhreeqPython
+    from app.services.simulation.phreeqc import sweep_aqueous_equilibrium
+
+    results = sweep_aqueous_equilibrium(temperature_c=25,pH_min=6,pH_max=8,points=3,
+        totals_molal={"Ca":0.001,"C(4)":0.001},phases=["Calcite"])
+    for point in results["points"]:
+        engine=PhreeqPython(database="phreeqc.dat")
+        engine.ip.run_string(f"""SOLUTION 1 independent pH point
+            units mol/kgw
+            pH {point['pH']}
+            temp 25
+            Ca 0.001
+            C(4) 0.001
+        SELECTED_OUTPUT 1
+            -reset false
+            -si Calcite
+        END
+        """)
+        columns, values=engine.ip.get_selected_output_array()
+        deck=dict(zip(columns,values))
+        assert point["saturation_indices"][0]["saturation_index"]==pytest.approx(deck["si_Calcite"],abs=1e-8)
+
+
 def test_bicarbonate_uses_counterion_and_carbonate_equilibria():
     result = estimate_solution_ph(100, [{"species": "NaHCO3", "concentration_mol_l": 0.1, "volume_ml": 10}])
     assert 8.0 < result["estimated_ph"] < 8.6

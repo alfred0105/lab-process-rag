@@ -17,6 +17,7 @@ import threading
 import time
 import uuid
 import math
+import hashlib
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -27,6 +28,7 @@ from app.db.database import DATA_ROOT, ROOT, SessionLocal
 from app.db.models import (Experiment, MaterialAnalysisRun, ScientificObservation,
                            SimulationRun, WorkflowNode, WorkflowRun)
 from app.services.material_analysis.service import AnalysisInputError
+from app.services.artifacts import artifact_manifest, read_contained_file
 from app.services.scientific_data import classify_analysis_source, make_observation
 from app.services.simulation.openfoam_runner import run_openfoam
 from app.services.simulation.cache import phreeqc_cache_identity, typed_phreeqc_outputs
@@ -218,9 +220,22 @@ def _persist_analysis(db,node,output,run,workflow):
         "parameters":params,"validation":validation,"review_status":"COMPUTED","worker_id":node.worker_id,
         "finished_at":finished.isoformat()+"Z"}}
     artifact_path=None
+    original_path=Path(run.original_path)
+    original_bytes=read_contained_file(path=original_path,root=DATA_ROOT/"material-analysis")
+    if hashlib.sha256(original_bytes).hexdigest()!=run.sha256: raise ValueError("analysis_original_file_integrity_failed")
+    provenance=result["analysis_provenance"]
+    provenance["original_artifact"]=artifact_manifest(data=original_bytes,path=original_path,root=DATA_ROOT/"material-analysis",
+        artifact_id=f"{run.id}:original",artifact_type="measurement_original",source_run_id=run.id,
+        parent_data_ids=provenance["parent_data_ids"],tool_id=output.tool_id,tool_version=definition.version,
+        parameters=params,source_type=source,validation_status="INPUT_ACCEPTED",review_status="PENDING")
     if output.artifact and output.artifact_extension:
         artifact_dir=DATA_ROOT/"material-analysis"/"artifacts"; artifact_dir.mkdir(parents=True,exist_ok=True)
         artifact_path=artifact_dir/f"{run.id}.{output.artifact_extension}"; artifact_path.write_bytes(output.artifact)
+        provenance["derived_artifact"]=artifact_manifest(data=output.artifact,path=artifact_path,root=DATA_ROOT/"material-analysis",
+            artifact_id=f"{run.id}:derived",artifact_type="analysis_visualization",source_run_id=run.id,
+            parent_data_ids=[f"{run.id}:original"],tool_id=output.tool_id,tool_version=definition.version,
+            parameters=params,source_type="ANALYSIS_OUTPUT",validation_status="VALIDATED",review_status="COMPUTED",
+            content_type="image/png" if output.artifact_extension.lower()=="png" else None)
         result["mask_url"]=f"/api/analysis/runs/{run.id}/mask?topic_id={workflow.topic_id}"
     run.tool_id=output.tool_id; run.analysis_status="completed"; run.artifact_path=str(artifact_path) if artifact_path else None; run.result_json=result
     for key,value in output.result.items():
@@ -341,16 +356,17 @@ def _execute_node(node_id:int,worker_id:str,generation:int,lease:Lease):
                 output={"analysis_run_id":analysis.id,"status":"ALREADY_ANALYZED","result":analysis.result_json}; result_type="analysis_run"
                 node.result_id=analysis.id; node.result_type=result_type
             else:
-                original=Path(analysis.original_path).resolve()
-                root=(DATA_ROOT/"material-analysis").resolve()
-                if root not in original.parents or not original.is_file(): raise ValueError("analysis_original_file_missing_or_out_of_scope")
+                original=Path(analysis.original_path)
+                try: original_bytes=read_contained_file(path=original,root=DATA_ROOT/"material-analysis")
+                except (OSError,ValueError) as exc: raise ValueError("analysis_original_file_missing_or_out_of_scope") from exc
+                if hashlib.sha256(original_bytes).hexdigest()!=analysis.sha256: raise ValueError("analysis_original_file_integrity_failed")
                 modality=analysis.modality.lower(); settings=resolved_inputs.get("settings",{})
                 if modality=="xrd" and settings.get("xrd_x_unit") not in {"2theta_deg","d_angstrom","q_angstrom^-1"}:
                     raise ValueError("xrd_axis_unit_required")
                 if modality in {"sem","tem","afm"} and ("pixel_size_nm" not in settings if modality in {"sem","tem"} else "afm_height_unit" not in settings):
                     raise ValueError("calibration_input_required")
                 adapter=MaterialAnalysisAdapter()
-                checked=adapter.validate_inputs({"data":original.read_bytes(),"modality":modality,"filename":analysis.filename,**settings})
+                checked=adapter.validate_inputs({"data":original_bytes,"modality":modality,"filename":analysis.filename,**settings})
                 prepared=adapter.prepare(checked); lease.check(); output=_run_with_limits(node.timeout_seconds,lease,lambda:adapter.execute(prepared))
                 result_type="analysis_run"
         elif node.tool_id.startswith("phreeqc."):

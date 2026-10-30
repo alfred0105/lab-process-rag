@@ -1,0 +1,181 @@
+{
+  "benchmark": "Phase 3 integrated deterministic software smoke benchmark",
+  "device": "macOS-27.0.1-arm64-arm-64bit",
+  "python": "3.12.14",
+  "repeats": 5,
+  "synthetic_data_only": true,
+  "process_peak_rss_mb": 158.46875,
+  "measurements": {
+    "state_builder": {
+      "n": 5,
+      "errors": 0,
+      "wall_seconds": {
+        "p50": 9.580035111866891e-07,
+        "p95_nearest_rank": 3.3340038498863578e-06,
+        "min": 5.420006345957518e-07,
+        "max": 3.3340038498863578e-06
+      },
+      "cpu_seconds_p50": 2.0000000000575113e-06
+    },
+    "decision_policy": {
+      "n": 5,
+      "errors": 0,
+      "wall_seconds": {
+        "p50": 6.445799954235554e-05,
+        "p95_nearest_rank": 0.0006513339976663701,
+        "min": 6.03340013185516e-05,
+        "max": 0.0006513339976663701
+      },
+      "cpu_seconds_p50": 6.399999999995298e-05
+    },
+    "workflow_planner": {
+      "n": 5,
+      "errors": 0,
+      "wall_seconds": {
+        "p50": 0.00023816600150894374,
+        "p95_nearest_rank": 0.00030191599944373593,
+        "min": 0.00022924999939277768,
+        "max": 0.00030191599944373593
+      },
+      "cpu_seconds_p50": 0.00023799999999996047
+    },
+    "validation_gate": {
+      "n": 5,
+      "errors": 0,
+      "wall_seconds": {
+        "p50": 2.9199873097240925e-07,
+        "p95_nearest_rank": 1.2499949662014842e-06,
+        "min": 2.079978003166616e-07,
+        "max": 1.2499949662014842e-06
+      },
+      "cpu_seconds_p50": 0.0
+    },
+    "tool_result_validator": {
+      "n": 5,
+      "errors": 0,
+      "wall_seconds": {
+        "p50": 8.417002391070127e-06,
+        "p95_nearest_rank": 1.6208003216888756e-05,
+        "min": 7.5409989221952856e-06,
+        "max": 1.6208003216888756e-05
+      },
+      "cpu_seconds_p50": 8.000000000008e-06
+    },
+    "typed_handoff_conversion": {
+      "n": 5,
+      "errors": 0,
+      "wall_seconds": {
+        "p50": 2.7207999664824456e-05,
+        "p95_nearest_rank": 0.00023004200193099678,
+        "min": 2.5332999939564615e-05,
+        "max": 0.00023004200193099678
+      },
+      "cpu_seconds_p50": 2.8000000000028002e-05
+    },
+    "cache_identity": {
+      "n": 5,
+      "errors": 0,
+      "wall_seconds": {
+        "p50": 0.0001400420005666092,
+        "p95_nearest_rank": 0.00016662500274833292,
+        "min": 0.0001350840029772371,
+        "max": 0.00016662500274833292
+      },
+      "cpu_seconds_p50": 0.00014100000000005775
+    },
+    "XRD_analysis": {
+      "n": 5,
+      "errors": 0,
+      "wall_seconds": {
+        "p50": 0.0007562090031569824,
+        "p95_nearest_rank": 0.001047624995408114,
+        "min": 0.0007211669944808818,
+        "max": 0.001047624995408114
+      },
+      "cpu_seconds_p50": 0.0007559999999999789
+    },
+    "AFM_analysis": {
+      "n": 5,
+      "errors": 0,
+      "wall_seconds": {
+        "p50": 0.0026931669999612495,
+        "p95_nearest_rank": 0.002841333996911999,
+        "min": 0.0026243750035064295,
+        "max": 0.002841333996911999
+      },
+      "cpu_seconds_p50": 0.002677999999999958
+    },
+    "SEM_analysis": {
+      "n": 5,
+      "errors": 0,
+      "wall_seconds": {
+        "p50": 0.0005927079982939176,
+        "p95_nearest_rank": 0.0008527500031050295,
+        "min": 0.0005864579943590797,
+        "max": 0.0008527500031050295
+      },
+      "cpu_seconds_p50": 0.0005929999999999547
+    },
+    "TEM_analysis": {
+      "n": 5,
+      "errors": 0,
+      "wall_seconds": {
+        "p50": 0.0006168330000946298,
+        "p95_nearest_rank": 0.00082516700058477,
+        "min": 0.0005820419974043034,
+        "max": 0.00082516700058477
+      },
+      "cpu_seconds_p50": 0.0006169999999999787
+    },
+    "PHREEQC_execution": {
+      "n": 5,
+      "errors": 0,
+      "wall_seconds": {
+        "p50": 0.0018862920042010956,
+        "p95_nearest_rank": 0.0023379999984172173,
+        "min": 0.0017279169987887144,
+        "max": 0.0023379999984172173
+      },
+      "cpu_seconds_p50": 0.0018860000000000543
+    },
+    "workflow_enqueue_sqlite": {
+      "n": 5,
+      "errors": 0,
+      "wall_seconds": {
+        "p50": 0.000534582999534905,
+        "p95_nearest_rank": 0.001990791999560315,
+        "min": 0.000516958003572654,
+        "max": 0.001990791999560315
+      },
+      "cpu_seconds_p50": null
+    },
+    "worker_claim": {
+      "n": 5,
+      "errors": 0,
+      "wall_seconds": {
+        "p50": 0.001008375002129469,
+        "p95_nearest_rank": 0.002568582996900659,
+        "min": 0.0008574999956181273,
+        "max": 0.002568582996900659
+      },
+      "cpu_seconds_p50": null
+    },
+    "sqlite_read_write_roundtrip": {
+      "n": 5,
+      "errors": 0,
+      "wall_seconds": {
+        "p50": 0.0004023329966003075,
+        "p95_nearest_rank": 0.0008089580005616881,
+        "min": 0.00035016699985135347,
+        "max": 0.0008089580005616881
+      },
+      "cpu_seconds_p50": null
+    }
+  },
+  "limitations": [
+    "No scientific accuracy claim; PHREEQC is also tested separately against an equivalent input deck.",
+    "Single-process Python peak RSS includes imports and native libraries; it does not isolate API, worker, VM, or LLM memory.",
+    "Concurrency, true cache-hit execution, and OpenFOAM CFD are intentionally not inferred by this local smoke benchmark.",
+    "Synthetic XRD/AFM/SEM/TEM data measure code path timing only, not instrument validity."
+  ]
+}

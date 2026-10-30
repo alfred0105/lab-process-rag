@@ -26,11 +26,11 @@ test('isolated topic can plan, enqueue, reload, and inspect a durable XRD run', 
   expect(secondPayload.workflow?.id).toBeTruthy();
   const started = await page.request.post('/__e2e/start-worker');
   expect(started.ok()).toBeTruthy();
-  await expect(page.locator('.workflow-status.completed')).toBeVisible({ timeout: 45_000 });
+  await expect(page.locator('.workflow-job .workflow-status.completed')).toBeVisible({ timeout: 45_000 });
   await page.reload();
   await page.getByRole('button', { name: '분석', exact: true }).click();
-  await expect(page.locator('.workflow-status.completed')).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByText(/xrd\.peak_preview\.v1/)).toBeVisible();
+  await expect(page.locator('.workflow-job .workflow-status.completed')).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('.workflow-job .workflow-node.completed').filter({ hasText: 'xrd.local_peaks.v1' }).first()).toBeVisible();
   const isolated = await page.request.get('/api/workflows?topic_id=999999');
   expect(await isolated.json()).toEqual([]);
   const experiments = page.locator('.durable-workflow-start select').first();
@@ -43,4 +43,43 @@ test('isolated topic can plan, enqueue, reload, and inspect a durable XRD run', 
   await expect(page.locator('.workflow-node.failed')).toBeVisible({ timeout: 30_000 });
   await page.getByRole('button', { name: '재시도' }).first().click();
   await expect(page.locator('.workflow-node.failed')).toBeVisible({ timeout: 30_000 });
+});
+
+test('PHREEQC planner accepts structured analytical inputs only after explicit approval', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /Playwright isolated synthetic topic/ }).click();
+  await page.getByRole('button', { name: '분석', exact: true }).click();
+  await page.getByRole('textbox', { name: '연구 목표' }).fill('PHREEQC 수용액 평형 계산');
+  const inputs = page.locator('.phreeqc-workflow-inputs');
+  await expect(inputs).toBeVisible();
+  await expect(inputs.locator('input[type=number]').nth(0)).toHaveValue('');
+  await expect(inputs.locator('input[type=number]').nth(1)).toHaveValue('');
+  await expect(inputs.locator('textarea')).toHaveValue('{}');
+  await page.getByRole('button', { name: '계획 만들기' }).click();
+  await expect(page.locator('.analysis-error')).toBeVisible();
+  await inputs.locator('input[type=number]').nth(0).fill('25');
+  await inputs.locator('input[type=number]').nth(1).fill('7');
+  await inputs.locator('textarea').fill('{"Ca": 0.001, "C(4)": 0.001}');
+  await inputs.locator('input:not([type=number]):not([type=checkbox])').fill('Calcite');
+  const unapprovedPreview = page.waitForResponse(response => response.url().includes('/workflows/plan') && response.request().method() === 'POST');
+  await page.getByRole('button', { name: '계획 만들기' }).click();
+  const previewPayload = await (await unapprovedPreview).json();
+  expect(previewPayload.approval_required).toBeTruthy();
+  expect(previewPayload.executable).toBeFalsy();
+  await inputs.locator('input[type=checkbox]').check();
+  await page.getByRole('button', { name: '계획 만들기' }).click();
+  await expect(page.getByText('계획한 작업 등록')).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(/phreeqc\.aqueous_equilibrium\.v1/)).toBeVisible();
+  const queuedResponse = page.waitForResponse(response => response.url().includes('/workflows/plan') && response.request().method() === 'POST');
+  await page.getByRole('button', { name: '계획한 작업 등록' }).click();
+  const queued = await queuedResponse;
+  const payload = await queued.json();
+  expect(queued.ok(), JSON.stringify(payload)).toBeTruthy();
+  expect(payload.workflow?.nodes?.some((node: {tool_id:string}) => node.tool_id === 'phreeqc.aqueous_equilibrium.v1')).toBeTruthy();
+  const workerStarted = await page.request.post('/__e2e/start-worker');
+  expect([200, 409]).toContain(workerStarted.status()); // 409 means the shared test worker from the prior scenario is already running.
+  await expect(page.locator('.workflow-job .workflow-status.completed')).toBeVisible({ timeout: 45_000 });
+  await page.reload();
+  await page.getByRole('button', { name: '분석', exact: true }).click();
+  await expect(page.getByText(/phreeqc\.aqueous_equilibrium\.v1/)).toBeVisible({ timeout: 20_000 });
 });

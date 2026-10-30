@@ -34,6 +34,7 @@ from app.services.simulation.film_postprocess import solvent_catalog, simulate_f
 from app.services.simulation.coating_prefill import apply_gemma_coating_map, make_gemma_mapping_record
 from app.services.llm import AISettings, LLMUnavailable, configured_provider, inference_semaphore
 from app.services.material_analysis.service import AnalysisInputError, sha256 as sha256_bytes
+from app.services.artifacts import artifact_manifest, read_verified_artifact
 from app.services.tool_adapters import MaterialAnalysisAdapter, PHREEQCAdapter
 from app.services.material_analysis.phase_match import ReferenceDatabaseUnavailable, match_xrd_phases
 from app.services.benchmark_data import BenchmarkDataError, catalog as benchmark_catalog, dataset_records as benchmark_records, summarize as summarize_benchmark
@@ -484,15 +485,25 @@ async def create_analysis_run(
         original_path.write_bytes(data)
         source_type=classify_analysis_source(linked_experiment,demo_data=bool((output.result or {}).get("demo_data")))
         finished=datetime.now(timezone.utc).replace(tzinfo=None)
+        parent_ids=[f"uploaded-file-sha256:{source_hash}"]+([f"experiment:{linked_experiment.id}"] if linked_experiment else [])
         result={**output.result,"analysis_provenance":{"experiment_id":experiment_id,"topic_id":topic_id,
+            "analysis_run_key":analysis_run_id,
             "method_version_id":linked_experiment.method_version_id if linked_experiment else None,"process_step_id":process_step_id,
-            "source_type":source_type,"original_sha256":source_hash,"parent_data_ids":[f"uploaded-file-sha256:{source_hash}"]+
-                ([f"experiment:{linked_experiment.id}"] if linked_experiment else []),"tool_id":output.tool_id,
+            "source_type":source_type,"original_sha256":source_hash,"parent_data_ids":parent_ids,"tool_id":output.tool_id,
             "tool_version":definition.version,"algorithm_version":definition.version,"parameters":parameters,
             "validation":output_validation,"review_status":"COMPUTED","started_at":started.isoformat()+"Z","finished_at":finished.isoformat()+"Z"}}
+        result["analysis_provenance"]["original_artifact"] = artifact_manifest(data=data,path=original_path,root=ANALYSIS_ROOT,
+            artifact_id=f"{analysis_run_id}:original",artifact_type="measurement_original",source_run_id=analysis_run_id,
+            parent_data_ids=parent_ids,tool_id=output.tool_id,tool_version=definition.version,parameters=parameters,
+            source_type=source_type,validation_status="INPUT_ACCEPTED",review_status="PENDING")
         if output.artifact and output.artifact_extension:
             artifact_path=artifact_dir/f"{analysis_run_id}.{output.artifact_extension}"
             artifact_path.write_bytes(output.artifact)
+            result["analysis_provenance"]["derived_artifact"] = artifact_manifest(data=output.artifact,path=artifact_path,root=ANALYSIS_ROOT,
+                artifact_id=f"{analysis_run_id}:derived",artifact_type="analysis_visualization",source_run_id=analysis_run_id,
+                parent_data_ids=[f"{analysis_run_id}:original"],tool_id=output.tool_id,tool_version=definition.version,
+                parameters=parameters,source_type="ANALYSIS_OUTPUT",validation_status="VALIDATED",review_status="COMPUTED",
+                content_type="image/png" if output.artifact_extension.lower()=="png" else None)
             result={**result,"mask_url":f"/api/analysis/runs/{analysis_run_id}/mask?topic_id={topic_id}"}
         item=MaterialAnalysisRun(experiment_id=experiment_id,topic_id=topic_id,modality=modality.lower(),tool_id=output.tool_id,
             filename=filename,sha256=source_hash,original_path=str(original_path),artifact_path=str(artifact_path) if artifact_path else None,
@@ -601,9 +612,29 @@ def _analysis_file(db:Session,run_id:int,topic_id:int,artifact:bool):
     relative=item.artifact_path if artifact else item.original_path
     if artifact and not relative: raise HTTPException(404,"This run has no derived artifact")
     stored=Path(relative)
-    path=(stored if stored.is_absolute() else ROOT/stored).resolve()
-    if ANALYSIS_ROOT.resolve() not in path.parents or not path.is_file(): raise HTTPException(404,"Analysis file not found")
-    return path
+    path=stored if stored.is_absolute() else ROOT/stored
+    lexical=path.absolute(); root_lexical=ANALYSIS_ROOT.absolute()
+    try: relative_parts=lexical.relative_to(root_lexical).parts
+    except ValueError as exc: raise HTTPException(404,"Analysis file not found") from exc
+    cursor=root_lexical
+    for part in relative_parts:
+        cursor=cursor/part
+        if cursor.is_symlink(): raise HTTPException(409,"Analysis artifact path contains a symlink")
+    provenance=(item.result_json or {}).get("analysis_provenance") or {}
+    pending_provenance=(item.result_json or {}).get("provenance") or {}
+    manifest=provenance.get("derived_artifact" if artifact else "original_artifact") or (None if artifact else pending_provenance.get("original_artifact"))
+    if not manifest:
+        # Older runs predate manifests. Keep legacy files readable only after
+        # the same containment and file-type checks; newly written runs fail
+        # closed on hash/size mismatch below.
+        resolved=path.resolve()
+        if ANALYSIS_ROOT.resolve() not in resolved.parents or not resolved.is_file(): raise HTTPException(404,"Analysis file not found")
+        return resolved
+    try:
+        verified=read_verified_artifact(path=path,root=ANALYSIS_ROOT,manifest=manifest)
+    except (OSError,ValueError) as exc:
+        raise HTTPException(409,"Analysis artifact failed its integrity check") from exc
+    return path,verified,manifest
 
 @router.post("/analysis/pending")
 async def save_pending_analysis(
@@ -628,10 +659,16 @@ async def save_pending_analysis(
     if afm_height_unit is not None: parameters["afm_height_unit"]=afm_height_unit
     if pixel_size_nm is not None: parameters["pixel_size_nm"]=pixel_size_nm
     if foreground in {"bright","dark"}: parameters["foreground"]=foreground
+    definition=ToolRegistry().get(tool_id)
+    source_type=classify_analysis_source(experiment,demo_data=False)
+    pending_manifest=artifact_manifest(data=data,path=original_path,root=ANALYSIS_ROOT,artifact_id=f"{run_id}:original",
+        artifact_type="measurement_original",source_run_id=run_id,parent_data_ids=[f"experiment:{experiment_id}"],
+        tool_id=tool_id,tool_version=definition.version if definition else "unregistered",parameters=parameters,source_type=source_type,
+        validation_status="PENDING_ADAPTER",review_status="PENDING")
     item=MaterialAnalysisRun(experiment_id=experiment_id,topic_id=topic_id,process_step_id=process_step_id,result_key=result_key.strip(),
         modality=modality.lower(),tool_id=tool_id,filename=filename,sha256=sha256_bytes(data),original_path=str(original_path),
         result_json={"analysis_status":"pending","notice":"Original measurement saved. The selected specialist format adapter is not connected yet.",
-                     "provenance":{"parameters":parameters}},analysis_status="pending")
+                     "provenance":{"parameters":parameters,"source_type":source_type,"parent_data_ids":[f"experiment:{experiment_id}"],"original_artifact":pending_manifest}},analysis_status="pending")
     db.add(item)
     try: db.commit(); db.refresh(item)
     except Exception:
@@ -640,13 +677,21 @@ async def save_pending_analysis(
 
 @router.get("/analysis/runs/{run_id}/original")
 def analysis_original(run_id:int,topic_id:int=Query(...,gt=0),db:Session=Depends(get_db)):
-    path=_analysis_file(db,run_id,topic_id,False)
-    return FileResponse(path,filename=Path(path).name)
+    saved=_analysis_file(db,run_id,topic_id,False)
+    if isinstance(saved,tuple):
+        path,data,manifest=saved
+        from fastapi.responses import Response
+        return Response(data,media_type=manifest.get("content_type"),headers={"Content-Disposition":f'attachment; filename="{Path(path).name}"'})
+    return FileResponse(saved,filename=Path(saved).name)
 
 @router.get("/analysis/runs/{run_id}/mask")
 def analysis_mask(run_id:int,topic_id:int=Query(...,gt=0),db:Session=Depends(get_db)):
-    path=_analysis_file(db,run_id,topic_id,True)
-    return FileResponse(path,media_type="image/png",filename=Path(path).name)
+    saved=_analysis_file(db,run_id,topic_id,True)
+    if isinstance(saved,tuple):
+        path,data,manifest=saved
+        from fastapi.responses import Response
+        return Response(data,media_type=manifest.get("content_type","image/png"),headers={"Content-Disposition":f'inline; filename="{Path(path).name}"'})
+    return FileResponse(saved,media_type="image/png",filename=Path(saved).name)
 
 @router.post("/analysis/runs/{run_id}/phase-match")
 async def analysis_phase_match(
@@ -661,10 +706,11 @@ async def analysis_phase_match(
     item=_analysis_run_for_topic(db,run_id,topic_id)
     if not item: raise HTTPException(404,"Analysis run not found")
     if item.modality.lower()!="xrd": raise HTTPException(422,"Reference phase matching is available for XRD runs only")
-    path=_analysis_file(db,run_id,topic_id,False)
+    saved=_analysis_file(db,run_id,topic_id,False)
+    path,data,_manifest=saved if isinstance(saved,tuple) else (saved,saved.read_bytes(),{})
     try:
         return await match_xrd_phases(
-            path.read_bytes(),
+            data,
             [value.strip() for value in formulas.split(",") if value.strip()],
             wavelength_angstrom,
             tolerance_degrees,

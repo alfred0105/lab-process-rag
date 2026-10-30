@@ -61,8 +61,19 @@ def test_analysis_api_persists_original_and_mask_with_provenance(tmp_path, monke
             assert run["review_status"] == "COMPUTED"
             assert run["result"]["component_count"] == 1
             assert len(run["sha256"]) == 64
+            provenance=run["result"]["analysis_provenance"]
+            for key in ("original_artifact","derived_artifact"):
+                manifest=provenance[key]
+                assert manifest["sha256"] and manifest["size_bytes"]>0 and manifest["content_type"]
+                assert manifest["tool_id"]==run["tool_id"] and manifest["tool_version"]
+                assert manifest["source_run_id"]==provenance["analysis_run_key"] and manifest["parent_data_ids"]
+                assert manifest["review_status"] in {"PENDING","COMPUTED"}
             assert client.get(run["result"]["mask_url"]).content
             assert client.get(f"/api/analysis/runs/{run['id']}/original?topic_id={topic_id}").content == buffer.getvalue()
+            original_path=routes.ANALYSIS_ROOT/provenance["original_artifact"]["path"]
+            original_path.write_bytes(b"altered after save")
+            assert client.get(f"/api/analysis/runs/{run['id']}/original?topic_id={topic_id}").status_code==409
+            original_path.write_bytes(buffer.getvalue())
             assert client.get(f"/api/analysis/runs?topic_id={topic_id}").json()[0]["id"] == run["id"]
             same_topic_repeat=client.post("/api/analysis/run",data={"modality":"tem","topic_id":str(topic_id),"pixel_size_nm":"0.5","foreground":"bright"},files={"file":("repeat.png",buffer.getvalue(),"image/png")})
             assert same_topic_repeat.status_code==200 and same_topic_repeat.json()["id"]==run["id"]
@@ -76,6 +87,25 @@ def test_analysis_api_persists_original_and_mask_with_provenance(tmp_path, monke
             assert client.post(f"/api/analysis/runs/{run['id']}/phase-match?topic_id={second_topic['id']}").status_code==404
             assert client.post(f"/api/analysis/runs/{run['id']}/explain?topic_id={second_topic['id']}").status_code==404
             assert client.get(f"/api/analysis/runs?topic_id={second_topic['id']}").json()[0]["id"]==cross_topic.json()["id"]
+            xrd_bytes=b"10,1\n11,2\n12,10\n13,2\n14,1\n"
+            xrd_form={"modality":"xrd","topic_id":str(topic_id),"xrd_x_unit":"2theta_deg"}
+            xrd_first=client.post("/api/analysis/run",data=xrd_form,files={"file":("scan.xy",xrd_bytes,"text/plain")})
+            assert xrd_first.status_code==200,xrd_first.text
+            xrd_reused=client.post("/api/analysis/run",data=xrd_form,files={"file":("same-content.xy",xrd_bytes,"text/plain")})
+            assert xrd_reused.status_code==200 and xrd_reused.json()["id"]==xrd_first.json()["id"]
+            xrd_reanalyzed=client.post("/api/analysis/run",data={**xrd_form,"xrd_x_unit":"d_angstrom"},files={"file":("scan.xy",xrd_bytes,"text/plain")})
+            assert xrd_reanalyzed.status_code==200,xrd_reanalyzed.text
+            assert xrd_reanalyzed.json()["id"]!=xrd_first.json()["id"]
+            assert xrd_reanalyzed.json()["result"]["analysis_provenance"]["parameters"]["xrd_x_unit"]=="d_angstrom"
+            assert any(row["id"]==xrd_first.json()["id"] for row in client.get(f"/api/analysis/runs?topic_id={topic_id}").json())
+            from app.db.models import MaterialAnalysisRun
+            legacy=TestSession();legacy_run=legacy.get(MaterialAnalysisRun,xrd_first.json()["id"])
+            import copy
+            legacy_payload=copy.deepcopy(legacy_run.result_json);legacy_payload["analysis_provenance"]["algorithm_version"]="old-algorithm"
+            legacy_run.result_json=legacy_payload
+            legacy.commit();legacy.close()
+            xrd_algorithm_changed=client.post("/api/analysis/run",data=xrd_form,files={"file":("scan.xy",xrd_bytes,"text/plain")})
+            assert xrd_algorithm_changed.status_code==200 and xrd_algorithm_changed.json()["id"] not in {xrd_first.json()["id"],xrd_reanalyzed.json()["id"]}
             reference_analysis=client.post("/api/analysis/run",data={"modality":"sem","topic_id":str(topic_id),"experiment_id":str(reference_experiment["id"]),"pixel_size_nm":"0.5"},files={"file":("paper-image.png",buffer.getvalue(),"image/png")})
             assert reference_analysis.status_code==200,reference_analysis.text
             assert reference_analysis.json()["result"]["analysis_provenance"]["source_type"]=="LITERATURE_ANALYSIS_OUTPUT"

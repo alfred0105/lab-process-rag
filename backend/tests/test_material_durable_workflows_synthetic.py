@@ -16,6 +16,7 @@ from app.db.database import Base
 from app.db.models import (Experiment, MaterialAnalysisRun, ResearchTopic,
                            ScientificObservation, WorkflowNode, WorkflowRun)
 from app import worker
+from app.services.artifacts import read_verified_artifact
 
 
 def _isolated(tmp_path, monkeypatch, modality: str, filename: str, content: bytes, settings: dict):
@@ -102,6 +103,12 @@ def test_sem_tem_synthetic_durable_worker_persists_mask_and_keeps_synthetic_line
         assert observations
         assert all(item.source_type == "SYNTHETIC_DEMO" and item.review_status == "COMPUTED" for item in observations)
         assert run.result_json["analysis_provenance"]["original_sha256"] == run.sha256
+        provenance=run.result_json["analysis_provenance"]
+        original_manifest=provenance["original_artifact"];derived_manifest=provenance["derived_artifact"]
+        assert original_manifest["sha256"]==run.sha256 and original_manifest["source_type"]=="SYNTHETIC_DEMO"
+        assert derived_manifest["source_type"]=="ANALYSIS_OUTPUT" and derived_manifest["parent_data_ids"]==[f"{run.id}:original"]
+        assert read_verified_artifact(path=Path(run.original_path),root=worker.DATA_ROOT/"material-analysis",manifest=original_manifest)==content
+        assert read_verified_artifact(path=Path(run.artifact_path),root=worker.DATA_ROOT/"material-analysis",manifest=derived_manifest)
         assert "not a trained SEM/TEM model" in run.result_json["interpretation_limit"]
         db.close()
     finally:
@@ -122,6 +129,7 @@ def test_afm_synthetic_durable_worker_matches_independent_plane_fit(tmp_path, mo
         assert run.result_json["Sq"] == pytest.approx(expected[1], abs=1e-9)
         assert run.result_json["Sz"] == pytest.approx(expected[2], abs=1e-9)
         assert run.result_json["analysis_provenance"]["source_type"] == "SYNTHETIC_DEMO"
+        assert run.result_json["analysis_provenance"]["original_artifact"]["sha256"]==run.sha256
         assert run.sha256 == hashlib.sha256(source_path.read_bytes()).hexdigest()
         observations = db.query(ScientificObservation).filter_by(analysis_run_id=run.id).all()
         assert all(item.source_type == "SYNTHETIC_DEMO" for item in observations)

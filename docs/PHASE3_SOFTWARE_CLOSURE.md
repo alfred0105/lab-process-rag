@@ -1,5 +1,7 @@
 # Phase 3 software closure — latest audit
 
+> This file preserves the preceding audit snapshot. The newer additive closure result, with artifact integrity, XRD reanalysis, PHREEQC equivalent-deck checks, browser workflow, benchmark, and updated status, is [PHASE3_FINAL_CLOSURE_2026-10-30.md](PHASE3_FINAL_CLOSURE_2026-10-30.md). Use that document for the current state.
+
 검토일: 2026-10-30  
 Repository: `alfred0105/lab-process-rag`  
 기준: `origin/main` commit `115d591c6509f95ad7da6ceddc2e6548812fb7cc`  
