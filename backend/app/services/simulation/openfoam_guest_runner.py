@@ -5,6 +5,8 @@ import re
 import shutil
 import subprocess
 import sys
+import os
+import signal
 from pathlib import Path
 
 
@@ -18,6 +20,9 @@ def replace_once(path: Path, pattern: str, replacement: str) -> None:
 
 cfg = json.loads(Path(sys.argv[1]).read_text())
 case = Path(cfg["case_dir"])
+control = Path(cfg["control_dir"])
+control.mkdir(parents=True,exist_ok=True)
+pid_file=control/"solver.pgid"
 template = Path("/opt/openfoam14/tutorials/incompressibleFluid/simpleRushtonMRF")
 if case.exists():
     shutil.rmtree(case)
@@ -61,8 +66,19 @@ if "--stage-only" in sys.argv[2:]:
     print(f"LAB_RAG_CASE_STAGED={case}")
     raise SystemExit(0)
 cmd = ["./Allrun", "-i", str(int(cfg["blade_count"])), "-s", "1"]
-result = subprocess.run(cmd, cwd=case, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=1700)
-print(result.stdout[-30000:])
-if result.returncode:
-    raise SystemExit(result.returncode)
+process=subprocess.Popen(cmd,cwd=case,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,start_new_session=True)
+pid_file.write_text(str(process.pid),encoding="ascii")
+try:
+    try: output,_=process.communicate(timeout=1700)
+    except subprocess.TimeoutExpired:
+        os.killpg(process.pid,signal.SIGTERM)
+        try: output,_=process.communicate(timeout=10)
+        except subprocess.TimeoutExpired:
+            os.killpg(process.pid,signal.SIGKILL); output,_=process.communicate()
+        print((output or "")[-30000:]); raise RuntimeError("OpenFOAM guest solver exceeded 1700 seconds")
+finally:
+    pid_file.unlink(missing_ok=True)
+print((output or "")[-30000:])
+if process.returncode:
+    raise SystemExit(process.returncode)
 print(f"LAB_RAG_CASE={case}")

@@ -5,6 +5,12 @@ export const api={toolRegistry:()=>req<{tools:ToolDefinition[];selection_policy:
 export const startOpenfoamRun=(experimentId:number,approvalConfirmed:boolean,retryFailed=false)=>req<OpenfoamRun>(`/experiments/${experimentId}/simulations/openfoam-runs`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({approval_confirmed:approvalConfirmed,retry_failed:retryFailed})});
 export const listOpenfoamRuns=(experimentId:number)=>req<OpenfoamRun[]>(`/experiments/${experimentId}/simulations/openfoam-runs`);
 export const getOpenfoamRun=(id:number,topicId:number)=>req<OpenfoamRun>(`/simulations/openfoam-runs/${id}?topic_id=${topicId}`);
+export type WorkflowJob={id:number;topic_id:number;experiment_id:number;goal:string;status:string;cancel_requested:boolean;nodes:{id:number;key:string;tool_id:string;depends_on:string[];status:string;attempt:number;error_code:string;error:string;output:Record<string,unknown>|null;result_id:number|null}[]};
+export const createWorkflow=(body:{topic_id:number;experiment_id:number;goal:string;nodes:{key:string;tool_id:string;depends_on:string[];inputs:Record<string,unknown>;approval_confirmed?:boolean;timeout_seconds?:number}[]})=>req<WorkflowJob>('/workflows',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+export const getWorkflow=(id:number,topicId:number)=>req<WorkflowJob>(`/workflows/${id}?topic_id=${topicId}`);
+export const listWorkflows=(topicId:number)=>req<WorkflowJob[]>(`/workflows?topic_id=${topicId}`);
+export const cancelWorkflow=(id:number,topicId:number)=>req<WorkflowJob>(`/workflows/${id}/cancel?topic_id=${topicId}`,{method:'POST'});
+export const retryWorkflow=(id:number,topicId:number,nodeKey?:string)=>req<WorkflowJob>(`/workflows/${id}/retry?topic_id=${topicId}${nodeKey?`&node_key=${encodeURIComponent(nodeKey)}`:''}`,{method:'POST'});
 
 export type TopicSimulationRun={id:number;experiment_id:number;experiment_code:string;experiment_name:string;process_step_id:number|null;model_id:string;status:string;created_at:string;inputs:Record<string,unknown>;results:Record<string,unknown>};
 export const listTopicSimulationRuns=(topicId:number)=>req<TopicSimulationRun[]>(`/analysis/simulation-runs?topic_id=${topicId}`);

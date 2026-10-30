@@ -6,7 +6,6 @@ from pathlib import Path
 import os
 import shutil
 import subprocess
-from concurrent.futures import ThreadPoolExecutor
 
 import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
@@ -40,7 +39,6 @@ from app.services.benchmark_data import BenchmarkDataError, catalog as benchmark
 from app.services.scientific_data import classify_analysis_source, make_observation
 from app.services.tool_registry import ToolRegistry, ToolExecutor, ResultValidator, ValidationGate, recommend_tools
 router=APIRouter(); retrieval=SQLiteFTSProvider()
-_OPENFOAM_EXECUTOR=ThreadPoolExecutor(max_workers=1,thread_name_prefix="lab-openfoam")
 
 ANALYSIS_ROOT = ROOT / "data" / "material-analysis"
 MAX_ANALYSIS_UPLOAD_BYTES = 25 * 1024 * 1024
@@ -1327,45 +1325,6 @@ def experiment_openfoam_plan(experiment_id:int,db:Session=Depends(get_db)):
 def _simulation_run_payload(item:SimulationRun):
     return {"id":item.id,"experiment_id":item.experiment_id,"process_step_id":item.process_step_id,"model_id":item.model_id,"status":item.status,"inputs":item.input_json,"results":item.result_json,"log":item.log_text[-12000:],"error":item.error_text,"created_at":item.created_at.isoformat()+"Z","started_at":item.started_at.isoformat()+"Z" if item.started_at else None,"finished_at":item.finished_at.isoformat()+"Z" if item.finished_at else None}
 
-def _execute_openfoam_run(run_id:int,config:dict):
-    db=SessionLocal()
-    worker_id=f"openfoam-{uuid.uuid4().hex}"
-    now=datetime.now(timezone.utc).replace(tzinfo=None)
-    try:
-        claimed=db.query(SimulationRun).filter(SimulationRun.id==run_id,SimulationRun.status=="queued").update({
-            SimulationRun.status:"running",SimulationRun.worker_id:worker_id,SimulationRun.started_at:now,
-            SimulationRun.heartbeat_at:now,SimulationRun.lease_expires_at:now+timedelta(seconds=2100),
-            SimulationRun.timeout_seconds:1800,SimulationRun.cancel_requested:False,
-        },synchronize_session=False)
-        db.commit()
-        if claimed!=1: return
-        result,log=run_openfoam(config)
-        item=db.get(SimulationRun,run_id)
-        if not item or item.worker_id!=worker_id: return
-        tool=ToolRegistry().get("openfoam.simpleRushtonMRF.v1")
-        checked=ResultValidator.validate(tool,{**result,"solver_completed_marker":"End"}) if tool else {"valid":False,"reason":"tool_not_registered"}
-        finished=datetime.now(timezone.utc).replace(tzinfo=None)
-        item.worker_id=None; item.lease_expires_at=None; item.heartbeat_at=finished; item.finished_at=finished
-        if not checked["valid"]:
-            item.status="invalid_output"; item.error_code="OUTPUT_VALIDATION_FAILED"; item.error_text=json.dumps(checked,ensure_ascii=False)
-        else:
-            item.status="completed"; item.result_json={**result,"solver_completed_marker":"End","provenance":{"source_type":"SIMULATION","tool_id":"openfoam.simpleRushtonMRF.v1",
-                "tool_version":"14","template":"simpleRushtonMRF","input":config,"validation":checked,
-                "parent_data_ids":[f"experiment:{item.experiment_id}"]}}
-            item.log_text=log
-        db.commit()
-    except subprocess.TimeoutExpired as exc:
-        item=db.get(SimulationRun,run_id)
-        if item and item.worker_id==worker_id:
-            item.status="timed_out"; item.error_code="OPENFOAM_TIMEOUT"; item.error_text=str(exc)[:8000]
-            item.worker_id=None; item.lease_expires_at=None; item.finished_at=datetime.now(timezone.utc).replace(tzinfo=None); db.commit()
-    except Exception as exc:
-        item=db.get(SimulationRun,run_id)
-        if item and item.worker_id==worker_id:
-            item.status="failed"; item.error_code="OPENFOAM_EXECUTION_FAILED"; item.error_text=str(exc)[:8000]
-            item.worker_id=None; item.lease_expires_at=None; item.finished_at=datetime.now(timezone.utc).replace(tzinfo=None); db.commit()
-    finally: db.close()
-
 @router.post("/experiments/{experiment_id}/simulations/openfoam-runs",status_code=202)
 def start_openfoam_run(experiment_id:int,payload:OpenFOAMRunRequest,db:Session=Depends(get_db)):
     experiment=exp_query(db).filter_by(id=experiment_id).first()
@@ -1405,7 +1364,7 @@ def start_openfoam_run(experiment_id:int,payload:OpenFOAMRunRequest,db:Session=D
     else:
         item=SimulationRun(experiment_id=experiment.id,process_step_id=target_step.id if target_step else None,
             model_id=plan["model_id"],status="queued",idempotency_key=idempotency_key,input_json=job_data,
-            timeout_seconds=1800,attempt=1,max_attempts=2,log_text="Inputs passed geometry checks and explicit VM execution approval.")
+            timeout_seconds=1800,attempt=0,max_attempts=2,log_text="Inputs passed geometry checks and explicit VM execution approval.")
         db.add(item)
     try: db.commit(); db.refresh(item)
     except Exception as exc:
@@ -1413,22 +1372,7 @@ def start_openfoam_run(experiment_id:int,payload:OpenFOAMRunRequest,db:Session=D
         claimed=db.query(SimulationRun).filter_by(idempotency_key=idempotency_key).first()
         if claimed: raise HTTPException(409,{"reason":"duplicate_openfoam_job_claimed","simulation_run_id":claimed.id,"status":claimed.status}) from exc
         raise
-    _OPENFOAM_EXECUTOR.submit(_execute_openfoam_run,item.id,config)
     return _simulation_run_payload(item)
-
-def resume_approved_openfoam_jobs():
-    """Requeue only durable OpenFOAM requests that already recorded explicit approval."""
-    db=SessionLocal()
-    try:
-        queued=db.query(SimulationRun).filter_by(status="queued").order_by(SimulationRun.created_at).all()
-        for item in queued:
-            config=item.input_json or {}
-            if not config.get("explicit_approval"):
-                continue
-            required=("tank_diameter_m","tank_height_m","impeller_diameter_m","rpm","nu_m2_s","blade_count")
-            if all(key in config for key in required):
-                _OPENFOAM_EXECUTOR.submit(_execute_openfoam_run,item.id,{key:config[key] for key in required})
-    finally: db.close()
 
 @router.get("/experiments/{experiment_id}/simulations/openfoam-runs")
 def list_openfoam_runs(experiment_id:int,db:Session=Depends(get_db)):

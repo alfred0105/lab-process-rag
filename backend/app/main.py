@@ -9,7 +9,8 @@ from alembic.script import ScriptDirectory
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.api.routes import router, resume_approved_openfoam_jobs
+from app.api.routes import router
+from app.api.workflows import router as workflow_router
 from app.db.database import DB_PATH, ROOT, Base, engine, SessionLocal
 from app.db.models import Experiment, ExperimentMethod, MethodVersion, ResearchTopic, ResearchMaterial, ExperimentMaterial, Paper, MaterialAnalysisRun, SimulationRun, ScientificObservation, ScientificDataAuditEvent
 from app.services.scientific_data import classify_analysis_source, make_observation
@@ -88,6 +89,7 @@ def import_used_materials_to_library():
 def upgrade_schema():
     """Apply versioned additive schema updates after the legacy bootstrap."""
     config=Config(str(ROOT / "backend" / "alembic.ini"))
+    config.set_main_option("sqlalchemy.url",f"sqlite:///{DB_PATH}")
     command.upgrade(config,"head")
 
 def backup_before_schema_upgrade():
@@ -95,6 +97,7 @@ def backup_before_schema_upgrade():
     if not DB_PATH.exists():
         return None
     config=Config(str(ROOT / "backend" / "alembic.ini"))
+    config.set_main_option("sqlalchemy.url",f"sqlite:///{DB_PATH}")
     current_connection=engine.connect()
     try:
         current=MigrationContext.configure(current_connection).get_current_revision()
@@ -215,12 +218,12 @@ async def lifespan(app:FastAPI):
     import_used_materials_to_library()
     backfill_scientific_observations()
     recover_interrupted_tool_runs()
-    resume_approved_openfoam_jobs()
     yield
 
 app=FastAPI(title="Lab Process RAG",version="0.1.0",description="Paper-backed claims are cited; Gemma general knowledge is labeled separately.",lifespan=lifespan)
 app.add_middleware(CORSMiddleware,allow_origins=["http://localhost:5173"],allow_credentials=True,allow_methods=["*"],allow_headers=["*"])
 app.include_router(router,prefix="/api")
+app.include_router(workflow_router,prefix="/api")
 FRONTEND_DIST = ROOT / "frontend" / "dist"
 if FRONTEND_DIST.exists():
     app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")

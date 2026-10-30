@@ -1,10 +1,11 @@
 from pathlib import Path
+import os
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 ROOT = Path(__file__).resolve().parents[3]
-DB_PATH = ROOT / "data" / "lab_process.db"
+DB_PATH = Path(os.getenv("LAB_PROCESS_DB_PATH",str(ROOT / "data" / "lab_process.db"))).expanduser().resolve()
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)

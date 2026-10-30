@@ -204,6 +204,13 @@ class ResultValidator:
             trace=result.get("power_trace")
             if result.get("solver_completed_marker")!="End":
                 return {"valid":False,"reason":"openfoam_solver_normal_completion_unverified"}
+            if not isinstance(result.get("mesh_cell_count"),int) or isinstance(result.get("mesh_cell_count"),bool) or result["mesh_cell_count"]<1:
+                return {"valid":False,"reason":"openfoam_actual_mesh_cell_count_unverified"}
+            if result.get("mesh_validation")!="CHECKMESH_OK":
+                return {"valid":False,"reason":"openfoam_mesh_quality_unverified"}
+            residuals=result.get("final_residuals")
+            if result.get("solver_converged") is not True or not isinstance(residuals,list) or not residuals or any(not isinstance(value,(int,float)) or isinstance(value,bool) or not math.isfinite(float(value)) or value>1e-3 for value in residuals):
+                return {"valid":False,"reason":"openfoam_residual_convergence_unverified"}
             if not isinstance(trace,list) or len(trace)<2:
                 return {"valid":False,"reason":"openfoam_power_trace_insufficient"}
             required=("time_s","divStressU","divStressDotU","stressDDotGradU","divPU","gradPU","pDivU","divTauU","divTauDotU","tauDDotGradU")
@@ -212,7 +219,10 @@ class ResultValidator:
             times=[float(row["time_s"]) for row in trace]
             if any(right<=left for left,right in zip(times,times[1:])):
                 return {"valid":False,"reason":"openfoam_time_trace_not_increasing"}
-        return {"valid":True,"tool_id":tool.tool_id,"numeric_values_checked":len(numbers)}
+        return {"valid":True,"tool_id":tool.tool_id,"numeric_values_checked":len(numbers),
+            "checks_passed":["STRUCTURE_VALID","NUMERICALLY_VALID"],
+            "scientific_status":"REQUIRES_REVIEW","physical_plausibility":"UNVERIFIED",
+            "reference_validation":"UNVERIFIED","human_review_required":True}
 
 
 def _number_with_unit(value: object, unit: object) -> float | None:

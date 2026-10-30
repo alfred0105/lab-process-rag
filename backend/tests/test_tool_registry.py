@@ -64,7 +64,8 @@ def test_openfoam_result_requires_normal_solver_end_and_monotone_finite_trace():
     from app.services.tool_registry import ResultValidator
     tool=ToolRegistry().get("openfoam.simpleRushtonMRF.v1")
     row={"time_s":0,"divStressU":0,"divStressDotU":0,"stressDDotGradU":0,"divPU":0,"gradPU":0,"pDivU":0,"divTauU":0,"divTauDotU":0,"tauDDotGradU":0}
-    valid={"solver_completed_marker":"End","power_trace":[row,{**row,"time_s":1}]}
+    valid={"solver_completed_marker":"End","mesh_cell_count":1000,"mesh_validation":"CHECKMESH_OK",
+           "solver_converged":True,"final_residuals":[1e-5,2e-5],"power_trace":[row,{**row,"time_s":1}]}
     assert ResultValidator.validate(tool,valid)["valid"]
     assert not ResultValidator.validate(tool,{**valid,"solver_completed_marker":""})["valid"]
     assert not ResultValidator.validate(tool,{**valid,"power_trace":[row,{**row,"time_s":0}]})["valid"]

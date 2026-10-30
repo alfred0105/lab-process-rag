@@ -5,7 +5,10 @@ predict nucleation, particle size, synthesis yield, or reaction kinetics.
 """
 from __future__ import annotations
 
+import hashlib
+from importlib.metadata import PackageNotFoundError, version
 from math import isfinite
+from pathlib import Path
 from typing import Any
 
 ELEMENT_TOTALS = {
@@ -27,6 +30,27 @@ PHASE_ELEMENTS = {
     "Goethite": {"Fe(2)", "Fe(3)"}, "Hematite": {"Fe(2)", "Fe(3)"},
     "Fluorite": {"Ca", "F"}, "Willemite": {"Zn", "Si"},
 }
+
+
+def _database_provenance() -> dict[str, str | None]:
+    """Identify the exact PHREEQC database bytes used by this installation."""
+    try:
+        import phreeqpython
+        package_dir = Path(phreeqpython.__file__).resolve().parent
+        database_path = package_dir / "database" / "phreeqc.dat"
+        digest = hashlib.sha256(database_path.read_bytes()).hexdigest() if database_path.is_file() else None
+        try:
+            package_version = version("phreeqpython")
+        except PackageNotFoundError:
+            package_version = None
+        return {
+            "engine": "PHREEQC-3",
+            "adapter_version": package_version,
+            "database": "phreeqc.dat",
+            "database_sha256": digest,
+        }
+    except (ImportError, OSError):
+        return {"engine": "PHREEQC-3", "adapter_version": None, "database": "phreeqc.dat", "database_sha256": None}
 
 
 def calculate_aqueous_equilibrium(
@@ -83,7 +107,7 @@ def calculate_aqueous_equilibrium(
         })
     return {
         "model_id": "PHREEQC-3 / phreeqc.dat",
-        "engine": "phreeqpython 1.6.2",
+        **_database_provenance(),
         "temperature_c": temperature_c,
         "input_pH": pH,
         "calculated_pH": float(solution.pH),
@@ -119,6 +143,7 @@ def sweep_aqueous_equilibrium(
         rows.append({"pH": current_pH, "saturation_indices": result["saturation_indices"]})
     return {
         "model_id": "PHREEQC-3 / phreeqc.dat",
+        **_database_provenance(),
         "temperature_c": temperature_c,
         "pH_min": pH_min,
         "pH_max": pH_max,
@@ -197,6 +222,7 @@ def simulate_stirred_reaction_path(
         })
     return {
         "model_id": "PHREEQC-3 / phreeqc.dat",
+        **_database_provenance(),
         "titrant": titrant, "tracked_element": tracked_element,
         "equilibrium_phase": equilibrium_phase, "temperature_c": temperature_c,
         "starting_pH": pH, "total_titrant_mmol": total_titrant_mmol,

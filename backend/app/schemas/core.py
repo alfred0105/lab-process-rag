@@ -181,6 +181,36 @@ class OpenFOAMRunRequest(BaseModel):
     approval_confirmed: bool = False
     retry_failed: bool = False
 
+class WorkflowNodeIn(BaseModel):
+    key: str = Field(min_length=1,max_length=100,pattern=r"^[a-zA-Z0-9_.-]+$")
+    tool_id: str = Field(min_length=3,max_length=120)
+    depends_on: list[str] = Field(default_factory=list,max_length=20)
+    inputs: dict = Field(default_factory=dict)
+    approval_confirmed: bool = False
+    timeout_seconds: int = Field(default=300,ge=1,le=1800)
+
+class WorkflowCreateRequest(BaseModel):
+    topic_id: int = Field(gt=0)
+    experiment_id: int = Field(gt=0)
+    goal: str = Field(min_length=3,max_length=1000)
+    nodes: list[WorkflowNodeIn] = Field(min_length=1,max_length=20)
+
+    @model_validator(mode="after")
+    def validate_graph(self):
+        by_key={node.key:node for node in self.nodes}
+        if len(by_key)!=len(self.nodes): raise ValueError("Workflow node keys must be unique")
+        for node in self.nodes:
+            if len(set(node.depends_on))!=len(node.depends_on): raise ValueError("Dependencies must be unique")
+            if node.key in node.depends_on or any(key not in by_key for key in node.depends_on): raise ValueError("Workflow dependency is invalid")
+        visited=set(); active=set()
+        def visit(key):
+            if key in active: raise ValueError("Workflow graph must be acyclic")
+            if key in visited: return
+            active.add(key)
+            for parent in by_key[key].depends_on: visit(parent)
+            active.remove(key); visited.add(key)
+        for key in by_key: visit(key)
+        return self
 class StirredReactionPathRequest(AqueousEquilibriumRequest):
     titrant: Literal["HCl", "NaOH"]
     total_titrant_mmol: float = Field(gt=0, le=10000)
