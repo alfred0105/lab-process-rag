@@ -124,6 +124,9 @@ def _variables(exp: Experiment) -> dict[tuple, dict]:
                 "material": variable.material,
                 "value": variable.value,
                 "unit": variable.unit,
+                # Legacy ProcessVariable has no uncertainty column. Keep this
+                # optional hook for richer imported/adapter-backed records.
+                "measurement_uncertainty": getattr(variable, "measurement_uncertainty", None),
                 "value_type": value_type,
                 "definition": _condition_definition(exp, step, variable),
             }
@@ -159,13 +162,39 @@ def _numeric_comparison(a: dict, b: dict) -> dict:
             normalized_a, normalized_b, normalized_unit = value_a, value_b, None
     except (pint.errors.PintError, ValueError, TypeError) as exc:
         return {"comparable": False, "same": False, "reason": "incompatible_or_unknown_units", "detail": str(exc)[:160]}
-    same = math.isclose(normalized_a, normalized_b, rel_tol=1e-9, abs_tol=1e-12)
+    # Only use reported measurement uncertainties when both records provide
+    # them. Otherwise this is a near-exact numeric equality check with a
+    # floating-point conversion tolerance, not an assumed measurement precision.
+    uncertainty_a = a.get("measurement_uncertainty")
+    uncertainty_b = b.get("measurement_uncertainty")
+    if uncertainty_a is not None and uncertainty_b is not None:
+        try:
+            uncertainty_a = float(uncertainty_a)
+            uncertainty_b = float(uncertainty_b)
+            if unit_a:
+                delta_a = {"degC": "delta_degC", "degF": "delta_degF"}.get(unit_a, unit_a)
+                delta_b = {"degC": "delta_degC", "degF": "delta_degF"}.get(unit_b, unit_b)
+                target_delta = {"degC": "delta_degC", "degF": "delta_degF"}.get(str(quantity_a.units), str(quantity_a.units))
+                uncertainty_a = float(_UNIT_REGISTRY.Quantity(uncertainty_a, delta_a).to(target_delta).magnitude)
+                uncertainty_b = float(_UNIT_REGISTRY.Quantity(uncertainty_b, delta_b).to(target_delta).magnitude)
+            if not (math.isfinite(uncertainty_a) and math.isfinite(uncertainty_b) and uncertainty_a >= 0 and uncertainty_b >= 0):
+                raise ValueError("measurement uncertainty must be finite and nonnegative")
+            tolerance = math.hypot(uncertainty_a, uncertainty_b)
+            basis = "combined_reported_standard_uncertainty"
+        except (pint.errors.PintError, ValueError, TypeError) as exc:
+            return {"comparable": False, "same": False, "reason": "invalid_measurement_uncertainty", "detail": str(exc)[:160]}
+    else:
+        tolerance = max(1e-15, max(abs(normalized_a), abs(normalized_b)) * 1e-12)
+        basis = "floating_point_conversion_only_no_measurement_precision_assumed"
+    same = abs(normalized_a - normalized_b) <= tolerance
     return {
         "comparable": True,
         "same": same,
         "normalized_a": normalized_a,
         "normalized_b": normalized_b,
         "normalized_unit": normalized_unit,
+        "comparison_tolerance": tolerance,
+        "tolerance_basis": basis,
         "reason": "unit_normalized_numeric_comparison",
     }
 
@@ -189,7 +218,39 @@ def _context(exp: Experiment) -> dict:
     }
 
 
-def compare(a: Experiment, b: Experiment) -> dict:
+def compare(a: Experiment, b: Experiment, comparison_mode: str = "same_version") -> dict:
+    if comparison_mode not in {"same_version", "cross_version"}:
+        raise ValueError("comparison_mode must be same_version or cross_version")
+    version_a = _context(a)
+    version_b = _context(b)
+    same_known_version = (
+        a.method_version_id is not None
+        and b.method_version_id is not None
+        and a.method_version_id == b.method_version_id
+    )
+    if comparison_mode == "same_version" and not same_known_version:
+        return {
+            "same_variables": [], "different_variables": [], "missing_variables": [],
+            "unresolved_variables": [], "comparison_context": {
+                "experiment_a": version_a, "experiment_b": version_b,
+                "same_method_version": False, "comparison_mode": comparison_mode,
+                "comparison_status": "blocked_version_mismatch_or_unknown",
+                "uncertainty_available": False,
+            },
+        }
+    if comparison_mode == "cross_version":
+        method_a = getattr(getattr(a, "method_version", None), "method_id", None)
+        method_b = getattr(getattr(b, "method_version", None), "method_id", None)
+        if not (method_a and method_b and method_a == method_b):
+            return {
+                "same_variables": [], "different_variables": [], "missing_variables": [],
+                "unresolved_variables": [], "comparison_context": {
+                    "experiment_a": version_a, "experiment_b": version_b,
+                    "same_method_version": False, "comparison_mode": comparison_mode,
+                    "comparison_status": "blocked_unrelated_or_unknown_methods",
+                    "uncertainty_available": False,
+                },
+            }
     variables_a, variables_b = _variables(a), _variables(b)
     same: list[dict] = []
     different: list[dict] = []
@@ -236,7 +297,6 @@ def compare(a: Experiment, b: Experiment) -> dict:
         else:
             different.append(detail)
 
-    version_a, version_b = _context(a), _context(b)
     return {
         "same_variables": same,
         "different_variables": different,
@@ -246,6 +306,8 @@ def compare(a: Experiment, b: Experiment) -> dict:
             "experiment_a": version_a,
             "experiment_b": version_b,
             "same_method_version": version_a["method_version_id"] == version_b["method_version_id"],
+            "comparison_mode": comparison_mode,
+            "comparison_status": "comparable",
             "uncertainty_available": False,
         },
     }

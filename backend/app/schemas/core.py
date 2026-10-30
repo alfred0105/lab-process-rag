@@ -292,3 +292,15 @@ class DecisionChoiceRequest(BaseModel):
         if len(json.dumps(self.state, ensure_ascii=False)) > 12000:
             raise ValueError("Decision state is too large; send a compact relevant state")
         return self
+
+class MeasurementReviewRequest(BaseModel):
+    reviewer: str = Field(min_length=1, max_length=200)
+    review_status: Literal["REVIEWED", "ACCEPTED", "REJECTED"]
+    opinion: str = Field(default="", max_length=4000)
+    reason: str = Field(default="", max_length=2000)
+
+    @model_validator(mode="after")
+    def require_reasons_for_decisions(self):
+        if self.review_status in {"ACCEPTED", "REJECTED"} and not self.reason.strip():
+            raise ValueError("A reason is required when accepting or rejecting a measurement")
+        return self

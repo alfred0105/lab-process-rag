@@ -1,5 +1,5 @@
 from datetime import date as DateType, datetime
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, JSON, String, Text
+from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, Float, ForeignKey, Integer, JSON, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .database import Base
 
@@ -249,6 +249,7 @@ class MaterialAnalysisRun(Base):
     result_key: Mapped[str | None] = mapped_column(String(200), nullable=True)
     process_step_id: Mapped[int | None] = mapped_column(ForeignKey("process_steps.id", ondelete="SET NULL"), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    review_events: Mapped[list["MeasurementReviewEvent"]] = relationship(back_populates="analysis_run", cascade="all, delete-orphan", order_by="MeasurementReviewEvent.id")
 
 class IntegratedAnalysisSession(Base):
     __tablename__ = "integrated_analysis_sessions"
@@ -278,3 +279,47 @@ class SimulationRun(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
     started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+class ScientificObservation(Base):
+    """Append-only normalized view of an original lab, literature, or model value."""
+    __tablename__ = "scientific_observations"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    topic_id: Mapped[int | None] = mapped_column(ForeignKey("research_topics.id", ondelete="SET NULL"), nullable=True, index=True)
+    experiment_id: Mapped[int | None] = mapped_column(ForeignKey("experiments.id", ondelete="CASCADE"), nullable=True, index=True)
+    method_version_id: Mapped[int | None] = mapped_column(ForeignKey("method_versions.id", ondelete="SET NULL"), nullable=True, index=True)
+    process_step_id: Mapped[int | None] = mapped_column(ForeignKey("process_steps.id", ondelete="SET NULL"), nullable=True, index=True)
+    parameter_id: Mapped[str] = mapped_column(String(300), index=True)
+    material_id: Mapped[int | None] = mapped_column(ForeignKey("research_materials.id", ondelete="SET NULL"), nullable=True, index=True)
+    original_value: Mapped[str] = mapped_column(Text)
+    original_unit: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    normalized_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    normalized_unit: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    value_type: Mapped[str] = mapped_column(String(30), default="text")
+    measurement_uncertainty: Mapped[float | None] = mapped_column(Float, nullable=True)
+    replicate_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    source_type: Mapped[str] = mapped_column(String(40), index=True)
+    source_id: Mapped[str] = mapped_column(String(200), index=True)
+    analysis_run_id: Mapped[int | None] = mapped_column(ForeignKey("material_analysis_runs.id", ondelete="SET NULL"), nullable=True, index=True)
+    review_status: Mapped[str] = mapped_column(String(30), default="PENDING", index=True)
+    normalization_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    review_events: Mapped[list["MeasurementReviewEvent"]] = relationship(back_populates="observation", cascade="all, delete-orphan", order_by="MeasurementReviewEvent.id")
+
+class MeasurementReviewEvent(Base):
+    """Immutable review history; current status is the latest event for a run."""
+    __tablename__ = "measurement_review_events"
+    __table_args__ = (CheckConstraint("(analysis_run_id IS NOT NULL) != (observation_id IS NOT NULL)", name="ck_review_exactly_one_target"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    analysis_run_id: Mapped[int | None] = mapped_column(ForeignKey("material_analysis_runs.id", ondelete="CASCADE"), nullable=True, index=True)
+    observation_id: Mapped[int | None] = mapped_column(ForeignKey("scientific_observations.id", ondelete="CASCADE"), nullable=True, index=True)
+    review_status: Mapped[str] = mapped_column(String(30), index=True)
+    reviewer: Mapped[str] = mapped_column(String(200))
+    opinion: Mapped[str] = mapped_column(Text, default="")
+    reason: Mapped[str] = mapped_column(Text, default="")
+    tool_id: Mapped[str] = mapped_column(String(100))
+    tool_version: Mapped[str] = mapped_column(String(100), default="unknown")
+    original_file_hash: Mapped[str] = mapped_column(String(64))
+    settings_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    analysis_run: Mapped[MaterialAnalysisRun] = relationship(back_populates="review_events")
+    observation: Mapped[ScientificObservation] = relationship(back_populates="review_events")

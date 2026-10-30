@@ -1,5 +1,6 @@
 import json
 import uuid
+import math
 from datetime import datetime
 from pathlib import Path
 import os
@@ -11,8 +12,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPExcepti
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, selectinload
 from app.db.database import ROOT, SessionLocal, get_db
-from app.db.models import Experiment, ExperimentMaterial, ExperimentMethod, MethodVersion, ResearchTopic, ResearchMaterial, Paper, EvidenceChunk, PaperSummary, ProcessStep, ProcessVariable, ExperimentResult, FailureObservation, ExperimentEnvironmentRecord, ProcessStepLog, ExperimentAttachment, ProcessStageExperiment, AssistantInteraction, MaterialAnalysisRun, IntegratedAnalysisSession, SimulationRun
-from app.schemas.core import AssistantAsk, SimulationInputReviewRequest, ProcessVariableUpdate, ExperimentMaterialIn, AnalysisExplanation, IntegratedAnalysisRequest, IntegratedAnalysisClaim, DecisionBrief, DecisionOption, DecisionChoiceRequest, Claim, EvidenceStatus, ExperimentIn, ResearchTopicIn, ResearchMaterialIn, MethodIn, DesignRequest, ProcessChange, StepLogIn, StageExperimentIn, PHEstimateRequest, AqueousEquilibriumRequest, AqueousSweepRequest, StirredReactionPathRequest
+from app.db.models import Experiment, ExperimentMaterial, ExperimentMethod, MethodVersion, ResearchTopic, ResearchMaterial, Paper, EvidenceChunk, PaperSummary, ProcessStep, ProcessVariable, ExperimentResult, FailureObservation, ExperimentEnvironmentRecord, ProcessStepLog, ExperimentAttachment, ProcessStageExperiment, AssistantInteraction, MaterialAnalysisRun, IntegratedAnalysisSession, SimulationRun, ScientificObservation, MeasurementReviewEvent
+from app.schemas.core import AssistantAsk, SimulationInputReviewRequest, ProcessVariableUpdate, ExperimentMaterialIn, AnalysisExplanation, IntegratedAnalysisRequest, IntegratedAnalysisClaim, DecisionBrief, DecisionOption, DecisionChoiceRequest, MeasurementReviewRequest, Claim, EvidenceStatus, ExperimentIn, ResearchTopicIn, ResearchMaterialIn, MethodIn, DesignRequest, ProcessChange, StepLogIn, StageExperimentIn, PHEstimateRequest, AqueousEquilibriumRequest, AqueousSweepRequest, StirredReactionPathRequest
 from app.services.ingestion.pdf import MAX_PDF_SIZE_BYTES, ingest_pdf
 from app.services.retrieval.provider import SQLiteFTSProvider
 from app.services.experiment.compare import compare
@@ -34,6 +35,8 @@ from app.services.llm import AISettings, LLMUnavailable, configured_provider, in
 from app.services.material_analysis.service import AnalysisInputError, analyze as run_material_analysis, sha256 as sha256_bytes
 from app.services.material_analysis.phase_match import ReferenceDatabaseUnavailable, match_xrd_phases
 from app.services.benchmark_data import BenchmarkDataError, catalog as benchmark_catalog, dataset_records as benchmark_records, summarize as summarize_benchmark
+from app.services.scientific_data import make_observation
+from app.services.tool_registry import ToolRegistry, recommend_tools
 router=APIRouter(); retrieval=SQLiteFTSProvider()
 
 ANALYSIS_ROOT = ROOT / "data" / "material-analysis"
@@ -297,8 +300,24 @@ def analysis_tools():
         "policy":"Analysis outputs are observations with provenance, not causal scientific claims. Human review is required before using them as accepted experiment results.",
     }
 
+@router.get("/tools/registry")
+def tool_registry():
+    return {"tools":ToolRegistry().list(),"selection_policy":"rule_based_readiness_v1",
+        "learned_jev_head_available":False,"runtime_and_memory":"Not measured for each tool; null values mean unknown."}
+
+@router.get("/experiments/{experiment_id}/tools/recommend")
+def recommend_experiment_tools(experiment_id:int,db:Session=Depends(get_db)):
+    experiment=exp_query(db).filter_by(id=experiment_id).first()
+    if not experiment: raise HTTPException(404,"Experiment not found")
+    runs=[serialize_analysis(item) for item in db.query(MaterialAnalysisRun).filter_by(experiment_id=experiment_id).all()]
+    status=simulation_status()
+    return recommend_tools(serialize_exp(experiment),runs,openfoam_installed=status["openfoam_installed"],
+        openfoam_template_available=status["openfoam_template_available"])
+
 def serialize_analysis(item: MaterialAnalysisRun):
-    return {"id":item.id,"experiment_id":item.experiment_id,"topic_id":item.topic_id,"process_step_id":item.process_step_id,"result_key":item.result_key,"analysis_status":item.analysis_status,"modality":item.modality,"tool_id":item.tool_id,"filename":item.filename,"sha256":item.sha256,"created_at":item.created_at.isoformat()+"Z","demo":bool((item.result_json or {}).get("demo_data")),"result":item.result_json}
+    history=item.review_events or []
+    initial_review_status="COMPUTED" if item.analysis_status=="completed" else "PENDING"
+    return {"id":item.id,"experiment_id":item.experiment_id,"topic_id":item.topic_id,"process_step_id":item.process_step_id,"result_key":item.result_key,"analysis_status":item.analysis_status,"review_status":history[-1].review_status if history else initial_review_status,"review_history":[{"status":event.review_status,"reviewer":event.reviewer,"opinion":event.opinion,"reason":event.reason,"created_at":event.created_at.isoformat()+"Z"} for event in history],"modality":item.modality,"tool_id":item.tool_id,"filename":item.filename,"sha256":item.sha256,"created_at":item.created_at.isoformat()+"Z","demo":bool((item.result_json or {}).get("demo_data")),"result":item.result_json}
 
 @router.get("/analysis/runs")
 def analysis_runs(topic_id:int,db:Session=Depends(get_db)):
@@ -343,12 +362,89 @@ async def create_analysis_run(
     )
     db.add(item)
     try:
+        db.flush()
+        linked_experiment=db.get(Experiment,experiment_id) if experiment_id else None
+        source_type="SYNTHETIC_DEMO" if bool((result or {}).get("demo_data")) or bool(linked_experiment and linked_experiment.demo) else "ANALYSIS_OUTPUT"
+        for key,value in result.items():
+            if isinstance(value,(int,float)) and not isinstance(value,bool) and math.isfinite(float(value)):
+                db.add(make_observation(topic_id=topic_id,experiment_id=experiment_id,method_version_id=linked_experiment.method_version_id if linked_experiment else None,
+                    process_step_id=process_step_id,step_name=linked_experiment.steps[0].name if linked_experiment and linked_experiment.steps else "measurement analysis",
+                    name=key,value=value,unit=None,source_type=source_type,source_id=f"analysis-run:{item.id}:{key}",analysis_run_id=item.id,
+                    review_status="COMPUTED"))
         db.commit(); db.refresh(item)
     except Exception:
         db.rollback(); original_path.unlink(missing_ok=True)
         if artifact_path: artifact_path.unlink(missing_ok=True)
         raise
     return serialize_analysis(item)
+
+@router.post("/analysis/runs/{run_id}/review")
+def review_analysis_run(run_id:int,payload:MeasurementReviewRequest,db:Session=Depends(get_db)):
+    item=db.get(MaterialAnalysisRun,run_id)
+    if not item: raise HTTPException(404,"Analysis run not found")
+    if item.analysis_status!="completed": raise HTTPException(409,"Only computed analysis results can be reviewed")
+    previous=item.review_events[-1].review_status if item.review_events else ("COMPUTED" if item.analysis_status=="completed" else "PENDING")
+    if payload.review_status in {"ACCEPTED","REJECTED"} and previous!="REVIEWED":
+        raise HTTPException(409,"Review a computed result before accepting or rejecting it")
+    if previous=="ACCEPTED" and payload.review_status=="ACCEPTED":
+        raise HTTPException(409,"This result is already accepted; record REVIEWED to reopen it first")
+    if previous=="REJECTED" and payload.review_status=="REJECTED":
+        raise HTTPException(409,"This result is already rejected; record REVIEWED before a new decision")
+    event=MeasurementReviewEvent(analysis_run_id=item.id,review_status=payload.review_status,reviewer=payload.reviewer.strip(),
+        opinion=payload.opinion.strip(),reason=payload.reason.strip(),tool_id=item.tool_id,
+        tool_version=str((item.result_json or {}).get("algorithm_version") or (item.result_json or {}).get("tool_version") or "unknown"),
+        original_file_hash=item.sha256,settings_json=(item.result_json or {}).get("parameters",{}))
+    db.add(event)
+    for observation in db.query(ScientificObservation).filter_by(analysis_run_id=item.id).all():
+        observation.review_status=payload.review_status
+    db.commit(); db.refresh(item)
+    return serialize_analysis(item)
+
+@router.get("/data/observations")
+def scientific_observations(topic_id:int,review_status:str|None=Query(None),db:Session=Depends(get_db)):
+    query=db.query(ScientificObservation).filter(ScientificObservation.topic_id==topic_id)
+    if review_status:
+        if review_status not in {"PENDING","COMPUTED","REVIEWED","ACCEPTED","REJECTED"}: raise HTTPException(422,"Unknown scientific review status")
+        query=query.filter(ScientificObservation.review_status==review_status)
+    return [{"id":item.id,"experiment_id":item.experiment_id,"topic_id":item.topic_id,"method_version_id":item.method_version_id,
+        "process_step_id":item.process_step_id,"parameter_id":item.parameter_id,"material_id":item.material_id,
+        "original_value":item.original_value,"original_unit":item.original_unit,"normalized_value":item.normalized_value,
+        "normalized_unit":item.normalized_unit,"value_type":item.value_type,"measurement_uncertainty":item.measurement_uncertainty,
+        "replicate_id":item.replicate_id,"source_type":item.source_type,"source_id":item.source_id,"analysis_run_id":item.analysis_run_id,
+        "review_status":item.review_status,"normalization_error":item.normalization_error,"created_at":item.created_at.isoformat()+"Z"}
+        for item in query.order_by(ScientificObservation.id).limit(2000).all()]
+
+@router.get("/optimization/observations/approved")
+def approved_optimization_observations(topic_id:int,db:Session=Depends(get_db)):
+    rows=db.query(ScientificObservation).filter(ScientificObservation.topic_id==topic_id,
+        ScientificObservation.review_status=="ACCEPTED",ScientificObservation.source_type.in_(["LAB_RECORD","LAB_RESULT","ANALYSIS_OUTPUT"]),
+        ScientificObservation.normalization_error.is_(None),ScientificObservation.normalized_value.is_not(None)).order_by(ScientificObservation.id).all()
+    inputs={item.experiment_id for item in rows if item.source_type=="LAB_RECORD" and item.experiment_id is not None}
+    outcomes={item.experiment_id for item in rows if item.source_type in {"LAB_RESULT","ANALYSIS_OUTPUT"} and item.experiment_id is not None}
+    paired=sorted(inputs & outcomes)
+    readiness="candidate_pairs_available" if len(paired)>=2 else "insufficient_approved_observations"
+    return {"status":readiness,"paired_experiment_ids":paired,"observations":[{
+        "id":item.id,"experiment_id":item.experiment_id,"method_version_id":item.method_version_id,"process_step_id":item.process_step_id,
+        "parameter_id":item.parameter_id,"value":item.normalized_value,"unit":item.normalized_unit,"uncertainty":item.measurement_uncertainty,
+        "replicate_id":item.replicate_id,"source_type":item.source_type,"role":"input_condition" if item.source_type=="LAB_RECORD" else "outcome",
+        "source_id":item.source_id,"analysis_run_id":item.analysis_run_id}
+        for item in rows],"notice":"Only accepted real lab conditions and measured/computed lab outcomes are returned as separate roles. Candidate pairs require at least two experiments; model fitness is not implied."}
+
+@router.post("/data/observations/{observation_id}/review")
+def review_scientific_observation(observation_id:int,payload:MeasurementReviewRequest,db:Session=Depends(get_db)):
+    item=db.get(ScientificObservation,observation_id)
+    if not item: raise HTTPException(404,"Scientific observation not found")
+    previous=item.review_events[-1].review_status if item.review_events else "PENDING"
+    if payload.review_status in {"ACCEPTED","REJECTED"} and previous!="REVIEWED": raise HTTPException(409,"Review this observation before accepting or rejecting it")
+    if payload.review_status=="ACCEPTED" and item.source_type not in {"LAB_RECORD","LAB_RESULT","ANALYSIS_OUTPUT"}:
+        raise HTTPException(422,"Only real lab conditions or their measured/computed lab outcomes can be approved for optimization")
+    event=MeasurementReviewEvent(observation_id=item.id,review_status=payload.review_status,reviewer=payload.reviewer.strip(),
+        opinion=payload.opinion.strip(),reason=payload.reason.strip(),tool_id="normalized-observation",
+        tool_version="pint-normalization-v1",original_file_hash="",settings_json={"parameter_id":item.parameter_id,"normalization_error":item.normalization_error})
+    item.review_status=payload.review_status
+    db.add(event); db.commit(); db.refresh(item)
+    return {"observation_id":item.id,"review_status":item.review_status,"review_event_id":event.id,
+        "review_history":[{"status":row.review_status,"reviewer":row.reviewer,"opinion":row.opinion,"reason":row.reason,"created_at":row.created_at.isoformat()+"Z"} for row in item.review_events]}
 
 def _analysis_file(db:Session,run_id:int,artifact:bool):
     item=db.get(MaterialAnalysisRun,run_id)
@@ -909,16 +1005,21 @@ def delete_experiment(experiment_id:int,db:Session=Depends(get_db)):
     if not e: raise HTTPException(404,"Experiment not found")
     db.delete(e); db.commit(); return {"deleted":experiment_id}
 @router.get("/experiments/{experiment_id}/compare/{other_id}")
-def compare_experiments(experiment_id:int,other_id:int,db:Session=Depends(get_db)):
+def compare_experiments(experiment_id:int,other_id:int,comparison_mode:str=Query("same_version",pattern="^(same_version|cross_version)$"),db:Session=Depends(get_db)):
     a=exp_query(db).filter_by(id=experiment_id).first(); b=exp_query(db).filter_by(id=other_id).first()
     if not a or not b: raise HTTPException(404,"Experiment not found")
     if a.topic_id!=b.topic_id: raise HTTPException(422,"Experiments from different research topics cannot be compared")
-    return {"experiment_a":a.code,"experiment_b":b.code,**compare(a,b)}
+    result=compare(a,b,comparison_mode=comparison_mode)
+    if result["comparison_context"]["comparison_status"]!="comparable":
+        raise HTTPException(422,{"message":"These records cannot be compared in the selected mode.","comparison_context":result["comparison_context"]})
+    result["record_kinds"]={"experiment_a":"synthetic_demo" if a.demo else "lab_record","experiment_b":"synthetic_demo" if b.demo else "lab_record"}
+    if a.demo!=b.demo: raise HTTPException(422,"Synthetic demo data cannot be compared with lab records")
+    return {"experiment_a":a.code,"experiment_b":b.code,**result}
 @router.get("/experiments/{experiment_id}/failure-analysis")
-def failure_analysis(experiment_id:int,db:Session=Depends(get_db)):
+def failure_analysis(experiment_id:int,comparison_mode:str=Query("same_version",pattern="^(same_version|cross_version)$"),db:Session=Depends(get_db)):
     e=exp_query(db).filter_by(id=experiment_id).first()
     if not e: raise HTTPException(404,"Experiment not found")
-    pool=exp_query(db).filter(Experiment.topic_id==e.topic_id).all(); return analyze(e,pool)
+    pool=exp_query(db).filter(Experiment.topic_id==e.topic_id).all(); return analyze(e,pool,comparison_mode=comparison_mode)
 @router.post("/papers")
 def upload_paper(file:UploadFile=File(...),topic_id:int=Form(...),title:str|None=Form(None),authors:str=Form(""),year:int|None=Form(None),db:Session=Depends(get_db)):
     filename = (file.filename or "").replace("\\", "/").rsplit("/", 1)[-1].strip()

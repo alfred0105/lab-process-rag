@@ -1,46 +1,21 @@
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 import json
+import sqlite3
+from alembic import command
+from alembic.config import Config
+from alembic.migration import MigrationContext
+from alembic.script import ScriptDirectory
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.api.routes import router
-from app.db.database import ROOT, Base, engine, SessionLocal
-from app.db.models import Experiment, ExperimentMethod, MethodVersion, ResearchTopic, ResearchMaterial, ExperimentMaterial, Paper, MaterialAnalysisRun, SimulationRun
+from app.db.database import DB_PATH, ROOT, Base, engine, SessionLocal
+from app.db.models import Experiment, ExperimentMethod, MethodVersion, ResearchTopic, ResearchMaterial, ExperimentMaterial, Paper, MaterialAnalysisRun, SimulationRun, ScientificObservation
+from app.services.scientific_data import make_observation
 
-def migrate_legacy_experiments():
-    # create_all creates new tables, while these nullable columns upgrade older SQLite files in place.
-    with engine.begin() as connection:
-        columns={row[1] for row in connection.exec_driver_sql("PRAGMA table_info(experiments)").fetchall()}
-        if "topic_id" not in columns:
-            connection.exec_driver_sql("ALTER TABLE experiments ADD COLUMN topic_id INTEGER REFERENCES research_topics(id)")
-        if "method_version_id" not in columns:
-            connection.exec_driver_sql("ALTER TABLE experiments ADD COLUMN method_version_id INTEGER REFERENCES method_versions(id)")
-        if "method_run_number" not in columns:
-            connection.exec_driver_sql("ALTER TABLE experiments ADD COLUMN method_run_number INTEGER")
-        if "duration_minutes" not in columns:
-            connection.exec_driver_sql("ALTER TABLE experiments ADD COLUMN duration_minutes INTEGER")
-        material_columns={row[1] for row in connection.exec_driver_sql("PRAGMA table_info(experiment_materials)").fetchall()}
-        if "source_material_id" not in material_columns:
-            connection.exec_driver_sql("ALTER TABLE experiment_materials ADD COLUMN source_material_id INTEGER REFERENCES research_materials(id) ON DELETE SET NULL")
-        paper_columns={row[1] for row in connection.exec_driver_sql("PRAGMA table_info(papers)").fetchall()}
-        if "topic_id" not in paper_columns:
-            connection.exec_driver_sql("ALTER TABLE papers ADD COLUMN topic_id INTEGER REFERENCES research_topics(id)")
-        analysis_columns={row[1] for row in connection.exec_driver_sql("PRAGMA table_info(material_analysis_runs)").fetchall()}
-        if "topic_id" not in analysis_columns:
-            connection.exec_driver_sql("ALTER TABLE material_analysis_runs ADD COLUMN topic_id INTEGER REFERENCES research_topics(id)")
-        if "analysis_status" not in analysis_columns:
-            connection.exec_driver_sql("ALTER TABLE material_analysis_runs ADD COLUMN analysis_status VARCHAR(30) NOT NULL DEFAULT 'completed'")
-        if "result_key" not in analysis_columns:
-            connection.exec_driver_sql("ALTER TABLE material_analysis_runs ADD COLUMN result_key VARCHAR(200)")
-        if "process_step_id" not in analysis_columns:
-            connection.exec_driver_sql("ALTER TABLE material_analysis_runs ADD COLUMN process_step_id INTEGER REFERENCES process_steps(id) ON DELETE SET NULL")
-        version_columns={row[1] for row in connection.exec_driver_sql("PRAGMA table_info(method_versions)").fetchall()}
-        if "version_label" not in version_columns:
-            connection.exec_driver_sql("ALTER TABLE method_versions ADD COLUMN version_label VARCHAR(40)")
-        connection.exec_driver_sql("UPDATE method_versions SET version_label = CAST(version_number AS TEXT) WHERE version_label IS NULL OR version_label = ''")
-        integrated_columns={row[1] for row in connection.exec_driver_sql("PRAGMA table_info(integrated_analysis_sessions)").fetchall()}
-        if "simulation_run_ids" not in integrated_columns:
-            connection.exec_driver_sql("ALTER TABLE integrated_analysis_sessions ADD COLUMN simulation_run_ids JSON NOT NULL DEFAULT '[]'")
+def migrate_legacy_data():
+    """Idempotent data backfill retained for pre-Alembic lab databases."""
     db=SessionLocal()
     try:
         old_runs=db.query(Experiment).filter(Experiment.method_version_id.is_(None)).all()
@@ -110,12 +85,87 @@ def import_used_materials_to_library():
     finally:
         db.close()
 
+def upgrade_schema():
+    """Apply versioned additive schema updates after the legacy bootstrap."""
+    config=Config(str(ROOT / "backend" / "alembic.ini"))
+    command.upgrade(config,"head")
+
+def backup_before_schema_upgrade():
+    """Take a consistent SQLite backup before applying pending Alembic revisions."""
+    if not DB_PATH.exists():
+        return None
+    config=Config(str(ROOT / "backend" / "alembic.ini"))
+    current_connection=engine.connect()
+    try:
+        current=MigrationContext.configure(current_connection).get_current_revision()
+        head=ScriptDirectory.from_config(config).get_current_head()
+    finally:
+        current_connection.close()
+    if current == head:
+        return None
+    backup_dir=ROOT / "data" / "backups"
+    backup_dir.mkdir(parents=True,exist_ok=True)
+    stamp=datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    destination=backup_dir / f"lab_process_pre_alembic_{stamp}.db"
+    source=engine.raw_connection()
+    backup=sqlite3.connect(destination)
+    try:
+        source.driver_connection.backup(backup)
+    finally:
+        backup.close()
+        source.close()
+    return destination
+
+def backfill_scientific_observations():
+    """Copy legacy scalar records into an additive view; never edit source rows."""
+    db=SessionLocal()
+    try:
+        # Early versions of the extension table lacked topic_id. Recover that
+        # context from the linked original experiment without changing the
+        # source experiment or its recorded values.
+        for observation in db.query(ScientificObservation).filter(
+            ScientificObservation.topic_id.is_(None), ScientificObservation.experiment_id.is_not(None)
+        ).all():
+            source_experiment = db.get(Experiment, observation.experiment_id)
+            if source_experiment:
+                observation.topic_id = source_experiment.topic_id
+                if observation.method_version_id is None:
+                    observation.method_version_id = source_experiment.method_version_id
+        existing={row[0] for row in db.query(ScientificObservation.source_id).all()}
+        for experiment in db.query(Experiment).all():
+            for step in experiment.steps:
+                for variable in step.variables:
+                    source_id=f"process-variable:{variable.id}"
+                    if source_id in existing: continue
+                    source_type="SYNTHETIC_DEMO" if experiment.demo or variable.source_type=="demo" else "LAB_RECORD"
+                    db.add(make_observation(topic_id=experiment.topic_id,experiment_id=experiment.id,method_version_id=experiment.method_version_id,
+                        process_step_id=step.id,step_name=step.name,name=variable.name,value=variable.value,unit=variable.unit,
+                        material=variable.material,source_type=source_type,source_id=source_id))
+                    existing.add(source_id)
+            for result in experiment.results:
+                source_id=f"experiment-result:{result.id}"
+                if source_id in existing: continue
+                source_type="SYNTHETIC_DEMO" if experiment.demo else "LAB_RESULT"
+                db.add(make_observation(topic_id=experiment.topic_id,experiment_id=experiment.id,method_version_id=experiment.method_version_id,
+                    process_step_id=None,step_name="experiment result",name=result.key,value=result.value,unit=result.unit,
+                    source_type=source_type,source_id=source_id))
+                existing.add(source_id)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
 @asynccontextmanager
 async def lifespan(app:FastAPI):
+    backup_before_schema_upgrade()
     Base.metadata.create_all(bind=engine)
-    migrate_legacy_experiments()
+    upgrade_schema()
+    migrate_legacy_data()
     merge_legacy_method_drafts()
     import_used_materials_to_library()
+    backfill_scientific_observations()
     yield
 
 app=FastAPI(title="Lab Process RAG",version="0.1.0",description="Paper-backed claims are cited; Gemma general knowledge is labeled separately.",lifespan=lifespan)
