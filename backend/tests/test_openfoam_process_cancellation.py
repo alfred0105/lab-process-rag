@@ -1,6 +1,7 @@
 import os
 import sys
 import subprocess
+import time
 
 import pytest
 
@@ -15,8 +16,18 @@ def _spawn_tree(pid_file):
 
 
 def _assert_pid_gone(pid):
-    with pytest.raises(ProcessLookupError):
-        os.kill(pid, 0)
+    for _ in range(20):
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return
+        # A reparented zombie has exited and cannot consume CPU/resources; on
+        # Linux PID 1 may reap it later. `ps` is available on macOS and CI.
+        state=subprocess.run(["ps","-o","stat=","-p",str(pid)],capture_output=True,text=True,check=False).stdout.strip()
+        if not state or state.startswith("Z"):
+            return
+        time.sleep(.05)
+    pytest.fail(f"child process {pid} is still running (state={state!r})")
 
 
 def test_cancel_terminates_solver_and_its_child_process(tmp_path):
