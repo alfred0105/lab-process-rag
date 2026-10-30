@@ -5,7 +5,7 @@ import type { AIStatus, AssistantHistory, AssistantResult, Experiment, PaperDisc
 import { useLanguage } from '../language';
 
 export default function AssistantPanel({ onPaperAdded, experiments = [], topicId }: { onPaperAdded?: () => void; experiments?: Experiment[]; topicId?: number }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [status, setStatus] = useState<AIStatus | null>(null);
   const [query, setQuery] = useState('');
   const [allowGeneralKnowledge, setAllowGeneralKnowledge] = useState(true);
@@ -31,12 +31,12 @@ export default function AssistantPanel({ onPaperAdded, experiments = [], topicId
   }, [experimentId, contextStepName, selectedExperiment]);
 
   useEffect(() => {
-    api.aiStatus().then(setStatus).catch((cause) => setError(String(cause)));
+    api.aiStatus().then(setStatus).catch((cause) => setError(t(cause instanceof Error?cause.message:String(cause))));
   }, []);
 
   const loadHistory = async () => {
     try { setHistory(await api.assistantHistory(topicId)); setHistoryError(''); }
-    catch (cause) { setHistoryError(String(cause)); }
+    catch (cause) { setHistoryError(t(cause instanceof Error?cause.message:String(cause))); }
   };
 
   useEffect(() => { void loadHistory(); }, [topicId]);
@@ -47,10 +47,10 @@ export default function AssistantPanel({ onPaperAdded, experiments = [], topicId
     setError('');
     setResult(null);
     try {
-      setResult(await api.ask(query.trim(), allowGeneralKnowledge, experimentId ? Number(experimentId) : undefined, topicId, contextScope, contextScope === 'step' ? contextStepName : undefined));
+      setResult(await api.ask(query.trim(), allowGeneralKnowledge, experimentId ? Number(experimentId) : undefined, topicId, contextScope, contextScope === 'step' ? contextStepName : undefined, language));
       await loadHistory();
     } catch (cause) {
-      setError(String(cause));
+      setError(t(cause instanceof Error?cause.message:String(cause)));
     } finally {
       setBusy(false);
     }
@@ -60,7 +60,7 @@ export default function AssistantPanel({ onPaperAdded, experiments = [], topicId
     if (term.trim().length < 3 || paperBusy) return;
     setPaperBusy(true); setPaperError(''); setUploadMessage('');
     try { const found = await api.discoverPapers(term.trim()); setPaperSearch(found); setPaperQuery(found.query); }
-    catch (cause) { setPaperError(String(cause)); }
+    catch (cause) { setPaperError(t(cause instanceof Error?cause.message:String(cause))); }
     finally { setPaperBusy(false); }
   };
 
@@ -69,7 +69,7 @@ export default function AssistantPanel({ onPaperAdded, experiments = [], topicId
     form.append('authors', item.authors.join(', ')); if (item.year) form.append('year', String(item.year));
     setUploadMessage(`Indexing ${item.title}…`); setPaperError('');
     try { await api.upload(form); setUploadMessage(`Added and indexed: ${item.title}`); onPaperAdded?.(); }
-    catch (cause) { setPaperError(String(cause)); setUploadMessage(''); }
+    catch (cause) { setPaperError(t(cause instanceof Error?cause.message:String(cause))); setUploadMessage(''); }
   };
 
   return <div className="assistant-layout">

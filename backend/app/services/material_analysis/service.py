@@ -9,6 +9,7 @@ from dataclasses import dataclass
 import numpy as np
 from PIL import Image
 from scipy import ndimage
+from scipy.signal import find_peaks
 
 
 class AnalysisInputError(ValueError):
@@ -44,17 +45,16 @@ def analyze_xrd(data: bytes, filename: str, x_unit: str = "2theta_deg") -> Analy
     x, y = values[order, 0], values[order, 1]
     if np.any(np.diff(x) <= 0):
         raise AnalysisInputError("XRD x positions must be unique and increasing.")
-    dynamic_range = float(np.ptp(y))
-    threshold = float(np.min(y) + 0.05 * dynamic_range)
-    candidates = [i for i in range(1, len(y) - 1) if y[i] > y[i - 1] and y[i] >= y[i + 1] and y[i] >= threshold]
-    # Collapse adjacent local maxima to the stronger observed sample.
-    peaks: list[int] = []
-    for index in candidates:
-        if peaks and index - peaks[-1] < 3:
-            if y[index] > y[peaks[-1]]:
-                peaks[-1] = index
-        else:
-            peaks.append(index)
+    detection_signal = ndimage.gaussian_filter1d(y, sigma=0.8, mode="nearest")
+    dynamic_range = float(np.ptp(detection_signal))
+    threshold = float(np.min(detection_signal) + 0.05 * dynamic_range)
+    peaks, _properties = find_peaks(
+        detection_signal,
+        height=threshold,
+        prominence=max(dynamic_range * 0.02, np.finfo(float).eps),
+        distance=3,
+    )
+    peaks = [int(index) for index in peaks]
     max_intensity = float(np.max(y))
     # Keep a bounded, deterministic preview of the measured curve for the UI.
     # Always retain detected peak samples even when a long scan is decimated.

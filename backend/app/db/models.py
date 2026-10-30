@@ -157,7 +157,9 @@ class ExperimentMaterial(Base):
     role: Mapped[str] = mapped_column(String(200), default="")
     lot_number: Mapped[str] = mapped_column(String(200), default="")
     supplier: Mapped[str] = mapped_column(String(200), default="")
+    source_material_id: Mapped[int | None] = mapped_column(ForeignKey("research_materials.id", ondelete="SET NULL"), nullable=True, index=True)
     experiment: Mapped[Experiment] = relationship(back_populates="materials")
+    source_material: Mapped["ResearchMaterial | None"] = relationship()
 
 class ExperimentResult(Base):
     __tablename__ = "experiment_results"
@@ -257,5 +259,22 @@ class IntegratedAnalysisSession(Base):
     allow_general_knowledge: Mapped[bool] = mapped_column(Boolean, default=True)
     model: Mapped[str] = mapped_column(String(200), default="")
     analysis_run_ids: Mapped[list] = mapped_column(JSON)
+    simulation_run_ids: Mapped[list] = mapped_column(JSON, default=list)
     result_json: Mapped[dict] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+class SimulationRun(Base):
+    """Immutable-input record for a numerical simulation, separate from lab measurements."""
+    __tablename__ = "simulation_runs"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    experiment_id: Mapped[int] = mapped_column(ForeignKey("experiments.id", ondelete="CASCADE"), index=True)
+    process_step_id: Mapped[int | None] = mapped_column(ForeignKey("process_steps.id", ondelete="SET NULL"), nullable=True, index=True)
+    model_id: Mapped[str] = mapped_column(String(120))
+    status: Mapped[str] = mapped_column(String(30), default="queued", index=True)
+    input_json: Mapped[dict] = mapped_column(JSON)
+    result_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    log_text: Mapped[str] = mapped_column(Text, default="")
+    error_text: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

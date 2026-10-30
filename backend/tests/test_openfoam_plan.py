@@ -1,0 +1,82 @@
+from app.services.simulation.openfoam import plan_simple_rushton_case
+from app.services.simulation.openfoam_runner import parse_power_trace
+from app.schemas.core import IntegratedAnalysisClaim, IntegratedAnalysisRequest
+from pydantic import ValidationError
+import pytest
+
+
+def _record(variables):
+    return {"id": 71, "code": "EXP-071", "steps": [{"name": "Mixing", "variables": variables}]}
+
+
+def test_openfoam_plan_maps_a_compatible_record_to_si_without_claiming_it_ran():
+    plan = plan_simple_rushton_case(_record([
+        {"name": "vessel_geometry", "value": "closed fully filled baffled cylindrical vessel, diameter 100 mm, height 120 mm"},
+        {"name": "impeller_geometry", "value": "6-blade Rushton turbine, diameter 30 mm"},
+        {"name": "stirring_speed", "value": "300", "unit": "rpm"},
+        {"name": "liquid_volume", "value": "942", "unit": "mL"},
+        {"name": "fluid_density", "value": "1", "unit": "g/cm3"},
+        {"name": "fluid_viscosity", "value": "1", "unit": "mPa·s"},
+    ]))
+
+    assert plan["status"] == "ready_for_review"
+    assert plan["compatible"] is True
+    assert plan["missing"] == []
+    checks = {item["key"]: item for item in plan["checks"]}
+    assert checks["cylindrical_tank_diameter"]["value_si"] == 0.1
+    assert checks["cylindrical_tank_height"]["value_si"] == 0.12
+    assert checks["stirring_speed"]["value_si"] == 300
+    assert checks["fluid_density"]["value_si"] == 1000
+    assert checks["kinematic_viscosity"]["value_si"] == 1e-6
+    assert "do not predict concentration homogenization time" in " ".join(plan["limitations"])
+
+
+def test_openfoam_plan_rejects_an_impeller_the_template_does_not_support():
+    plan = plan_simple_rushton_case(_record([
+        {"name": "vessel_geometry", "value": "open baffled tank, diameter 100 mm, height 120 mm"},
+        {"name": "impeller_geometry", "value": "4-blade pitched paddle, diameter 30 mm"},
+    ]))
+
+    assert plan["status"] == "unsupported_geometry"
+    assert plan["compatible"] is False
+    assert "closed_fully_filled_vessel" in plan["missing"]
+
+
+def test_openfoam_plan_identifies_magnetic_stir_bar_as_a_separate_unsupported_case():
+    plan = plan_simple_rushton_case(_record([
+        {"name": "vessel_geometry", "value": "100 mm diameter glass beaker"},
+        {"name": "magnetic_stir_bar", "value": "PTFE magnetic stir bar, 30 mm long"},
+        {"name": "stirring_speed", "value": "400", "unit": "rpm"},
+    ]))
+
+    assert plan["status"] == "unsupported_geometry"
+    assert any("magnetic stir bar" in reason for reason in plan["unsupported_reasons"])
+    assert any("not a magnetic stir bar" in limitation for limitation in plan["limitations"])
+
+
+def test_openfoam_power_trace_parser_keeps_named_finite_solver_values():
+    trace = parse_power_trace("""# Domain-integrated power [x 1e-09]
+# Time divStressU divStressDotU stressDDotGradU divPU gradPU pDivU divTauU divTauDotU tauDDotGradU
+0 0 0 0 0 0 0 0 0 0
+10 3233.09286528 899.85509017 2333.23777511 3210.69244947 2543.2279744 667.46447507 22.40041581 -1643.37288423 1665.77330004
+bad row
+""")
+
+    assert len(trace) == 2
+    assert trace[1]["time_s"] == 10
+    assert trace[1]["divStressU"] == 3233.09286528
+    assert trace[1]["divTauDotU"] == -1643.37288423
+
+
+def test_integrated_analysis_claims_keep_simulation_outputs_distinct_from_measurements():
+    claim = IntegratedAnalysisClaim(claim="The model output shows a higher integrated power term.", status="SIMULATION_OUTPUT", simulation_run_refs=[9])
+    assert claim.simulation_run_refs == [9]
+    with pytest.raises(ValidationError):
+        IntegratedAnalysisClaim(claim="A measurement increased.", status="SIMULATION_OUTPUT")
+    with pytest.raises(ValidationError):
+        IntegratedAnalysisClaim(claim="Measurement output.", status="ANALYSIS_OUTPUT", analysis_run_refs=[3], simulation_run_refs=[9])
+
+
+def test_integrated_analysis_request_accepts_simulation_run_ids():
+    request = IntegratedAnalysisRequest(simulation_run_ids=[9], goal="Explain the model result alongside the records.")
+    assert request.simulation_run_ids == [9]

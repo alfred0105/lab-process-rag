@@ -8,6 +8,13 @@ def test_health():
     with TestClient(app) as c:
         assert c.get('/api/health').json()['status']=='ok'
 
+def test_simulation_status_reports_phreeqc_without_running_demo_inputs():
+    with TestClient(app) as c:
+        response=c.get('/api/simulations/status')
+        assert response.status_code==200
+        assert response.json()['phreeqc_installed'] is True
+        assert response.json()['aqueous_equilibrium'] is True
+
 def test_saved_materials_are_reusable_and_scoped_to_topic(tmp_path):
     engine=create_engine(f"sqlite:///{tmp_path / 'materials.db'}",connect_args={"check_same_thread":False})
     sessions=sessionmaker(bind=engine,autoflush=False,autocommit=False)

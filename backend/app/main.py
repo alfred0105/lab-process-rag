@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.api.routes import router
 from app.db.database import ROOT, Base, engine, SessionLocal
-from app.db.models import Experiment, ExperimentMethod, MethodVersion, ResearchTopic, ResearchMaterial, ExperimentMaterial, Paper, MaterialAnalysisRun
+from app.db.models import Experiment, ExperimentMethod, MethodVersion, ResearchTopic, ResearchMaterial, ExperimentMaterial, Paper, MaterialAnalysisRun, SimulationRun
 
 def migrate_legacy_experiments():
     # create_all creates new tables, while these nullable columns upgrade older SQLite files in place.
@@ -19,6 +19,9 @@ def migrate_legacy_experiments():
             connection.exec_driver_sql("ALTER TABLE experiments ADD COLUMN method_run_number INTEGER")
         if "duration_minutes" not in columns:
             connection.exec_driver_sql("ALTER TABLE experiments ADD COLUMN duration_minutes INTEGER")
+        material_columns={row[1] for row in connection.exec_driver_sql("PRAGMA table_info(experiment_materials)").fetchall()}
+        if "source_material_id" not in material_columns:
+            connection.exec_driver_sql("ALTER TABLE experiment_materials ADD COLUMN source_material_id INTEGER REFERENCES research_materials(id) ON DELETE SET NULL")
         paper_columns={row[1] for row in connection.exec_driver_sql("PRAGMA table_info(papers)").fetchall()}
         if "topic_id" not in paper_columns:
             connection.exec_driver_sql("ALTER TABLE papers ADD COLUMN topic_id INTEGER REFERENCES research_topics(id)")
@@ -35,6 +38,9 @@ def migrate_legacy_experiments():
         if "version_label" not in version_columns:
             connection.exec_driver_sql("ALTER TABLE method_versions ADD COLUMN version_label VARCHAR(40)")
         connection.exec_driver_sql("UPDATE method_versions SET version_label = CAST(version_number AS TEXT) WHERE version_label IS NULL OR version_label = ''")
+        integrated_columns={row[1] for row in connection.exec_driver_sql("PRAGMA table_info(integrated_analysis_sessions)").fetchall()}
+        if "simulation_run_ids" not in integrated_columns:
+            connection.exec_driver_sql("ALTER TABLE integrated_analysis_sessions ADD COLUMN simulation_run_ids JSON NOT NULL DEFAULT '[]'")
     db=SessionLocal()
     try:
         old_runs=db.query(Experiment).filter(Experiment.method_version_id.is_(None)).all()

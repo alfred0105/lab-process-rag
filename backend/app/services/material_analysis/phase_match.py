@@ -73,9 +73,10 @@ def _match_peaks(observed: list[dict], calculated: list[tuple[float, float, str]
 
 async def match_xrd_phases(
     data: bytes,
-    formulas: list[str],
+    formulas: list[str] | None,
     wavelength_angstrom: float,
     tolerance_degrees: float = 0.3,
+    elements: list[str] | None = None,
 ) -> dict:
     """Compare observed peak positions with simulated COD CIF patterns.
 
@@ -90,8 +91,24 @@ async def match_xrd_phases(
         raise ValueError("Wavelength must be between 0.1 and 5 Å.")
     if not math.isfinite(tolerance_degrees) or not 0.01 <= tolerance_degrees <= 2:
         raise ValueError("Peak tolerance must be between 0.01 and 2 degrees.")
-    if not 1 <= len(formulas) <= 5:
+    formulas = formulas or []
+    elements = elements or []
+    if bool(formulas) == bool(elements):
+        raise ValueError("Provide either candidate formulas or the elements present in the target phase.")
+    if formulas and not 1 <= len(formulas) <= 5:
         raise ValueError("Enter between one and five candidate formulas.")
+    if elements:
+        from pymatgen.core import Element
+
+        normalized_elements = list(dict.fromkeys(value.strip() for value in elements if value.strip()))
+        if not 1 <= len(normalized_elements) <= 4:
+            raise ValueError("Enter between one and four elements present in the target phase.")
+        try:
+            normalized_elements = [Element(value).symbol for value in normalized_elements]
+        except ValueError as exc:
+            raise ValueError("One or more element symbols are invalid.") from exc
+    else:
+        normalized_elements = []
 
     candidates: list[tuple[str, str]] = []
     seen: set[str] = set()
@@ -128,7 +145,31 @@ async def match_xrd_phases(
             except (httpx.HTTPError, ValueError):
                 return original, normalized, [], "search"
 
-        searches = await asyncio.gather(*(search_formula(*candidate) for candidate in candidates))
+        if normalized_elements:
+            element_params = {f"el{index}": element for index, element in enumerate(normalized_elements, 1)}
+            element_params.update({"strictmin": str(len(normalized_elements)), "strictmax": str(len(normalized_elements)), "format": "csv"})
+            try:
+                response = await client.get(COD_SEARCH, params=element_params)
+                response.raise_for_status()
+                rows = _cod_rows(response.text)
+                entries_by_formula: dict[str, list[dict]] = {}
+                for row in rows:
+                    entry_id = row.get("file", "").strip()
+                    cod_formula = row.get("calcformula", "").strip() or row.get("formula", "").strip()
+                    normalized = _reduced_formula(cod_formula)
+                    if not entry_id.isdigit() or not normalized:
+                        continue
+                    # Keep up to two known structures for each formula so common
+                    # polymorphs can compete without fetching the whole database.
+                    bucket = entries_by_formula.setdefault(normalized, [])
+                    if len(bucket) < 2:
+                        bucket.append({"id": entry_id, "formula": cod_formula, "doi": row.get("doi", "").strip(), "title": row.get("title", "").strip()})
+                entries = [(formula, formula, item) for formula, items in entries_by_formula.items() for item in items][:30]
+                searches = [("elements", " ".join(normalized_elements), entries, None)]
+            except (httpx.HTTPError, ValueError):
+                searches = [("elements", " ".join(normalized_elements), [], "search")]
+        else:
+            searches = await asyncio.gather(*(search_formula(*candidate) for candidate in candidates))
 
         async def fetch_cif(item: dict):
             try:
@@ -138,7 +179,8 @@ async def match_xrd_phases(
             except httpx.HTTPError:
                 return item, ""
 
-        entries = [(formula, normalized, item) for formula, normalized, rows, _error in searches for item in rows]
+        if not normalized_elements:
+            entries = [(formula, normalized, item) for formula, normalized, rows, _error in searches for item in rows]
         cif_results = await asyncio.gather(*(fetch_cif(item) for _formula, _normalized, item in entries))
 
     search_failures = sum(error is not None for _formula, _normalized, _rows, error in searches)
@@ -179,6 +221,9 @@ async def match_xrd_phases(
     return {
         "matches": results[:10],
         "searched_formulas": [normalized for _original, normalized in candidates],
+        "searched_elements": normalized_elements,
+        "search_mode": "elements" if normalized_elements else "formulas",
+        "candidate_structures_considered": len(entries),
         "observed_peak_count": len(observed),
         "wavelength_angstrom": wavelength_angstrom,
         "tolerance_degrees": tolerance_degrees,
