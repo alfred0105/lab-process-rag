@@ -22,6 +22,7 @@ from app.services.demo import seed_demo
 from app.services.calculator.service import amount, mass_from_concentration, dilution, ratio
 from app.services.simulation.ph import estimate_solution_ph, SYSTEMS as PH_SYSTEMS
 from app.services.simulation.phreeqc import calculate_aqueous_equilibrium, sweep_aqueous_equilibrium, simulate_stirred_reaction_path
+from app.services.simulation.cache import phreeqc_cache_identity
 from app.services.material_sources import MaterialLookupUnavailable, lookup_material
 from app.services.simulation.readiness import assess_simulation_inputs
 from app.services.simulation.openfoam import plan_simple_rushton_case
@@ -355,18 +356,18 @@ def execute_scientific_tool(payload:ToolExecutionRequest,db:Session=Depends(get_
     gate=ValidationGate.validate({"readiness":"REQUIRES_REVIEW","execution_policy":"review_inputs_before_run"},approval_granted=payload.approval_confirmed)
     if not gate["allowed"]: raise HTTPException(409,{"reason":"scientific_input_review_required","validation_gate":gate})
     model_id="PHREEQC-3 / phreeqc.dat"
-    stable_input={"tool_id":tool.tool_id,"tool_version":tool.version,"model_id":model_id,"database_id":"phreeqc.dat","engine":"phreeqpython-1.6.2","experiment_id":experiment.id,"process_step_id":payload.process_step_id,"parameters":parameters}
-    idempotency_key=sha256_bytes(json.dumps(stable_input,sort_keys=True,separators=(",",":"),ensure_ascii=False).encode())
+    idempotency_key,stable_input=phreeqc_cache_identity(tool_id=tool.tool_id,tool_version=tool.version,
+        topic_id=experiment.topic_id,experiment_id=experiment.id,process_step_id=payload.process_step_id,parameters=parameters)
     existing=db.query(SimulationRun).filter_by(idempotency_key=idempotency_key).first()
     if existing and existing.status=="completed":
         return {"status":"REUSED","tool_id":tool.tool_id,"simulation_run_id":existing.id,"result":existing.result_json,"provenance":{"input":parameters,"model_id":model_id,"idempotency_key":idempotency_key}}
     if existing and existing.status in {"queued","running"}:
         raise HTTPException(409,{"reason":"identical_execution_already_running","simulation_run_id":existing.id,"status":existing.status})
-    if existing and existing.status in {"failed","invalid_output","timed_out","cancelled"} and not payload.retry_failed:
+    if existing and existing.status in {"failed","invalid_output","timed_out","cancelled","requires_review"} and not payload.retry_failed:
         raise HTTPException(409,{"reason":"previous_attempt_failed_retry_must_be_explicit","simulation_run_id":existing.id,"status":existing.status})
     started=datetime.now(timezone.utc).replace(tzinfo=None)
     if existing:
-        attempts=int((existing.input_json or {}).get("attempt",1))+1
+        attempts=int(existing.attempt or (existing.input_json or {}).get("attempt",1))+1
         if attempts>existing.max_attempts: raise HTTPException(409,{"reason":"maximum_explicit_retries_reached","simulation_run_id":existing.id,"max_attempts":existing.max_attempts})
         history=list((existing.input_json or {}).get("retry_history",[]))
         history.append({"status":existing.status,"error":existing.error_text,"finished_at":existing.finished_at.isoformat()+"Z" if existing.finished_at else None})

@@ -218,6 +218,54 @@
 | OPT-004 | Active Learning이 정보가치/불확도/실험비용/위험을 고려; 사람 승인 없이 실제 실험·장비 실행하지 않음 | P1 | NOT_STARTED | future optimizer | 미구현 | — | OPT-003, 승인 프로토콜/기록 |
 | OPT-005 | paired data로 시뮬레이션 bias/discrepancy를 보정하고 출처를 유지; sim output은 실측 학습 라벨이 아님 | P1 | NOT_STARTED | ScientificObservation, future calibration module | source-type 구분만 구현 | 0ccad66 | 실제 같은 조건의 sim/lab 자료 |
 | OPT-006 | 실험→JEV action→분석/시뮬→BO→연구자 승인→결과→검토의 폐루프를 재현 가능한 campaign으로 보존 | P0 | NOT_STARTED | future campaign schema/API/UI | 전체 chain 미연결 | — | Phase 1, 3, 5 선행 |
+
+## Phase 3 최종 통과 작업 — 2026-10-30
+
+첨부된 `Phase 3 최종 통과 작업 지시서`의 세부 조건을 보존하고, 이번 변경으로 확인한 코드와 검증을 추적한다. 구현된 코드와 통과 검증을 구별하며, 테스트 fixture는 실제 장비 데이터로 간주하지 않는다.
+
+| ID | 요구사항 상세 | 우선순위 | 상태 | 관련 소스 파일 | 완료 조건 및 이번 검증 | 커밋 | 잔여 작업·의존성 |
+|---|---|---:|---|---|---|---|---|
+| P3F-CACHE-01 | 직접 PHREEQC API와 DAG Worker가 동일한 canonical input, scope, tool/algorithm version, DB fingerprint를 사용하고 예약 후 실행·재사용·실패 이력을 보존 | P0 | VERIFIED | `backend/app/services/simulation/cache.py`, `backend/app/api/routes.py`, `backend/app/worker.py` | 두 Worker thread에서 서로 다른 Workflow의 동일 입력을 동시에 요청하는 테스트 통과. SimulationRun 한 개, 두 Node가 같은 결과 계보를 연결하며 두 번째가 재사용됨. Topic/experiment/step/tool/database SHA 변경 시 key 무효화 테스트 통과. 전체 pytest 통과 | 이번 최종 통과 작업 | 실서비스 로컬 SQLite에서 대규모 stress/전원 차단 검증은 별도 운영시험 |
+| P3F-PLAN-01 | 연구 목표로 safe action과 기존 Worker DAG를 생성하고, 자료 부족·결과 검토·보류·설명 요청을 구분 | P0 | VERIFIED | `backend/app/services/workflow_planner.py`, `backend/app/api/workflows.py`, `backend/app/schemas/core.py` | 목표 분류, XRD pending fixture → quality→XRD DAG 생성·enqueue·Worker 실행·원본 해시 저장, 자료 누락 REQUEST_DATA, PHREEQC 총량 누락 요청, CFD ABSTAIN, 완료 결과 REVIEW_RESULT, 설명 GENERATE_EXPLANATION 테스트 통과 | 이번 최종 통과 작업 | 한국어/영어 목표 표현 평가셋과 사용자 승인된 PHREEQC 계획 생성은 후속 작업. PHREEQC 실제 값·전하수지는 Planner가 추정하지 않음 |
+| P3F-PLAN-UI-01 | 계획 요청 및 DAG 미리보기를 기존 분석 화면에서 사용 | P1 | IMPLEMENTED | `frontend/src/api/client.ts`, `frontend/src/components/DurableWorkflowPanel.tsx`, `frontend/src/language.tsx`, `frontend/src/style.css` | Production build 통과; 로컬 브라우저에서 목표 입력/계획 버튼 렌더링 확인 | 이번 최종 통과 작업 | 현재 선택된 앱 주제는 비데모 실험이 0건이어서 실제 브라우저 enqueue·진행·재시도·취소 E2E를 완료하지 못함 |
+| P3F-TYPED-01 | 검증된 typed output에 finite value, unit, meaning, source type/id, validation/review status를 요구하고 도구별 선언 출력만 제공 | P0 | IMPLEMENTED | `backend/app/worker.py`, `backend/app/services/simulation/cache.py` | PHREEQC scalar/종/포화지수와 XRD 축 좌표, AFM Sa/Sq/Sz, 현미경 segmentation count에만 명시 계약. 유효한 계보 handoff 및 NaN handoff 거부 regression 테스트 통과 | 이번 최종 통과 작업 | 호환 차원별 Pint 변환은 자동 적용하지 않음; 완전한 adapter 공통 계약과 불확도 정의는 미완료 |
+| P3F-CRASH-01 | 실제 별도 Worker 강제 종료 후 Lease 만료 복구와 Generation fencing 확인 | P0 | VERIFIED | `backend/app/worker.py`, `backend/tests/test_durable_workflows.py` | 별도 Python 프로세스가 작업을 claim한 뒤 OS kill; lease expiry를 주입해 recovery 실행; 상태 `REQUIRES_REVIEW/LEASE_EXPIRED`; 이전 generation의 늦은 저장은 상태 변경 불가. 전체 pytest 통과 | 이번 최종 통과 작업 | OpenFOAM VM에서 실행 중인 solver 존재 여부 점검 및 안전 재개는 실제 VM 승인 시험 필요 |
+| P3F-CANCEL-01 | solver cancellation/timeout 시 process group 자식까지 종료 | P0 | VERIFIED | `backend/app/services/simulation/openfoam_runner.py`, `backend/tests/test_openfoam_process_cancellation.py` | 자식이 SIGTERM을 무시하는 테스트 외부 프로세스를 만들어 실제 cancel/timeout 각각 실행; 프로세스 그룹 SIGTERM 이후 제한시간 초과 시 SIGKILL; 자식 종료 확인 | 이번 최종 통과 작업 | OpenFOAM VM 내 원격 solver 취소가 실제 설치 VM에서 작동하는지 확인은 승인된 VM 실행 전까지 BLOCKED. CPU/RAM 강제 제한은 미구현 |
+| P3F-XRD-WF-01 | 원본 파일→DAG Worker→분석→검증→출처와 typed 결과 저장 경로 | P0 | IN_PROGRESS | `backend/app/worker.py`, `backend/app/api/workflows.py`, `backend/tests/test_durable_workflows.py` | 테스트용 XY fixture로 API planner→durable queue→실제 XRD parser→저장/원본 SHA/typed output까지 통합 통과 | 이번 최종 통과 작업 | 실제 연구자 ZnO XRD 파일, 방사원/파장, 독립 peak/reference 판정 자료가 제공되지 않아 실측 및 과학 정확도 검증은 미완료 |
+| P3F-AFM-SEM-01 | AFM 및 SEM/TEM 파일을 각각 Worker DAG로 실행하고 보정·산출·mask·계보를 검증 | P0 | IN_PROGRESS | `backend/app/worker.py`, `backend/app/services/tool_adapters.py`, material-analysis engine | 기존 분석 엔진 및 직접 API 테스트는 통과 | 기존 코드 | 이번 최종 작업에서 AFM/SEM/TEM 실제 durable worker end-to-end를 실행하지 않음. 비데모 장비 파일/교정 자료가 현재 선택 주제에 없어 instrument 실증 BLOCKED |
+| P3F-PHREEQC-REF-01 | USGS Example 2를 application adapter와 일치시키고 같은 입력/조건의 공식 기준과 비교 | P0 | IN_PROGRESS | `backend/app/services/simulation/phreeqc.py`, `backend/app/services/tool_adapters.py`, PHREEQC tests | 실제 PHREEQC DAG 실행·저장·출처·재사용 테스트 통과. 기존 USGS Example 2 engine-level test 보존 | 이번 최종 통과 작업 | 앱 Adapter는 분석 총량 기반 equilibrium/speciation으로 USGS Example 2의 고체상 반응 단계 모델과 다른 입력 모델. 같은 Adapter 변환경로의 동등 조건 golden comparison은 완료되지 않음 |
+| P3F-OPENFOAM-01 | 승인 전 CFD 실행 차단; 실제 mesh/solver/residual/convergence/power trace/VM cancellation 실증 | P0 | BLOCKED | OpenFOAM planning/runner routes, `openfoam_runner.py` | 실제 OpenFOAM 실행은 수행하지 않음. 실제 승인된 VM 실행과 mesh/convergence 결과가 없음을 확인 | 이번 최종 통과 작업 | 명시적인 신규 CFD 실행 승인, 실제 VM/template·케이스 자료가 필요함. 승인 없이 실행 금지 |
+| P3F-E2E-01 | 브라우저에서 planner→enqueue→상태 polling→refresh→결과/재시도/취소까지 실제 확인 | P1 | IN_PROGRESS | `frontend/src/components/DurableWorkflowPanel.tsx`, `frontend/src/api/client.ts`, `backend/app/api/workflows.py` | Build 및 UI 목표/계획 화면 렌더링 확인; backend TestClient 경로는 fixture 대상으로 통합 검증 | 이번 최종 통과 작업 | 사용자 선택 주제에 비데모 실험/분석 run이 없어 browser-driven durable workflow E2E 미실행 |
+| P3F-INT-01 | 필수 통합 시나리오 12개별로 실행 근거와 남은 제한 관리 | P0 | IN_PROGRESS | 전체 workflow/registry/analysis/simulation/optimization tests | 상세 상태는 아래 12개 시나리오 표. 가능한 시나리오는 regression/API/fixture 기반으로 검증 | 이번 최종 통과 작업 | 실제 lab data, CFD 승인 및 전체 브라우저 E2E가 필요한 항목은 미완료 |
+| P3F-PERF-01 | M5 24GB 기기에서 planning, tools, DAG latency, CPU/RAM 및 p50/p95 측정 | P2 | NOT_STARTED | — | 이번 작업에서 성능 숫자를 주장하지 않음 | — | 재현 입력/실행 script와 장비별 profiler 필요 |
+| P3F-CI-01 | CI에서 전체 신규 테스트/build를 실행하고 원격 Actions 성공 확인 | P1 | IN_PROGRESS | `.github/workflows/ci.yml` | 로컬 backend 전체 117 passed; frontend Vite production build 성공 (1757 modules) | 이번 최종 통과 작업 | push 후 GitHub Actions run을 다시 확인해야 VERIFIED 처리 가능 |
+
+### 필수 통합 시나리오 12개 결과
+
+| 시나리오 | 상태 | 실제 근거 / 제한 |
+|---|---|---|
+| INT-01 ZnO XRD 실측→Worker→검증→저장 | IN_PROGRESS | test XY fixture로 전체 XRD DAG 경로는 통과. 실제 ZnO 실측 원본/장비 metadata 없음 |
+| INT-02 SEM/TEM 보정→분할→mask/출처 | IN_PROGRESS | 직접 API/알고리즘 테스트 존재. 이번 durable worker 실제 파일 경로 미실행; 실제 현미경 원본 없음 |
+| INT-03 AFM 높이맵→평면보정→roughness | IN_PROGRESS | 직접 API/알고리즘 테스트 존재. 이번 durable worker 실제 파일 경로 미실행; AFM 실측 없음 |
+| INT-04 조성→PHREEQC→화학종/SI 저장 | VERIFIED | 설치된 PHREEQC 실제 엔진을 durable DAG에서 실행하고 simulation/provenance/observations 저장 확인. 독립 USGS Example 2 어댑터 대조는 별도 미완료 |
+| INT-05 입력 누락·오류 실행 차단 | VERIFIED | PHREEQC schema/API와 planner의 누락 데이터 요청 테스트 통과 |
+| INT-06 불지원 CFD 형상 실행 차단 | VERIFIED | 기존 unsupported geometry/gate tests 유지; 실제 CFD는 실행하지 않음 |
+| INT-07 문헌 파생 결과의 실측 최적화 혼입 차단 | VERIFIED | 기존 `LITERATURE_ANALYSIS_OUTPUT` 분리 및 approved optimization 필터 테스트 통과 |
+| INT-08 같은 계산 요청의 cache 재사용 | VERIFIED | 동시에 요청한 서로 다른 두 Workflow에서 계산 예약·PHREEQC 계산·DB run이 1개이고 결과 lineage가 양쪽 Node에 연결됨 |
+| INT-09 선행 노드 실패 시 후속 차단 | VERIFIED | 기존 DAG dependency failure propagation regression 테스트 통과 |
+| INT-10 Worker kill→lease 만료→복구 | VERIFIED | 별도 프로세스 강제 종료와 이전 Generation의 늦은 쓰기 거부 테스트 통과 |
+| INT-11 연구 목표에 따른 도구 변경/보류 | VERIFIED | 목표별 planner 테스트: XRD DAG, PHREEQC REQUEST_DATA, CFD ABSTAIN, 기존 결과 REVIEW_RESULT, record validation/설명 action |
+| INT-12 미승인 결과의 최적화 제외 | VERIFIED | 기존 source/review status 기준 최적화 API 필터 테스트 통과 |
+
+### 이번 작업의 검증 집계 및 최종 판정
+
+- `cd backend && .venv/bin/pytest -q`: 119 passed (마지막으로 추가한 Typed Handoff 회귀 2개 포함). Deprecation warnings은 기존 SQLAlchemy `utcnow`, Starlette/httpx, SWIG import 경고다.
+- `cd frontend && npm run build`: 성공, Vite 6.4.3, 1757 modules.
+- Local browser: 분석 화면에서 연구 목표 입력 및 계획 미리보기 UI 렌더링을 확인. 선택 Topic의 비데모 실험이 0건이라 실제 browser E2E enqueue는 실행하지 않았다.
+- 실제 PHREEQC Worker workflow test와 synthetic XRD parser Worker workflow fixture test는 분리해 기록했다. synthetic fixture는 연구 결과 정확도의 근거가 아니다.
+- OpenFOAM VM 계산은 실행하지 않았다.
+- 최종 상태: **`PHASE_3_IN_PROGRESS`**. Cache, planner 기본 경로, crash fencing 및 subprocess cancellation은 구현·검증됐다. 실측 XRD/AFM/SEM/TEM, PHREEQC 독립 Adapter golden comparison, 실제 OpenFOAM 승인 검증, 브라우저 E2E, 성능 측정, remaining typed Adapter coverage가 필수 상태로 남아 있다.
+- 이 추가 감사 기록은 기존 요구사항과 상세 Phase 3 하위 요구사항을 삭제하거나 대체하지 않는다.
 | OPT-007 | 평균 예측, Ridge, Random Forest, Gaussian Process 및 필요한 물리제약 회귀를 공정군별 baseline으로 비교; EI 등 acquisition, 다목표·잡음 반복측정·복수 후보를 고려하고 근거 부족 때 탐색/보류 | P1 | NOT_STARTED | benchmark and future optimizer | Ridge 문헌 baseline만 존재 | benchmark report | 최적화 목표/범위/제약 정의와 승인 실험자료 선행 |
 
 ## Phase 6 — Shared Transformer JEV, Early Exit, 리소스

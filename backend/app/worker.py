@@ -21,7 +21,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from sqlalchemy import and_, or_, update
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from app.db.database import ROOT, SessionLocal
 from app.db.models import (Experiment, MaterialAnalysisRun, ScientificObservation,
@@ -29,6 +29,7 @@ from app.db.models import (Experiment, MaterialAnalysisRun, ScientificObservatio
 from app.services.material_analysis.service import AnalysisInputError
 from app.services.scientific_data import classify_analysis_source, make_observation
 from app.services.simulation.openfoam_runner import run_openfoam
+from app.services.simulation.cache import phreeqc_cache_identity, typed_phreeqc_outputs
 from app.services.tool_adapters import MaterialAnalysisAdapter, PHREEQCAdapter
 from app.services.tool_registry import ResultValidator, ToolRegistry, ValidationGate
 
@@ -62,6 +63,12 @@ class Lease:
                     WorkflowNode.id==self.node_id,WorkflowNode.status=="RUNNING",
                     WorkflowNode.worker_id==self.worker_id,WorkflowNode.lease_generation==self.generation,
                 ).values(heartbeat_at=now,lease_expires_at=now+timedelta(seconds=LEASE_SECONDS))).rowcount
+                cache_key=(node.input_json or {}).get("_phreeqc_cache_key")
+                if cache_key:
+                    db.execute(update(SimulationRun).where(SimulationRun.idempotency_key==cache_key,
+                        SimulationRun.status=="running",SimulationRun.worker_id==self.worker_id,
+                        SimulationRun.lease_generation==self.generation).values(
+                            heartbeat_at=now,lease_expires_at=now+timedelta(seconds=LEASE_SECONDS)))
                 db.commit()
                 if changed!=1: self.lost.set(); return
             except Exception:
@@ -138,7 +145,7 @@ def _refresh_workflow(db,workflow_id:int):
     states={item.status for item in nodes}
     if flow.cancel_requested and not states.intersection({"RUNNING","QUEUED"}):
         flow.status="CANCELLED"; flow.finished_at=flow.finished_at or utcnow()
-    elif states.intersection({"QUEUED","RUNNING"}): flow.status="RUNNING" if "RUNNING" in states else "QUEUED"
+    elif states.intersection({"QUEUED","RUNNING","WAITING_FOR_CACHE"}): flow.status="RUNNING" if states.intersection({"RUNNING","WAITING_FOR_CACHE"}) else "QUEUED"
     elif "REQUIRES_REVIEW" in states:
         flow.status="REQUIRES_REVIEW"; flow.finished_at=flow.finished_at or utcnow()
     elif states.issubset({"COMPLETED"}):
@@ -147,6 +154,48 @@ def _refresh_workflow(db,workflow_id:int):
             "result_type":item.result_type,"result_id":item.result_id,"output":item.output_json} for item in nodes]}
     elif "COMPLETED" in states: flow.status="PARTIAL"; flow.finished_at=flow.finished_at or utcnow()
     else: flow.status="FAILED"; flow.finished_at=flow.finished_at or utcnow()
+
+
+def _simulation_validation(simulation: SimulationRun) -> dict:
+    return ((simulation.result_json or {}).get("provenance") or {}).get("validation") or {}
+
+
+def _link_simulation_to_node(db, node: WorkflowNode, simulation: SimulationRun, *, reused: bool) -> None:
+    result=simulation.result_json or {}
+    node.status="COMPLETED"; node.result_type="simulation_run"; node.result_id=simulation.id
+    node.output_json={"simulation_run_id":simulation.id,"result":result,"validation":_simulation_validation(simulation),
+        "source_type":"SIMULATION","typed_outputs":typed_phreeqc_outputs(result,simulation.id),
+        "cache_reused":reused,"cache_source_workflow_id":(result.get("provenance") or {}).get("workflow_id"),
+        "handoff_provenance":[],"completed_at":utcnow().isoformat()+"Z"}
+    node.worker_id=None; node.lease_expires_at=None; node.heartbeat_at=utcnow(); node.finished_at=utcnow()
+
+
+def refresh_cached_workflow_nodes() -> int:
+    """Resolve DAG nodes waiting on an identical direct API/Worker calculation."""
+    db=SessionLocal(); changed=0
+    try:
+        waiting=db.query(WorkflowNode).filter_by(status="WAITING_FOR_CACHE").all()
+        for node in waiting:
+            key=(node.input_json or {}).get("_phreeqc_cache_key")
+            simulation=db.query(SimulationRun).filter_by(idempotency_key=key).first() if key else None
+            if simulation is None or simulation.status in {"queued","running"}:
+                continue
+            if simulation.status=="completed":
+                _link_simulation_to_node(db,node,simulation,reused=True)
+            elif simulation.status in {"failed","timed_out","cancelled","requires_review","invalid_output"}:
+                node.status="REQUIRES_REVIEW" if simulation.status=="requires_review" else "FAILED"
+                node.error_code="CACHED_CALCULATION_"+simulation.status.upper()
+                node.error_text="The matching PHREEQC calculation did not complete; inspect it and explicitly retry if appropriate."
+                node.finished_at=utcnow()
+            else:
+                continue
+            changed+=1; _refresh_workflow(db,node.workflow_id)
+        if changed: db.commit()
+        return changed
+    except Exception:
+        db.rollback(); log.exception("Could not refresh PHREEQC cache waiters")
+        return 0
+    finally: db.close()
 
 
 def _persist_analysis(db,node,output,run,workflow):
@@ -176,8 +225,27 @@ def _persist_analysis(db,node,output,run,workflow):
                 process_step_id=run.process_step_id,step_name=step.name if step else "measurement analysis",name=key,value=value,
                 unit=None,source_type=source,source_id=f"analysis-run:{run.id}:{key}",analysis_run_id=run.id,review_status="COMPUTED"))
     node.result_type="analysis_run"; node.result_id=run.id
+    typed_outputs={}
+    def declare(key,value,unit,meaning):
+        if isinstance(value,(int,float)) and not isinstance(value,bool) and math.isfinite(float(value)):
+            typed_outputs[key]={"value":value,"unit":unit,"meaning":meaning,"source_type":source,
+                "source_id":f"analysis-run:{run.id}:{key}","validation_status":"NUMERICALLY_VALID",
+                "review_status":"COMPUTED","uncertainty":None}
+    if output.tool_id.startswith("afm."):
+        unit=str(output.result.get("height_unit") or "")
+        for metric in ("Sa","Sq","Sz"):
+            declare(metric,output.result.get(metric),unit,f"AFM leveled surface {metric}; calibration and artifact review still required")
+    elif output.tool_id.startswith("xrd."):
+        axis_unit=str(output.result.get("x_unit") or "")
+        for index,peak in enumerate(output.result.get("observed_peaks",[])):
+            declare(f"observed_peaks.{index}.x",peak.get("x"),axis_unit,
+                "observed local-maximum coordinate on the declared XRD axis; not a phase identification")
+    elif output.tool_id.startswith("microscopy."):
+        declare("component_count",output.result.get("component_count"),"count",
+            "exploratory threshold-segmentation component count; not a validated particle count")
     node.output_json={"analysis_run_id":run.id,"tool_id":output.tool_id,"validation":validation,"source_type":source,
-        "original_sha256":run.sha256,"observed_peak_count":len(output.result.get("observed_peaks",[]))}
+        "original_sha256":run.sha256,"observed_peak_count":len(output.result.get("observed_peaks",[])),
+        "typed_outputs":typed_outputs,"review_status":"COMPUTED"}
 
 
 def _execute_node(node_id:int,worker_id:str,generation:int,lease:Lease):
@@ -188,7 +256,7 @@ def _execute_node(node_id:int,worker_id:str,generation:int,lease:Lease):
         workflow=db.get(WorkflowRun,node.workflow_id)
         if not workflow: raise ValueError("workflow_missing")
         lease.check()
-        output=None; result_type=""; handoff=[]
+        output=None; result_type=""; handoff=[]; simulation_run_id=None; cached_simulation=None; simulation_reserved=False
         resolved_inputs=dict(node.input_json or {})
         dependencies={item.node_key:item for item in db.query(WorkflowNode).filter(
             WorkflowNode.workflow_id==node.workflow_id,WorkflowNode.node_key.in_(node.dependency_keys or [])).all()}
@@ -196,7 +264,14 @@ def _execute_node(node_id:int,worker_id:str,generation:int,lease:Lease):
             if isinstance(value,dict) and "$ref" in value:
                 ref=value["$ref"]; parent=dependencies.get(ref.get("node"))
                 typed=(parent.output_json or {}).get("typed_outputs",{}).get(ref.get("path")) if parent else None
-                if not isinstance(typed,dict) or typed.get("unit")!=ref.get("unit") or typed.get("meaning")!=ref.get("meaning"):
+                value_number=typed.get("value") if isinstance(typed,dict) else None
+                if (not isinstance(typed,dict) or isinstance(value_number,bool)
+                        or not isinstance(value_number,(int,float)) or not math.isfinite(float(value_number))
+                        or typed.get("unit")!=ref.get("unit") or typed.get("meaning")!=ref.get("meaning")
+                        or typed.get("source_type") not in {"SIMULATION","LAB_RESULT","LAB_RECORD","ANALYSIS_OUTPUT","LITERATURE_ANALYSIS_OUTPUT"}
+                        or typed.get("review_status") not in {"COMPUTED","ACCEPTED"}
+                        or not typed.get("source_id")
+                        or typed.get("validation_status") not in {"NUMERICALLY_VALID","VALIDATED"}):
                     raise ValueError("typed_handoff_missing_or_incompatible")
                 handoff.append({"from_node":parent.node_key,"path":ref["path"],"unit":typed["unit"],"meaning":typed["meaning"],
                     "source_type":typed.get("source_type"),"source_id":typed.get("source_id"),"validation_status":typed.get("validation_status"),"uncertainty":typed.get("uncertainty")})
@@ -237,10 +312,71 @@ def _execute_node(node_id:int,worker_id:str,generation:int,lease:Lease):
             inputs=adapter.validate_inputs(resolved_inputs.get("inputs",{})); adapter.prepare(inputs)
             gate=ValidationGate.validate({"readiness":"REQUIRES_REVIEW","execution_policy":"review_inputs_before_run"},approval_granted=node.approval_confirmed)
             if not gate["allowed"]: raise ValueError("fresh_execution_gate_failed")
-            lease.check(); output=_run_with_limits(node.timeout_seconds,lease,lambda:adapter.execute(inputs))
-            validation=adapter.validate_outputs(output)
-            if not validation.get("valid"): raise ValueError(f"phreeqc_output_invalid:{validation.get('reason')}")
-            output={"result":output,"validation":validation}; result_type="simulation"
+            definition=ToolRegistry().get(node.tool_id)
+            step_id=resolved_inputs.get("process_step_id",node.input_json.get("process_step_id"))
+            cache_key,cache_spec=phreeqc_cache_identity(tool_id=node.tool_id,tool_version=definition.version,
+                topic_id=workflow.topic_id,experiment_id=workflow.experiment_id,process_step_id=step_id,parameters=inputs)
+            node_inputs=dict(node.input_json or {}); node_inputs["_phreeqc_cache_key"]=cache_key; node.input_json=node_inputs
+            lease.check()
+            cached_simulation=db.query(SimulationRun).filter_by(idempotency_key=cache_key).first()
+            if cached_simulation and cached_simulation.status=="completed":
+                output={"result":cached_simulation.result_json or {},"validation":_simulation_validation(cached_simulation)}
+                result_type="simulation"; simulation_run_id=cached_simulation.id
+            elif cached_simulation and cached_simulation.status in {"queued","running"}:
+                db.commit()
+                db.connection().exec_driver_sql("BEGIN IMMEDIATE")
+                current=db.query(WorkflowNode).filter_by(id=node_id,status="RUNNING",worker_id=worker_id,lease_generation=generation).first()
+                if current:
+                    current.status="WAITING_FOR_CACHE"; current.error_code=""; current.error_text=""; current.worker_id=None
+                    current.lease_expires_at=None; current.finished_at=None
+                    _refresh_workflow(db,current.workflow_id); db.commit()
+                else: db.rollback()
+                return
+            elif cached_simulation and cached_simulation.status not in {"failed","timed_out","cancelled","invalid_output","requires_review"}:
+                raise ValueError(f"unsupported_cached_calculation_state:{cached_simulation.status}")
+            elif cached_simulation and not node.input_json.get("_retry_failed_calculation"):
+                raise ValueError("matching_phreeqc_attempt_failed; explicit workflow retry is required")
+            else:
+                now=utcnow()
+                if cached_simulation:
+                    retry_history=list((cached_simulation.input_json or {}).get("retry_history",[]))
+                    retry_history.append({"status":cached_simulation.status,"error":cached_simulation.error_text,
+                        "finished_at":cached_simulation.finished_at.isoformat()+"Z" if cached_simulation.finished_at else None})
+                    cached_simulation.status="running"; cached_simulation.input_json={**inputs,"idempotency_payload":cache_spec,
+                        "retry_history":retry_history,"attempt":cached_simulation.attempt+1}
+                    cached_simulation.attempt+=1; cached_simulation.result_json=None; cached_simulation.error_code=""; cached_simulation.error_text=""
+                    cached_simulation.log_text="Explicit workflow retry claimed after prior failed attempt."
+                else:
+                    cached_simulation=SimulationRun(experiment_id=workflow.experiment_id,process_step_id=step_id,
+                        model_id=node.tool_id,status="running",idempotency_key=cache_key,
+                        input_json={**inputs,"idempotency_payload":cache_spec,"attempt":1},
+                        worker_id=worker_id,lease_generation=generation,heartbeat_at=now,
+                        lease_expires_at=now+timedelta(seconds=LEASE_SECONDS),timeout_seconds=node.timeout_seconds,
+                        attempt=1,max_attempts=3,started_at=now,log_text="Reserved atomically by PHREEQC DAG Worker.")
+                    db.add(cached_simulation)
+                try:
+                    db.flush(); simulation_run_id=cached_simulation.id; simulation_reserved=True; db.commit()
+                except IntegrityError:
+                    db.rollback()
+                    winner=db.query(SimulationRun).filter_by(idempotency_key=cache_key).first()
+                    if winner and winner.status=="completed":
+                        cached_simulation=winner; simulation_run_id=winner.id
+                        output={"result":winner.result_json or {},"validation":_simulation_validation(winner)}; result_type="simulation"
+                    elif winner and winner.status in {"queued","running"}:
+                        db.connection().exec_driver_sql("BEGIN IMMEDIATE")
+                        current=db.query(WorkflowNode).filter_by(id=node_id,status="RUNNING",worker_id=worker_id,lease_generation=generation).first()
+                        if current:
+                            inputs_wait=dict(current.input_json or {}); inputs_wait["_phreeqc_cache_key"]=cache_key
+                            current.input_json=inputs_wait; current.status="WAITING_FOR_CACHE"; current.worker_id=None
+                            current.lease_expires_at=None; current.finished_at=None; _refresh_workflow(db,current.workflow_id); db.commit()
+                        else: db.rollback()
+                        return
+                    else: raise
+                if output is None:
+                    lease.check(); output=_run_with_limits(node.timeout_seconds,lease,lambda:adapter.execute(inputs))
+                    validation=adapter.validate_outputs(output)
+                    if not validation.get("valid"): raise ValueError(f"phreeqc_output_invalid:{validation.get('reason')}")
+                    output={"result":output,"validation":validation}; result_type="simulation"
         else: raise ValueError(f"tool_not_supported_by_worker:{node.tool_id}")
 
         lease.check()
@@ -255,45 +391,36 @@ def _execute_node(node_id:int,worker_id:str,generation:int,lease:Lease):
             analysis=db.get(MaterialAnalysisRun,int(current.input_json["analysis_run_id"]))
             _persist_analysis(db,current,output,analysis,workflow)
         elif current.tool_id.startswith("phreeqc."):
-            payload=output["result"]
-            idempotency=json.dumps({"tool_id":current.tool_id,"version":ToolRegistry().get(current.tool_id).version,"topic_id":workflow.topic_id,"experiment_id":workflow.experiment_id,"inputs":current.input_json.get("inputs",{})},sort_keys=True,separators=(",",":"))
-            from hashlib import sha256
-            key=sha256(idempotency.encode()).hexdigest()
-            simulation=SimulationRun(experiment_id=workflow.experiment_id,model_id=current.tool_id,status="completed",idempotency_key=key,
-                input_json=current.input_json.get("inputs",{}),result_json={**payload,"provenance":{"source_type":"SIMULATION","tool_id":current.tool_id,
-                    "tool_version":ToolRegistry().get(current.tool_id).version,"topic_id":workflow.topic_id,"worker_id":worker_id,"workflow_id":workflow.id}},
-                started_at=current.started_at,finished_at=utcnow(),attempt=current.attempt,max_attempts=current.max_attempts,log_text="Completed by durable workflow worker.")
-            db.add(simulation); db.flush(); current.result_type="simulation_run"; current.result_id=simulation.id
-            typed_outputs={}
-            declared_units={"ph":("pH","solution acidity on the pH scale"),"temperature_c":("degC","calculation temperature"),
-                "temperature":("degC","calculation temperature"),"ionic_strength":("mol/kgw","ionic strength"),
-                "saturation_index":("1","thermodynamic saturation index")}
-            for key,value in payload.items():
-                declared=declared_units.get(key)
-                if declared and isinstance(value,(int,float)) and not isinstance(value,bool) and math.isfinite(float(value)):
-                    typed_outputs[key]={"value":value,"unit":declared[0],"meaning":declared[1],"source_type":"SIMULATION","source_id":f"simulation-run:{simulation.id}:{key}","validation_status":"NUMERICALLY_VALID","uncertainty":None}
-            if isinstance(payload.get("input_pH"),(int,float)):
-                typed_outputs["input_pH"]={"value":payload["input_pH"],"unit":"pH","meaning":"fixed input pH","source_type":"SIMULATION","source_id":f"simulation-run:{simulation.id}:input_pH","validation_status":"NUMERICALLY_VALID","uncertainty":None}
-            for row in payload.get("saturation_indices",[]):
-                phase=row.get("phase"); value=row.get("saturation_index")
-                if phase and isinstance(value,(int,float)) and math.isfinite(float(value)):
-                    typed_outputs[f"saturation_indices.{phase}"]={"value":value,"unit":"1","meaning":f"PHREEQC saturation index for {phase}","source_type":"SIMULATION","source_id":f"simulation-run:{simulation.id}:si:{phase}","validation_status":"NUMERICALLY_VALID","uncertainty":None}
-            for row in payload.get("aqueous_species",[]):
-                name=row.get("name"); value=row.get("molality")
-                if name and isinstance(value,(int,float)) and math.isfinite(float(value)):
-                    typed_outputs[f"aqueous_species.{name}"]={"value":value,"unit":"mol/kgw","meaning":f"aqueous molality of {name}","source_type":"SIMULATION","source_id":f"simulation-run:{simulation.id}:species:{name}","validation_status":"NUMERICALLY_VALID","uncertainty":None}
-            step=next((item for item in db.get(Experiment,workflow.experiment_id).steps if item.id==current.input_json.get("process_step_id")),None)
-            for name,value,unit in [("input_pH",payload.get("input_pH"),"pH"),("calculated_pH",payload.get("calculated_pH"),"pH")]:
-                if isinstance(value,(int,float)) and math.isfinite(float(value)):
-                    db.add(make_observation(topic_id=workflow.topic_id,experiment_id=workflow.experiment_id,method_version_id=db.get(Experiment,workflow.experiment_id).method_version_id,
-                        process_step_id=step.id if step else None,step_name=step.name if step else "aqueous chemistry simulation",name=name,value=value,unit=unit,
-                        source_type="SIMULATION",source_id=f"simulation-run:{simulation.id}:{name}",review_status="COMPUTED"))
-            for row in payload.get("saturation_indices",[]):
-                if isinstance(row.get("saturation_index"),(int,float)):
-                    db.add(make_observation(topic_id=workflow.topic_id,experiment_id=workflow.experiment_id,method_version_id=db.get(Experiment,workflow.experiment_id).method_version_id,
-                        process_step_id=step.id if step else None,step_name=step.name if step else "aqueous chemistry simulation",name=f"SI({row['phase']})",value=row["saturation_index"],unit="1",
-                        source_type="SIMULATION",source_id=f"simulation-run:{simulation.id}:si:{row['phase']}",review_status="COMPUTED"))
-            current.output_json={"simulation_run_id":simulation.id,"result":payload,"validation":output["validation"],"source_type":"SIMULATION","typed_outputs":typed_outputs,"handoff_provenance":handoff}
+            if simulation_reserved:
+                simulation=db.query(SimulationRun).filter_by(id=simulation_run_id,status="running",worker_id=worker_id,lease_generation=generation).first()
+                if not simulation: raise RuntimeError("PHREEQC_CACHE_RESERVATION_LOST")
+                payload=output["result"]; definition=ToolRegistry().get(current.tool_id); finished=utcnow()
+                simulation.result_json={**payload,"provenance":{"source_type":"SIMULATION","tool_id":current.tool_id,
+                    "tool_version":definition.version,"algorithm_version":"phreeqc-adapter:2","database_sha256":payload.get("database_sha256"),
+                    "topic_id":workflow.topic_id,"experiment_id":workflow.experiment_id,"process_step_id":simulation.process_step_id,
+                    "worker_id":worker_id,"workflow_id":workflow.id,"idempotency_key":simulation.idempotency_key,
+                    "validation":output["validation"],"source_type":"SIMULATION"}}
+                simulation.status="completed"; simulation.worker_id=None; simulation.lease_expires_at=None
+                simulation.heartbeat_at=finished; simulation.finished_at=finished; simulation.log_text="Completed by durable workflow worker."
+                simulation.error_code=""; simulation.error_text=""
+                typed_outputs=typed_phreeqc_outputs(payload,simulation.id)
+                current.result_type="simulation_run"; current.result_id=simulation.id
+                current.output_json={"simulation_run_id":simulation.id,"result":payload,"validation":output["validation"],
+                    "source_type":"SIMULATION","typed_outputs":typed_outputs,"cache_reused":False,"handoff_provenance":handoff}
+                experiment=db.get(Experiment,workflow.experiment_id)
+                step=next((item for item in experiment.steps if item.id==simulation.process_step_id),None)
+                rows=[("input_pH",payload.get("input_pH"),"pH"),("calculated_pH",payload.get("calculated_pH"),"pH")]
+                rows.extend((f"SI({row['phase']})",row.get("saturation_index"),"1") for row in payload.get("saturation_indices",[]) if row.get("phase"))
+                for name,value,unit in rows:
+                    if isinstance(value,(int,float)) and math.isfinite(float(value)):
+                        db.add(make_observation(topic_id=workflow.topic_id,experiment_id=experiment.id,method_version_id=experiment.method_version_id,
+                            process_step_id=step.id if step else None,step_name=step.name if step else "aqueous chemistry simulation",name=name,value=value,unit=unit,
+                            source_type="SIMULATION",source_id=f"simulation-run:{simulation.id}:{name}",review_status="COMPUTED"))
+            else:
+                simulation=db.get(SimulationRun,simulation_run_id)
+                if not simulation or simulation.status!="completed": raise RuntimeError("cached_PHREEQC_result_disappeared")
+                _link_simulation_to_node(db,current,simulation,reused=True)
+                current.output_json["handoff_provenance"]=handoff
         elif current.tool_id=="experiment.data_quality.v1":
             current.output_json={**output,"typed_outputs":{},"handoff_provenance":handoff}; current.result_type=result_type
         quality_needs_review=current.tool_id=="experiment.data_quality.v1" and (current.output_json or {}).get("issue_count",0)>0
@@ -318,6 +445,13 @@ def _finish_node(node_id,worker_id,generation,status,code,message):
     try:
         node=db.query(WorkflowNode).filter_by(id=node_id,status="RUNNING",worker_id=worker_id,lease_generation=generation).first()
         if not node: return
+        cache_key=(node.input_json or {}).get("_phreeqc_cache_key")
+        if cache_key:
+            cached=db.query(SimulationRun).filter_by(idempotency_key=cache_key,status="running",worker_id=worker_id,lease_generation=generation).first()
+            if cached:
+                cached.status={"CANCELLED":"cancelled","TIMED_OUT":"timed_out"}.get(status,"failed")
+                cached.error_code=code; cached.error_text=message; cached.worker_id=None
+                cached.lease_expires_at=None; cached.finished_at=utcnow(); cached.log_text="PHREEQC workflow attempt did not complete."
         node.status=status; node.error_code=code; node.error_text=message; node.worker_id=None; node.lease_expires_at=None; node.finished_at=utcnow()
         db.flush(); _refresh_workflow(db,node.workflow_id); db.commit()
     finally: db.close()
@@ -424,6 +558,7 @@ def recover_expired_leases():
 
 
 def run_once(worker_id:str|None=None) -> bool:
+    refresh_cached_workflow_nodes()
     worker_id=worker_id or f"{socket.gethostname()}-{os.getpid()}-{uuid.uuid4().hex[:8]}"
     claimed=_workflow_claim(worker_id)
     if claimed:

@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import signal
 import re
 import shlex
 import subprocess
@@ -68,30 +69,50 @@ def parse_power_trace(text: str) -> list[dict]:
     return trace
 
 
+def _terminate_process_group(process, grace_seconds:float=2.0):
+    """Stop the isolated solver and its child processes, escalating if needed."""
+    if process.poll() is not None:
+        return process.communicate()
+    try:
+        os.killpg(process.pid,signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+    try:
+        return process.communicate(timeout=grace_seconds)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(process.pid,signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        return process.communicate()
+
+
 def _run_solver(args:list[str],*,timeout:int,should_cancel=None,cancel_remote=None):
     process=subprocess.Popen(args,text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True)
     started=__import__("time").monotonic()
     try:
         while process.poll() is None:
             if should_cancel and should_cancel():
-                if cancel_remote: cancel_remote()
-                process.terminate()
-                try: stdout,stderr=process.communicate(timeout=10)
-                except subprocess.TimeoutExpired:
-                    process.kill();stdout,stderr=process.communicate()
+                try:
+                    if cancel_remote: cancel_remote()
+                except Exception:
+                    pass
+                finally:
+                    stdout,stderr=_terminate_process_group(process)
                 raise JobCancelled((stdout or "")+(stderr or ""))
             if __import__("time").monotonic()-started>timeout:
-                if cancel_remote: cancel_remote()
-                process.terminate()
-                try: stdout,stderr=process.communicate(timeout=10)
-                except subprocess.TimeoutExpired:
-                    process.kill();stdout,stderr=process.communicate()
+                try:
+                    if cancel_remote: cancel_remote()
+                except Exception:
+                    pass
+                finally:
+                    stdout,stderr=_terminate_process_group(process)
                 raise subprocess.TimeoutExpired(args,timeout,output=stdout,stderr=stderr)
             __import__("time").sleep(0.5)
         stdout,stderr=process.communicate()
         return subprocess.CompletedProcess(args,process.returncode,stdout,stderr)
     finally:
-        if process.poll() is None: process.kill();process.wait()
+        if process.poll() is None: _terminate_process_group(process)
 
 
 def run_openfoam(config: dict, *, should_cancel=None) -> tuple[dict,str]:

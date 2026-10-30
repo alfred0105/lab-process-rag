@@ -211,6 +211,17 @@ class WorkflowCreateRequest(BaseModel):
             active.remove(key); visited.add(key)
         for key in by_key: visit(key)
         return self
+
+
+class WorkflowPlanRequest(BaseModel):
+    """Request a safe, goal-driven workflow preview for one real experiment."""
+    topic_id: int = Field(gt=0)
+    experiment_id: int = Field(gt=0)
+    goal: str = Field(min_length=3, max_length=1000)
+    enqueue: bool = False
+    approval_confirmed: bool = False
+
+
 class StirredReactionPathRequest(AqueousEquilibriumRequest):
     titrant: Literal["HCl", "NaOH"]
     total_titrant_mmol: float = Field(gt=0, le=10000)

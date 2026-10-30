@@ -97,6 +97,44 @@ def test_failed_dependency_blocks_child_without_claiming_it(tmp_path,monkeypatch
     db.close();engine.dispose()
 
 
+def test_typed_handoff_requires_finite_value_and_source_validation(tmp_path,monkeypatch):
+    engine,sessions,db,topic,experiment=_db(tmp_path,monkeypatch)
+    flow=WorkflowRun(topic_id=topic.id,experiment_id=experiment.id,goal="typed handoff guard",status="QUEUED",graph_json={},created_at=datetime.utcnow())
+    db.add(flow);db.flush()
+    typed={"value":float("nan"),"unit":"degC","meaning":"temperature","source_type":"SIMULATION",
+        "source_id":"simulation-run:1:temperature","validation_status":"NUMERICALLY_VALID","review_status":"COMPUTED"}
+    db.add_all([
+        WorkflowNode(workflow_id=flow.id,node_key="source",tool_id="experiment.data_quality.v1",dependency_keys=[],
+            input_json={},output_json={"typed_outputs":{"temperature":typed}},status="COMPLETED",created_at=datetime.utcnow()),
+        WorkflowNode(workflow_id=flow.id,node_key="consumer",tool_id="experiment.data_quality.v1",dependency_keys=["source"],
+            input_json={"temperature":{"$ref":{"node":"source","path":"temperature","unit":"degC","meaning":"temperature"}}},created_at=datetime.utcnow())])
+    db.commit();db.close()
+    assert worker.run_once("typed-handoff-worker")
+    db=sessions();consumer=db.query(WorkflowNode).filter_by(node_key="consumer").one()
+    assert consumer.status=="FAILED" and consumer.error_text=="typed_handoff_missing_or_incompatible"
+    db.close();engine.dispose()
+
+
+def test_typed_handoff_propagates_verified_source_lineage(tmp_path,monkeypatch):
+    engine,sessions,db,topic,experiment=_db(tmp_path,monkeypatch)
+    flow=WorkflowRun(topic_id=topic.id,experiment_id=experiment.id,goal="typed handoff lineage",status="QUEUED",graph_json={},created_at=datetime.utcnow())
+    db.add(flow);db.flush()
+    typed={"value":25.0,"unit":"degC","meaning":"temperature","source_type":"SIMULATION",
+        "source_id":"simulation-run:1:temperature","validation_status":"NUMERICALLY_VALID","review_status":"COMPUTED","uncertainty":None}
+    db.add_all([
+        WorkflowNode(workflow_id=flow.id,node_key="source",tool_id="experiment.data_quality.v1",dependency_keys=[],
+            input_json={},output_json={"typed_outputs":{"temperature":typed}},status="COMPLETED",created_at=datetime.utcnow()),
+        WorkflowNode(workflow_id=flow.id,node_key="consumer",tool_id="experiment.data_quality.v1",dependency_keys=["source"],
+            input_json={"temperature":{"$ref":{"node":"source","path":"temperature","unit":"degC","meaning":"temperature"}}},created_at=datetime.utcnow())])
+    db.commit();db.close()
+    assert worker.run_once("typed-handoff-worker")
+    db=sessions();consumer=db.query(WorkflowNode).filter_by(node_key="consumer").one()
+    assert consumer.status=="COMPLETED"
+    assert consumer.output_json["handoff_provenance"][0]["source_id"]=="simulation-run:1:temperature"
+    assert consumer.output_json["handoff_provenance"][0]["source_type"]=="SIMULATION"
+    db.close();engine.dispose()
+
+
 def test_data_quality_gate_requires_review_before_dependent_tool(tmp_path,monkeypatch):
     engine,sessions,db,topic,experiment=_db(tmp_path,monkeypatch)
     step=ProcessStep(experiment_id=experiment.id,name="mix",step_type="process",order_index=0,description="")
@@ -168,3 +206,120 @@ def test_real_phreeqc_workflow_persists_simulation_provenance_and_observations(t
             stored.close()
     finally:
         app.dependency_overrides.clear();engine.dispose()
+
+
+def test_two_dags_reuse_one_completed_phreeqc_calculation(tmp_path,monkeypatch):
+    pytest.importorskip("phreeqpython")
+    from app.db.models import SimulationRun
+    from app.services.simulation.cache import phreeqc_cache_identity
+    from app.services.tool_registry import ToolRegistry
+    engine,sessions,db,topic,experiment=_db(tmp_path,monkeypatch)
+    from app.services.tool_adapters import PHREEQCAdapter
+    inputs=PHREEQCAdapter().validate_inputs({"temperature_c":25,"pH":8.3,"totals_molal":{"Ca":0.001,"C(4)":0.001},"phases":["Calcite"]})
+    key,_=phreeqc_cache_identity(tool_id="phreeqc.aqueous_equilibrium.v1",
+        tool_version=ToolRegistry().get("phreeqc.aqueous_equilibrium.v1").version,topic_id=topic.id,
+        experiment_id=experiment.id,process_step_id=None,parameters=inputs)
+    monkeypatch.setattr("app.worker.SessionLocal",sessions)
+    monkeypatch.setattr(worker,"ROOT",__import__("pathlib").Path(__file__).resolve().parents[1])
+    from app.db.models import WorkflowNode,WorkflowRun
+    now=datetime.utcnow()
+    first=WorkflowRun(topic_id=topic.id,experiment_id=experiment.id,goal="first equilibrium",status="QUEUED",graph_json={},created_at=now)
+    second=WorkflowRun(topic_id=topic.id,experiment_id=experiment.id,goal="repeat equilibrium",status="QUEUED",graph_json={},created_at=now)
+    db.add_all([first,second]);db.flush()
+    for flow,key_name in ((first,"calc-a"),(second,"calc-b")):
+        db.add(WorkflowNode(workflow_id=flow.id,node_key=key_name,tool_id="phreeqc.aqueous_equilibrium.v1",
+            dependency_keys=[],input_json={"inputs":inputs},approval_confirmed=True,created_at=now))
+    db.commit();db.close()
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        outcomes=list(pool.map(worker.run_once,("cache-worker-a","cache-worker-b")))
+    assert outcomes==[True,True]
+    worker.refresh_cached_workflow_nodes()
+    db=sessions();runs=db.query(SimulationRun).all();nodes=db.query(WorkflowNode).order_by(WorkflowNode.id).all()
+    assert len(runs)==1 and runs[0].idempotency_key==key and runs[0].status=="completed"
+    assert [node.status for node in nodes]==["COMPLETED","COMPLETED"]
+    assert nodes[0].result_id==nodes[1].result_id==runs[0].id
+    assert sorted(node.output_json["cache_reused"] for node in nodes)==[False,True]
+    db.close();engine.dispose()
+
+
+def test_forced_worker_process_death_recovers_expired_lease_and_fences_old_owner(tmp_path,monkeypatch):
+    import time
+    engine,sessions,db,topic,experiment=_db(tmp_path,monkeypatch)
+    flow=WorkflowRun(topic_id=topic.id,experiment_id=experiment.id,goal="crash recovery",status="QUEUED",graph_json={},created_at=datetime.utcnow())
+    db.add(flow);db.flush();db.add(WorkflowNode(workflow_id=flow.id,node_key="quality",tool_id="experiment.data_quality.v1",dependency_keys=[],input_json={},created_at=datetime.utcnow()))
+    db.commit();node_id=db.query(WorkflowNode).one().id;db.close();engine.dispose()
+    db_path=tmp_path/"worker.db";env={**os.environ,"LAB_PROCESS_DB_PATH":str(db_path)}
+    backend_dir=os.path.dirname(os.path.dirname(__file__))
+    script="import time; from app import worker; worker._execute_node=lambda *args: time.sleep(120); worker.run_once('doomed-worker')"
+    process=subprocess.Popen([sys.executable,"-c",script],cwd=backend_dir,env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+    generation=None
+    try:
+        for _ in range(100):
+            check_engine=create_engine(f"sqlite:///{db_path}");check_session=sessionmaker(bind=check_engine)()
+            node=check_session.get(WorkflowNode,node_id)
+            if node and node.status=="RUNNING": generation=node.lease_generation
+            check_session.close();check_engine.dispose()
+            if generation is not None: break
+            if process.poll() is not None: break
+            time.sleep(.05)
+        assert generation is not None,"worker never claimed its durable job"
+        process.kill();process.wait(timeout=10)
+        check_engine=create_engine(f"sqlite:///{db_path}");check_session=sessionmaker(bind=check_engine)()
+        node=check_session.get(WorkflowNode,node_id);node.lease_expires_at=datetime.utcnow().replace(year=2000);check_session.commit();check_session.close();check_engine.dispose()
+        recovered_engine=create_engine(f"sqlite:///{db_path}")
+        monkeypatch.setattr(worker,"SessionLocal",sessionmaker(bind=recovered_engine))
+        worker.recover_expired_leases()
+        worker._finish_node(node_id,"doomed-worker",generation,"FAILED","LATE_WRITE","stale worker result")
+        db_path_engine=create_engine(f"sqlite:///{db_path}");saved_session=sessionmaker(bind=db_path_engine)();saved=saved_session.get(WorkflowNode,node_id)
+        assert saved.status=="REQUIRES_REVIEW" and saved.error_code=="LEASE_EXPIRED"
+        saved_session.close();db_path_engine.dispose();recovered_engine.dispose()
+    finally:
+        if process.poll() is None: process.kill();process.wait(timeout=10)
+
+
+def test_goal_planner_creates_and_runs_xrd_dag_with_fixture_file(tmp_path,monkeypatch):
+    import hashlib
+    from pathlib import Path
+    from fastapi.testclient import TestClient
+    from app.db.database import get_db
+    from app.db.models import MaterialAnalysisRun
+    from app.main import app
+    engine,sessions,db,topic,experiment=_db(tmp_path,monkeypatch)
+    data_root=Path(__file__).resolve().parents[2]/"data"/"material-analysis"
+    data_root.mkdir(parents=True,exist_ok=True)
+    original=data_root/f"planner-fixture-{os.getpid()}.xy"
+    content=b"10 12\n11 10\n12 100\n13 11\n14 9\n"
+    original.write_bytes(content)
+    run=MaterialAnalysisRun(topic_id=topic.id,experiment_id=experiment.id,modality="xrd",tool_id="xrd.local_peaks.v1",
+        filename=original.name,sha256=hashlib.sha256(content).hexdigest(),original_path=str(original),
+        result_json={"provenance":{"parameters":{"xrd_x_unit":"2theta_deg"}}},analysis_status="pending")
+    db.add(run);db.commit();run_id=run.id;source_sha=run.sha256;topic_id=topic.id;experiment_id=experiment.id;db.close()
+    def get_test_db():
+        session=sessions()
+        try:yield session
+        finally:session.close()
+    app.dependency_overrides[get_db]=get_test_db
+    try:
+        with TestClient(app) as client:
+            response=client.post("/api/workflows/plan",json={"topic_id":topic_id,"experiment_id":experiment_id,"goal":"Analyze XRD diffraction peaks"})
+            assert response.status_code==202,response.text
+            plan=response.json()
+            assert plan["action"]=="RUN_ANALYSIS" and plan["executable"]
+            assert plan["nodes"][1]["inputs"]["analysis_run_id"]==run_id
+            queued=client.post("/api/workflows/plan",json={"topic_id":topic_id,"experiment_id":experiment_id,
+                "goal":"Analyze XRD diffraction peaks","enqueue":True})
+            assert queued.status_code==202,queued.text
+            workflow_id=queued.json()["workflow"]["id"]
+            assert worker.run_once("planner-test")
+            assert worker.run_once("planner-test")
+            status=client.get(f"/api/workflows/{workflow_id}?topic_id={topic_id}").json()
+            assert status["status"]=="COMPLETED",status
+            db=sessions();stored=db.get(MaterialAnalysisRun,run_id)
+            assert stored.analysis_status=="completed"
+            assert stored.result_json["analysis_provenance"]["original_sha256"]==source_sha
+            node=status["nodes"][1]
+            assert node["output"]["typed_outputs"]["observed_peaks.0.x"]["unit"]=="2theta_deg"
+            db.close()
+    finally:
+        app.dependency_overrides.clear();engine.dispose()
+        original.unlink(missing_ok=True)
