@@ -6,7 +6,8 @@ from typing import Any, Callable, Protocol
 
 from app.schemas.core import AqueousEquilibriumRequest, AqueousSweepRequest
 from app.services.material_analysis.service import AnalysisInputError, analyze as analyze_material
-from app.services.simulation.phreeqc import calculate_aqueous_equilibrium, sweep_aqueous_equilibrium
+from app.services.simulation.phreeqc import (calculate_aqueous_equilibrium,
+    run_usgs_example_2_gypsum_reference, sweep_aqueous_equilibrium)
 from app.services.tool_registry import ResultValidator, ToolRegistry
 
 
@@ -84,6 +85,14 @@ class PHREEQCAdapter:
     def execute(self, prepared: dict) -> dict:
         fn=sweep_aqueous_equilibrium if self.sweep else calculate_aqueous_equilibrium
         return fn(**prepared)
+
+    def execute_official_reference(self, reference_id: str) -> dict:
+        """Run an allowlisted official golden case through this PHREEQC adapter."""
+        if reference_id != "usgs_example_2_gypsum_anhydrite_25c":
+            raise ValueError("Unsupported PHREEQC reference case.")
+        if self.sweep:
+            raise ValueError("Official batch-reaction reference is not a pH sweep.")
+        return run_usgs_example_2_gypsum_reference()
 
     def validate_outputs(self, output: Any) -> dict:
         tool=ToolRegistry().get(self.tool_id)

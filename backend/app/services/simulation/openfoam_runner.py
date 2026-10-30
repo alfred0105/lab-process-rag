@@ -69,6 +69,24 @@ def parse_power_trace(text: str) -> list[dict]:
     return trace
 
 
+def parse_solver_log(text: str, *, returncode: int = 0, solver_end: str = "End") -> dict:
+    """Parse captured OpenFOAM evidence without claiming that CFD was run here."""
+    cell_match=re.search(r"(?:cells\s*:\s*|\b)(\d+)\s+cells\b",text,re.I)
+    residuals=[]
+    for raw in re.findall(r"Final residual\s*=\s*([0-9.eE+-]+)",text):
+        try: residuals.append(float(raw))
+        except ValueError: residuals.append(float("nan"))
+    cell_count=int(cell_match.group(1)) if cell_match else None
+    mesh_ok=bool(re.search(r"Mesh OK\.",text)) and not bool(re.search(r"FOAM FATAL|Failed [0-9]+ mesh checks",text,re.I))
+    completed=returncode==0 and solver_end.strip()=="End"
+    converged=bool(residuals) and all(math.isfinite(value) and 0<=value<=1e-3 for value in residuals)
+    return {"mesh_cell_count":cell_count,"mesh_validation":"CHECKMESH_OK" if mesh_ok else "UNVERIFIED",
+        "final_residuals":residuals,"solver_converged":converged,
+        "solver_completed_marker":"End" if completed else None,
+        "returncode":returncode,
+        "valid":completed and cell_count is not None and mesh_ok and converged}
+
+
 def _terminate_process_group(process, grace_seconds:float=2.0):
     """Stop the isolated solver and its child processes, escalating if needed."""
     if process.poll() is not None:
@@ -153,15 +171,10 @@ def run_openfoam(config: dict, *, should_cancel=None) -> tuple[dict,str]:
         trace=parse_power_trace(power.stdout)
         if len(trace) < 2:
             raise RuntimeError("OpenFOAM ended normally but produced fewer than two power-output points; no result was marked complete.")
+        diagnostics=parse_solver_log(combined,returncode=result.returncode,solver_end=solver_end.stdout.strip())
         number_match=re.search(r"Power number\s*=\s*([0-9.eE+-]+)",combined)
         power_number=float(number_match.group(1)) if number_match else None
-        cell_match=re.search(r"(?:cells\s*:\s*|\b)(\d+)\s+cells\b",combined,re.I)
-        residuals=[float(value) for value in re.findall(r"Final residual\s*=\s*([0-9.eE+-]+)",combined)]
-        mesh_cells=int(cell_match.group(1)) if cell_match else None
-        solver_converged=bool(residuals) and all(math.isfinite(value) and value<=1e-3 for value in residuals)
-        return {"case_id": case_id, "solver": "foamRun (incompressibleFluid)", "mesh_cell_count":mesh_cells,
-            "mesh_validation":"CHECKMESH_OK" if re.search(r"Mesh OK\.",combined) else "UNVERIFIED",
-            "final_residuals":residuals,"solver_converged":solver_converged,"solver_completed_marker":"End",
+        return {"case_id": case_id, "solver": "foamRun (incompressibleFluid)", **diagnostics,
             "power_trace": trace, "power_number": power_number, "power_number_method": "OpenFOAM tutorial Allrun post-processing formula", "case_path": guest,
             "limits": ["single-phase Newtonian liquid; steady MRF Rushton case", "power number uses tutorial's dimensionless scaling; confirm applicability for the entered geometry and fluid regime", "not a prediction of concentration mixing time, precipitation, nucleation, particle size, or yield"]}, combined
     finally:

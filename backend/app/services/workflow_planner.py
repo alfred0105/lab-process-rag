@@ -65,6 +65,8 @@ def plan_workflow(*, goal: str, record: dict, analysis_runs: list[dict],
             result = run.get("result") or {}
             provenance = result.get("provenance") or {}
             settings = provenance.get("parameters") or {}
+            if modality == "xrd" and settings.get("xrd_x_unit") not in {"2theta_deg", "d_angstrom", "q_angstrom^-1"}:
+                missing.append("XRD 원본 x축 단위(2θ°, d-spacing Å 또는 q Å⁻¹)")
             if modality in {"sem", "tem"} and not settings.get("pixel_size_nm"):
                 missing.append("SEM/TEM 이미지의 교정된 픽셀 크기(nm/px)")
             if modality == "afm" and not settings.get("afm_height_unit"):

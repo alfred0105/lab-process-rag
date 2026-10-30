@@ -157,6 +157,62 @@ def sweep_aqueous_equilibrium(
     }
 
 
+def run_usgs_example_2_gypsum_reference() -> dict[str, Any]:
+    """Execute the official USGS Example 2 first batch-reaction reference.
+
+    This named fixture deliberately runs the published SOLUTION +
+    EQUILIBRIUM_PHASES calculation. It is a reference-validation path, not an
+    alias for the application's analytical-total-only equilibrium estimate.
+    """
+    try:
+        from phreeqpython import PhreeqPython
+    except ImportError as exc:  # pragma: no cover - environment specific
+        raise RuntimeError("PHREEQC is not installed in this backend environment.") from exc
+    model = PhreeqPython(database="phreeqc.dat")
+    model.ip.run_string(
+        """SOLUTION 1 Pure water
+            pH 7.0
+            temp 25.0
+        EQUILIBRIUM_PHASES 1
+            Gypsum 0.0 1.0
+            Anhydrite 0.0 1.0
+        SELECTED_OUTPUT 1
+            -reset false
+            -pH true
+            -totals Ca S(6)
+            -si anhydrite gypsum
+        END
+        """
+    )
+    rows = model.ip.get_selected_output_array()
+    if len(rows) < 3:
+        raise RuntimeError("PHREEQC did not return the selected USGS reference output.")
+    calculated_pH, calcium_total, sulfate_total, anhydrite_si, gypsum_si = map(float, rows[-1])
+    if not all(isfinite(value) for value in (calculated_pH, calcium_total, sulfate_total, anhydrite_si, gypsum_si)):
+        raise RuntimeError("PHREEQC returned non-finite saturation indices for the USGS reference.")
+    return {
+        "model_id": "PHREEQC-3 / phreeqc.dat / USGS Example 2 reference",
+        **_database_provenance(),
+        "reference_case": "USGS PHREEQC Version 3 Example 2, first batch reaction, 25 C",
+        "reference_source_url": "https://water.usgs.gov/water-resources/software/PHREEQC/documentation/phreeqc3-html/phreeqc3-64.htm",
+        "temperature_c": 25.0,
+        "input_pH": 7.0,
+        "calculated_pH": calculated_pH,
+        "equilibrated_totals_molal": {"Ca": calcium_total, "S(6)": sulfate_total},
+        "aqueous_species": [],
+        "saturation_indices": [
+            {"phase": "Anhydrite", "saturation_index": anhydrite_si, "interpretation": "reference_calculation"},
+            {"phase": "Gypsum", "saturation_index": gypsum_si, "interpretation": "reference_calculation"},
+        ],
+        "status": "OFFICIAL_REFERENCE_REPRODUCTION",
+        "limitations": [
+            "This reproduces the official pure-water batch reaction with gypsum and anhydrite equilibrium phases.",
+            "It validates this named PHREEQC engine/database reference path; it does not validate ZnO chemistry or precipitation kinetics.",
+            "This reference calculation is not interchangeable with the application's analytical-total speciation request.",
+        ],
+    }
+
+
 def simulate_stirred_reaction_path(
     *, temperature_c: float, pH: float, totals_molal: dict[str, float],
     titrant: str, total_titrant_mmol: float, duration_min: float,

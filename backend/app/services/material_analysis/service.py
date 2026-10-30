@@ -36,8 +36,9 @@ def analyze_xrd(data: bytes, filename: str, x_unit: str = "2theta_deg") -> Analy
             x, y = float(fields[0]), float(fields[1])
         except (ValueError, IndexError):
             continue  # common column headers are ignored
-        if math.isfinite(x) and math.isfinite(y):
-            rows.append((x, y))
+        if not math.isfinite(x) or not math.isfinite(y):
+            raise AnalysisInputError("XRD pattern contains a non-finite numeric coordinate or intensity.")
+        rows.append((x, y))
     if len(rows) < 5:
         raise AnalysisInputError("XRD input needs at least five numeric x/intensity rows.")
     values = np.asarray(rows, dtype=float)
@@ -160,7 +161,13 @@ def analyze_microscopy(data: bytes, filename: str, pixel_size_nm: float, foregro
     image = source_image.convert("L")
     gray = np.asarray(image, dtype=np.uint8)
     threshold = _otsu_threshold(gray)
-    mask = gray > threshold if foreground == "bright" else gray <= threshold
+    # A constant-intensity image has no separable foreground/background. The
+    # Otsu score is undefined in this degenerate case; treating every pixel as
+    # foreground would fabricate one enormous object.
+    if int(gray.max()) == int(gray.min()):
+        mask = np.zeros_like(gray, dtype=bool)
+    else:
+        mask = gray > threshold if foreground == "bright" else gray <= threshold
     labels, count = ndimage.label(mask, structure=np.ones((3, 3), dtype=int))
     sizes = np.bincount(labels.ravel())[1:]
     sizes = sizes[sizes >= 3]  # omit tiny isolated sensor/noise specks from the preview summary

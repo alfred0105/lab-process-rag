@@ -23,7 +23,7 @@ from pathlib import Path
 from sqlalchemy import and_, or_, update
 from sqlalchemy.exc import IntegrityError, OperationalError
 
-from app.db.database import ROOT, SessionLocal
+from app.db.database import DATA_ROOT, ROOT, SessionLocal
 from app.db.models import (Experiment, MaterialAnalysisRun, ScientificObservation,
                            SimulationRun, WorkflowNode, WorkflowRun)
 from app.services.material_analysis.service import AnalysisInputError
@@ -31,6 +31,7 @@ from app.services.scientific_data import classify_analysis_source, make_observat
 from app.services.simulation.openfoam_runner import run_openfoam
 from app.services.simulation.cache import phreeqc_cache_identity, typed_phreeqc_outputs
 from app.services.tool_adapters import MaterialAnalysisAdapter, PHREEQCAdapter
+from app.services.typed_values import convert_declared_value
 from app.services.tool_registry import ResultValidator, ToolRegistry, ValidationGate
 
 log=logging.getLogger("lab-process-rag.worker")
@@ -201,12 +202,16 @@ def refresh_cached_workflow_nodes() -> int:
 def _persist_analysis(db,node,output,run,workflow):
     experiment=db.get(Experiment,workflow.experiment_id)
     params=node.input_json.get("settings",{})
-    source=classify_analysis_source(experiment,demo_data=bool(output.result.get("demo_data")))
+    # Test/reference fixture lineage must survive the Worker analysis hop; do
+    # not promote a synthetic source file to a measured observation merely
+    # because its parent experiment is a non-demo record in an isolated DB.
+    source_is_synthetic = bool(output.result.get("demo_data") or (run.result_json or {}).get("demo_data"))
+    source=classify_analysis_source(experiment,demo_data=source_is_synthetic)
     definition=ToolRegistry().get(output.tool_id)
     validation=ResultValidator.validate(definition,output.result)
     if not validation.get("valid"): raise ValueError(f"analysis_output_invalid:{validation.get('reason')}")
     finished=utcnow()
-    result={**output.result,"analysis_provenance":{"experiment_id":experiment.id,"topic_id":workflow.topic_id,
+    result={**output.result, **({"demo_data": True} if source_is_synthetic else {}), "analysis_provenance":{"experiment_id":experiment.id,"topic_id":workflow.topic_id,
         "method_version_id":experiment.method_version_id,"process_step_id":run.process_step_id,
         "source_type":source,"original_sha256":run.sha256,"parent_data_ids":[f"uploaded-file-sha256:{run.sha256}",f"experiment:{experiment.id}"],
         "tool_id":output.tool_id,"tool_version":definition.version,"algorithm_version":definition.version,
@@ -214,7 +219,7 @@ def _persist_analysis(db,node,output,run,workflow):
         "finished_at":finished.isoformat()+"Z"}}
     artifact_path=None
     if output.artifact and output.artifact_extension:
-        artifact_dir=ROOT/"data"/"material-analysis"/"artifacts"; artifact_dir.mkdir(parents=True,exist_ok=True)
+        artifact_dir=DATA_ROOT/"material-analysis"/"artifacts"; artifact_dir.mkdir(parents=True,exist_ok=True)
         artifact_path=artifact_dir/f"{run.id}.{output.artifact_extension}"; artifact_path.write_bytes(output.artifact)
         result["mask_url"]=f"/api/analysis/runs/{run.id}/mask?topic_id={workflow.topic_id}"
     run.tool_id=output.tool_id; run.analysis_status="completed"; run.artifact_path=str(artifact_path) if artifact_path else None; run.result_json=result
@@ -267,15 +272,22 @@ def _execute_node(node_id:int,worker_id:str,generation:int,lease:Lease):
                 value_number=typed.get("value") if isinstance(typed,dict) else None
                 if (not isinstance(typed,dict) or isinstance(value_number,bool)
                         or not isinstance(value_number,(int,float)) or not math.isfinite(float(value_number))
-                        or typed.get("unit")!=ref.get("unit") or typed.get("meaning")!=ref.get("meaning")
+                        or not typed.get("unit") or not ref.get("unit") or typed.get("meaning")!=ref.get("meaning")
                         or typed.get("source_type") not in {"SIMULATION","LAB_RESULT","LAB_RECORD","ANALYSIS_OUTPUT","LITERATURE_ANALYSIS_OUTPUT"}
                         or typed.get("review_status") not in {"COMPUTED","ACCEPTED"}
                         or not typed.get("source_id")
                         or typed.get("validation_status") not in {"NUMERICALLY_VALID","VALIDATED"}):
                     raise ValueError("typed_handoff_missing_or_incompatible")
-                handoff.append({"from_node":parent.node_key,"path":ref["path"],"unit":typed["unit"],"meaning":typed["meaning"],
-                    "source_type":typed.get("source_type"),"source_id":typed.get("source_id"),"validation_status":typed.get("validation_status"),"uncertainty":typed.get("uncertainty")})
-                return typed["value"]
+                try:
+                    delivered_value, delivered_uncertainty = convert_declared_value(
+                        value_number, str(typed["unit"]), str(ref["unit"]), typed.get("uncertainty"))
+                except (TypeError, ValueError) as exc:
+                    raise ValueError("typed_handoff_missing_or_incompatible") from exc
+                handoff.append({"from_node":parent.node_key,"path":ref["path"],"source_unit":typed["unit"],
+                    "unit":ref["unit"],"meaning":typed["meaning"],"source_type":typed.get("source_type"),
+                    "source_id":typed.get("source_id"),"validation_status":typed.get("validation_status"),
+                    "value":delivered_value,"uncertainty":delivered_uncertainty})
+                return delivered_value
             if isinstance(value,dict): return {key:resolve(item) for key,item in value.items()}
             if isinstance(value,list): return [resolve(item) for item in value]
             return value
@@ -297,9 +309,11 @@ def _execute_node(node_id:int,worker_id:str,generation:int,lease:Lease):
                 node.result_id=analysis.id; node.result_type=result_type
             else:
                 original=Path(analysis.original_path).resolve()
-                root=(ROOT/"data"/"material-analysis").resolve()
+                root=(DATA_ROOT/"material-analysis").resolve()
                 if root not in original.parents or not original.is_file(): raise ValueError("analysis_original_file_missing_or_out_of_scope")
                 modality=analysis.modality.lower(); settings=resolved_inputs.get("settings",{})
+                if modality=="xrd" and settings.get("xrd_x_unit") not in {"2theta_deg","d_angstrom","q_angstrom^-1"}:
+                    raise ValueError("xrd_axis_unit_required")
                 if modality in {"sem","tem","afm"} and ("pixel_size_nm" not in settings if modality in {"sem","tem"} else "afm_height_unit" not in settings):
                     raise ValueError("calibration_input_required")
                 adapter=MaterialAnalysisAdapter()

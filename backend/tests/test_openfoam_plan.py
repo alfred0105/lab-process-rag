@@ -1,5 +1,5 @@
 from app.services.simulation.openfoam import plan_simple_rushton_case
-from app.services.simulation.openfoam_runner import parse_power_trace, probe_openfoam_installation
+from app.services.simulation.openfoam_runner import parse_power_trace, parse_solver_log, probe_openfoam_installation
 from app.schemas.core import IntegratedAnalysisClaim, IntegratedAnalysisRequest
 from pydantic import ValidationError
 import pytest
@@ -66,6 +66,21 @@ bad row
     assert trace[1]["time_s"] == 10
     assert trace[1]["divStressU"] == 3233.09286528
     assert trace[1]["divTauDotU"] == -1643.37288423
+
+
+def test_openfoam_log_fixture_matrix_distinguishes_solver_evidence():
+    good = "cells: 1200 cells\nMesh OK.\nFinal residual = 2e-5\nFinal residual = 8e-5\n"
+    assert parse_solver_log(good, returncode=0, solver_end="End")["valid"] is True
+    unconverged = parse_solver_log("cells: 1200 cells\nMesh OK.\nFinal residual = 0.2\n", returncode=0, solver_end="End")
+    assert unconverged["solver_converged"] is False and unconverged["valid"] is False
+    bad_mesh = parse_solver_log("cells: 1200 cells\nFailed 2 mesh checks\nFinal residual = 2e-5\n", returncode=0, solver_end="End")
+    assert bad_mesh["mesh_validation"] == "UNVERIFIED" and not bad_mesh["valid"]
+    crashed = parse_solver_log(good, returncode=9, solver_end="FOAM FATAL ERROR")
+    assert crashed["solver_completed_marker"] is None and not crashed["valid"]
+    truncated = parse_solver_log("cells: 1200 cells\nMesh OK.\n", returncode=0, solver_end="")
+    assert truncated["solver_completed_marker"] is None and not truncated["valid"]
+    missing_evidence = parse_solver_log("", returncode=0, solver_end="End")
+    assert missing_evidence["mesh_cell_count"] is None and not missing_evidence["valid"]
 
 
 def test_integrated_analysis_claims_keep_simulation_outputs_distinct_from_measurements():

@@ -5,6 +5,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 ROOT = Path(__file__).resolve().parents[3]
+DATA_ROOT = Path(os.getenv("LAB_PROCESS_DATA_DIR", str(ROOT / "data"))).expanduser().resolve()
 DB_PATH = Path(os.getenv("LAB_PROCESS_DB_PATH",str(ROOT / "data" / "lab_process.db"))).expanduser().resolve()
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False})

@@ -135,6 +135,28 @@ def test_typed_handoff_propagates_verified_source_lineage(tmp_path,monkeypatch):
     db.close();engine.dispose()
 
 
+def test_typed_handoff_converts_compatible_units_and_preserves_source_unit(tmp_path,monkeypatch):
+    engine,sessions,db,topic,experiment=_db(tmp_path,monkeypatch)
+    flow=WorkflowRun(topic_id=topic.id,experiment_id=experiment.id,goal="unit conversion handoff",status="RUNNING",graph_json={},created_at=datetime.utcnow())
+    db.add(flow);db.flush()
+    db.add_all([
+        WorkflowNode(workflow_id=flow.id,node_key="source",tool_id="experiment.data_quality.v1",dependency_keys=[],
+            input_json={},output_json={"typed_outputs":{"volume":{"value":1000.0,"unit":"microliter","meaning":"measured liquid volume",
+                "source_type":"SIMULATION","source_id":"simulation-run:1:volume","validation_status":"NUMERICALLY_VALID",
+                "review_status":"COMPUTED","uncertainty":10.0}}},status="COMPLETED",created_at=datetime.utcnow()),
+        WorkflowNode(workflow_id=flow.id,node_key="consumer",tool_id="experiment.data_quality.v1",dependency_keys=["source"],
+            input_json={"volume":{"$ref":{"node":"source","path":"volume","unit":"milliliter","meaning":"measured liquid volume"}}},created_at=datetime.utcnow())])
+    db.commit();db.close()
+    assert worker.run_once("typed-unit-worker")
+    db=sessions();consumer=db.query(WorkflowNode).filter_by(node_key="consumer").one()
+    provenance=consumer.output_json["handoff_provenance"][0]
+    assert consumer.status=="COMPLETED"
+    assert provenance["source_unit"]=="microliter" and provenance["unit"]=="milliliter"
+    assert provenance["value"]==pytest.approx(1.0)
+    assert provenance["uncertainty"]==pytest.approx(0.01)
+    db.close();engine.dispose()
+
+
 def test_data_quality_gate_requires_review_before_dependent_tool(tmp_path,monkeypatch):
     engine,sessions,db,topic,experiment=_db(tmp_path,monkeypatch)
     step=ProcessStep(experiment_id=experiment.id,name="mix",step_type="process",order_index=0,description="")
@@ -285,7 +307,12 @@ def test_goal_planner_creates_and_runs_xrd_dag_with_fixture_file(tmp_path,monkey
     from app.db.models import MaterialAnalysisRun
     from app.main import app
     engine,sessions,db,topic,experiment=_db(tmp_path,monkeypatch)
-    data_root=Path(__file__).resolve().parents[2]/"data"/"material-analysis"
+    # This test owns both its database and source/artifact root. Never touch
+    # the application's live `data/material-analysis` directory.
+    isolated_root=tmp_path/"isolated-app"
+    monkeypatch.setattr(worker,"ROOT",isolated_root)
+    monkeypatch.setattr(worker,"DATA_ROOT",isolated_root/"data")
+    data_root=isolated_root/"data"/"material-analysis"
     data_root.mkdir(parents=True,exist_ok=True)
     original=data_root/f"planner-fixture-{os.getpid()}.xy"
     content=b"10 12\n11 10\n12 100\n13 11\n14 9\n"

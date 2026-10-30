@@ -11,7 +11,7 @@ import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, selectinload
-from app.db.database import ROOT, SessionLocal, get_db
+from app.db.database import DATA_ROOT, ROOT, SessionLocal, get_db
 from app.db.models import Experiment, ExperimentMaterial, ExperimentMethod, MethodVersion, ResearchTopic, ResearchMaterial, Paper, EvidenceChunk, PaperSummary, ProcessStep, ProcessVariable, ExperimentResult, FailureObservation, ExperimentEnvironmentRecord, ProcessStepLog, ExperimentAttachment, ProcessStageExperiment, AssistantInteraction, MaterialAnalysisRun, IntegratedAnalysisSession, SimulationRun, ScientificObservation, MeasurementReviewEvent
 from app.schemas.core import AssistantAsk, SimulationInputReviewRequest, ProcessVariableUpdate, ExperimentMaterialIn, AnalysisExplanation, IntegratedAnalysisRequest, IntegratedAnalysisClaim, DecisionBrief, DecisionOption, DecisionChoiceRequest, MeasurementReviewRequest, Claim, EvidenceStatus, ExperimentIn, ResearchTopicIn, ResearchMaterialIn, MethodIn, DesignRequest, ProcessChange, StepLogIn, StageExperimentIn, PHEstimateRequest, AqueousEquilibriumRequest, AqueousSweepRequest, StirredReactionPathRequest, ToolExecutionRequest, OpenFOAMRunRequest
 from app.services.ingestion.pdf import MAX_PDF_SIZE_BYTES, ingest_pdf
@@ -41,9 +41,9 @@ from app.services.scientific_data import classify_analysis_source, make_observat
 from app.services.tool_registry import ToolRegistry, ToolExecutor, ResultValidator, ValidationGate, recommend_tools
 router=APIRouter(); retrieval=SQLiteFTSProvider()
 
-ANALYSIS_ROOT = ROOT / "data" / "material-analysis"
+ANALYSIS_ROOT = DATA_ROOT / "material-analysis"
 MAX_ANALYSIS_UPLOAD_BYTES = 25 * 1024 * 1024
-ATTACHMENTS_ROOT = ROOT / "data" / "experiment-attachments"
+ATTACHMENTS_ROOT = DATA_ROOT / "experiment-attachments"
 MAX_EXPERIMENT_IMAGE_BYTES = 15 * 1024 * 1024
 
 def exp_query(db):
@@ -607,7 +607,9 @@ def _analysis_file(db:Session,run_id:int,topic_id:int,artifact:bool):
 @router.post("/analysis/pending")
 async def save_pending_analysis(
     file:UploadFile=File(...), modality:str=Form(...), topic_id:int=Form(...), experiment_id:int=Form(...), tool_id:str=Form(...),
-    result_key:str=Form(...), process_step_id:int|None=Form(None), db:Session=Depends(get_db),
+    result_key:str=Form(...), process_step_id:int|None=Form(None), xrd_x_unit:str|None=Form(None),
+    afm_height_unit:str|None=Form(None), pixel_size_nm:float|None=Form(None), foreground:str=Form("bright"),
+    db:Session=Depends(get_db),
 ):
     filename=Path(file.filename or "measurement").name
     if not db.get(ResearchTopic,topic_id): raise HTTPException(404,"Research topic not found")
@@ -620,9 +622,15 @@ async def save_pending_analysis(
     if len(data)>MAX_ANALYSIS_UPLOAD_BYTES: raise HTTPException(413,"Analysis files are limited to 25 MiB in this pilot")
     run_id=uuid.uuid4().hex; original_dir=ANALYSIS_ROOT/"originals"; original_dir.mkdir(parents=True,exist_ok=True)
     original_path=original_dir/f"{run_id}{Path(filename).suffix.lower()}"; original_path.write_bytes(data)
+    parameters={}
+    if xrd_x_unit is not None: parameters["xrd_x_unit"]=xrd_x_unit
+    if afm_height_unit is not None: parameters["afm_height_unit"]=afm_height_unit
+    if pixel_size_nm is not None: parameters["pixel_size_nm"]=pixel_size_nm
+    if foreground in {"bright","dark"}: parameters["foreground"]=foreground
     item=MaterialAnalysisRun(experiment_id=experiment_id,topic_id=topic_id,process_step_id=process_step_id,result_key=result_key.strip(),
         modality=modality.lower(),tool_id=tool_id,filename=filename,sha256=sha256_bytes(data),original_path=str(original_path),
-        result_json={"analysis_status":"pending","notice":"Original measurement saved. The selected specialist format adapter is not connected yet."},analysis_status="pending")
+        result_json={"analysis_status":"pending","notice":"Original measurement saved. The selected specialist format adapter is not connected yet.",
+                     "provenance":{"parameters":parameters}},analysis_status="pending")
     db.add(item)
     try: db.commit(); db.refresh(item)
     except Exception:

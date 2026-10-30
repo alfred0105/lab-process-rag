@@ -1,5 +1,8 @@
 """Topic-scoped API for durable scientific DAG workflows."""
 from datetime import datetime, timezone
+import os
+import tempfile
+from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
@@ -11,6 +14,17 @@ from app.services.workflow_planner import plan_workflow
 router=APIRouter()
 WORKFLOW_TOOLS={"experiment.data_quality.v1","xrd.local_peaks.v1","afm.plane_level_roughness.v1",
     "microscopy.otsu_components.v1","phreeqc.aqueous_equilibrium.v1","phreeqc.aqueous_sweep.v1"}
+
+def _isolated_synthetic_test_mode() -> bool:
+    """Permit synthetic workflow fixtures only with an explicit flag and temp DB."""
+    db_path=os.getenv("LAB_PROCESS_DB_PATH")
+    if os.getenv("LAB_PROCESS_TESTING") != "1" or not db_path:
+        return False
+    try:
+        Path(db_path).expanduser().resolve().relative_to(Path(tempfile.gettempdir()).resolve())
+        return True
+    except ValueError:
+        return False
 
 def _plan_context(db, experiment):
     analysis_runs=db.query(MaterialAnalysisRun).filter_by(topic_id=experiment.topic_id,experiment_id=experiment.id).order_by(MaterialAnalysisRun.id).all()
@@ -27,7 +41,7 @@ def _plan_context(db, experiment):
         review=run.review_events[-1].review_status if run.review_events else ("COMPUTED" if run.analysis_status=="completed" else "PENDING")
         runs.append({"id":run.id,"topic_id":run.topic_id,"experiment_id":run.experiment_id,"modality":run.modality,
             "analysis_status":run.analysis_status,"review_status":review,"sha256":run.sha256,"result":result,
-            "demo":bool(result.get("demo_data")),"filename":run.filename})
+            "demo":bool(result.get("demo_data")) and not _isolated_synthetic_test_mode(),"filename":run.filename})
     return record,runs
 
 def _payload(db, flow):
@@ -70,11 +84,20 @@ def create_workflow(payload:WorkflowCreateRequest,db:Session=Depends(get_db)):
             run_id=node.inputs.get("analysis_run_id")
             run=db.query(MaterialAnalysisRun).filter_by(id=run_id,topic_id=payload.topic_id,experiment_id=payload.experiment_id).first() if isinstance(run_id,int) else None
             if not run: raise HTTPException(422,{"reason":"analysis_run_required_for_tool","node":node.key})
-            if bool((run.result_json or {}).get("demo_data")): raise HTTPException(422,"Demo measurement files cannot be used in scientific workflows")
+            if bool((run.result_json or {}).get("demo_data")) and not _isolated_synthetic_test_mode(): raise HTTPException(422,"Demo measurement files cannot be used in scientific workflows")
             expected="xrd" if node.tool_id.startswith("xrd.") else ("afm" if node.tool_id.startswith("afm.") else "microscopy")
             if expected=="xrd" and run.modality.lower()!="xrd": raise HTTPException(422,"XRD tool requires an XRD upload")
             if expected=="afm" and run.modality.lower()!="afm": raise HTTPException(422,"AFM tool requires an AFM upload")
             if expected=="microscopy" and run.modality.lower() not in {"sem","tem"}: raise HTTPException(422,"Microscopy tool requires SEM/TEM data")
+            settings=node.inputs.get("settings") or {}
+            if expected=="xrd" and settings.get("xrd_x_unit") not in {"2theta_deg","d_angstrom","q_angstrom^-1"}:
+                raise HTTPException(422,{"reason":"xrd_axis_unit_required","message":"Declare the original XRD axis unit before scheduling analysis."})
+            if expected=="afm" and settings.get("afm_height_unit") not in {"nm","um","angstrom","m"}:
+                raise HTTPException(422,{"reason":"afm_height_calibration_required","message":"Declare the AFM height calibration unit before scheduling analysis."})
+            if expected=="microscopy":
+                pixel_size=settings.get("pixel_size_nm")
+                if isinstance(pixel_size,bool) or not isinstance(pixel_size,(int,float)) or not 0<float(pixel_size)<=100000:
+                    raise HTTPException(422,{"reason":"pixel_calibration_required","message":"Declare a finite calibrated pixel size in nm/px before scheduling microscopy analysis."})
     now=datetime.now(timezone.utc).replace(tzinfo=None)
     flow=WorkflowRun(topic_id=payload.topic_id,experiment_id=payload.experiment_id,goal=payload.goal,status="QUEUED",
         graph_json={"nodes":[n.model_dump() for n in payload.nodes]},created_at=now)

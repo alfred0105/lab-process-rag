@@ -87,13 +87,13 @@ class RuleBasedDecisionPolicy:
     """Safe baseline policy; replaceable by a learned JEV DecisionPolicy later."""
     def choose(self, state: dict, recommendations: list[dict], goal: str = "") -> dict:
         goal_text=goal.casefold()
-        if any(x in goal_text for x in ("quality","검증","누락","단위")):
+        if any(x in goal_text for x in ("quality","validat","missing","검증","누락","단위","빠진 값","빠진 입력")):
             return {"action":"RUN_DATA_VALIDATION","tool_id":"experiment.data_quality.v1","reason":"The requested goal is record and unit validation.","confidence":"rule_match"}
         targets=("xrd" if any(x in goal_text for x in ("xrd","diffraction","회절","결정상")) else
                  "afm" if any(x in goal_text for x in ("afm","roughness","거칠기","표면")) else
                  "microscopy" if any(x in goal_text for x in ("sem","tem","microscopy","현미경","입자")) else
                  "phreeqc" if any(x in goal_text for x in ("phreeqc","speciation","equilibrium","수용액","화학종","포화")) else
-                 "data_quality" if any(x in goal_text for x in ("quality","검증","누락","단위")) else None)
+                 "data_quality" if any(x in goal_text for x in ("quality","validat","missing","검증","누락","단위")) else None)
         ready=[item for item in recommendations if item["readiness"]=="READY" and item["category"] != "data_quality"]
         if targets:
             ready=[item for item in ready if item["tool_id"].startswith(targets)]
@@ -105,6 +105,13 @@ class RuleBasedDecisionPolicy:
                 "tool_id":selected["tool_id"],"reason":"A registered tool is compatible with the recorded input; execution still requires the validation gate.","confidence":"rule_match"}
         if targets and any(item["readiness"]=="ALREADY_ANALYZED" for item in recommendations if item["tool_id"].startswith(targets)):
             return {"action":"ABSTAIN","tool_id":None,"reason":"The requested analysis is already present; no duplicate run was selected.","confidence":"rule_match"}
+        # Do not turn a vague objective into a generic request for every
+        # registry input. Ask for data only after recognizing a concrete tool
+        # family; otherwise the safe and useful action is to abstain.
+        if not targets:
+            return {"action":"ABSTAIN","tool_id":None,
+                "reason":"The goal does not identify a supported analysis, simulation, or record-validation tool.",
+                "confidence":"no_supported_goal_match"}
         if any(item["readiness"]=="REQUIRES_REVIEW" for item in relevant):
             return {"action":"REVIEW_RESULT","tool_id":None,"reason":"A candidate requires human or model-scope review before use.","confidence":"rule_match"}
         if any(item["readiness"]=="MISSING_INPUT" for item in relevant):

@@ -28,6 +28,25 @@ def test_phreeqc_matches_usgs_example_2_pure_water_gypsum_anhydrite_case():
     assert rows[-1][1] == pytest.approx(0.00, abs=0.01)
 
 
+def test_phreeqc_adapter_executes_and_validates_the_official_usgs_example_2_case():
+    from app.services.tool_adapters import PHREEQCAdapter
+    from app.services.tool_registry import ResultValidator, ToolRegistry
+
+    result = PHREEQCAdapter().execute_official_reference("usgs_example_2_gypsum_anhydrite_25c")
+    assert result["reference_case"].startswith("USGS PHREEQC Version 3 Example 2")
+    assert result["calculated_pH"] == pytest.approx(7.066, abs=0.001)
+    assert result["equilibrated_totals_molal"]["Ca"] == pytest.approx(0.01508, abs=1e-5)
+    assert result["equilibrated_totals_molal"]["S(6)"] == pytest.approx(0.01508, abs=1e-5)
+    phases = {item["phase"]: item["saturation_index"] for item in result["saturation_indices"]}
+    assert phases["Anhydrite"] == pytest.approx(-0.30, abs=0.01)
+    assert phases["Gypsum"] == pytest.approx(0.00, abs=0.01)
+    tool = ToolRegistry().get("phreeqc.aqueous_equilibrium.v1")
+    validation = ResultValidator.validate(tool, result)
+    assert validation["valid"] is True
+    assert result["database_sha256"] and result["adapter_version"]
+    assert any("not interchangeable" in item for item in result["limitations"])
+
+
 def test_strong_acid_stock_dose_includes_dilution_volume():
     result = estimate_solution_ph(100, [{"species": "HCl", "concentration_mol_l": 0.1, "volume_ml": 1}])
     assert result["estimated_ph"] == pytest.approx(3.0043, abs=0.001)

@@ -56,3 +56,11 @@ The reproducible command is `cd backend && .venv/bin/python scripts/benchmark_ph
 ## Phase 3 disposition
 
 `PHASE_3_IN_PROGRESS`. The durable execution foundation and a real PHREEQC DAG are implemented and tested, and one official PHREEQC reference case is reproduced. The complete 12-scenario system validation, real uploaded XRD/AFM/SEM/TEM workflow coverage, OpenFOAM CFD validation, browser E2E, worker crash recovery, complete adapter coverage, workflow-level idempotency, and full M5 contention measurements remain outstanding. Those items stay open on the master roadmap.
+
+## Final software verification pass (2026-10-30)
+
+The latest test additions and actual verification are tracked in [`PHASE3_SOFTWARE_VERIFICATION_REPORT.md`](PHASE3_SOFTWARE_VERIFICATION_REPORT.md), with detailed additive requirement rows in `MASTER_ROADMAP.md`. On this update, the backend suite reports **153 passed**. Isolated deterministic synthetic AFM, SEM, and TEM worker paths are covered; XRD edge cases and Pint unit conversion through a real worker handoff are covered. A 30-case Planner regression set is included. The PHREEQCAdapter executes one explicit USGS reference batch case. A dedicated Playwright CI job and isolated browser environment passed locally 1/1, including queue, cancel, completion, refresh restoration, failure/retry, and cross-topic isolation.
+
+The scoped Apple M5 24 GiB PHREEQC microbenchmark ran 30 times: p50 1.902 ms, nearest-rank p95 3.168 ms, process peak RSS 140.72 MB. This is one adapter only; it is not a complete service benchmark. No OpenFOAM CFD was executed. No real instrument data was available, so none of the synthetic image/curve tests establish measurement accuracy.
+
+The latest final-pass state remains **`PHASE_3_SOFTWARE_IN_PROGRESS`** until all 12 integrated scenarios, broader workflow performance, and remote CI are observed. The OpenFOAM software parser fixture matrix is verified; no physical CFD was run. External scientific/device validation remains separately pending. See [`PHASE4_HANDOFF.md`](PHASE4_HANDOFF.md) for the optimization observation contract; the Phase 4 optimizer itself is not implemented.
