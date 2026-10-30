@@ -174,7 +174,7 @@
 | P3R-INT-10 | 재시작 후 lease 기반으로 중단/유효 작업을 구분해 복구 | P0 | IN_PROGRESS | `main.py` recovery, `SimulationRun` lease | 만료 lease 작업만 실패 처리하고 유효 lease 작업은 RUNNING 유지하는 복구 함수 테스트; 실제 프로세스 kill/restart는 미검증 | 381e683 | worker crash/queue resume/다중프로세스 통합 시험 |
 | P3R-INT-11 | 연구 목표가 달라지면 추천 도구와 행동이 달라지거나 보류 | P0 | IN_PROGRESS | `RuleBasedDecisionPolicy`, recommendation API | 목표 기반 data-quality action 테스트는 통과; 목표 쌍 간 정책 회귀 matrix 미완료 | 381e683 | 다양한 목표·모호/범위 외 목표의 labeled evaluation set |
 | P3R-INT-12 | 승인되지 않은 결과를 최적화 조회에서 배제 | P0 | VERIFIED | `/optimization/observations/approved` | review status 및 source class 필터 API 테스트 | existing | 승인된 실측 campaign 자료가 제공되면 실데이터 audit 수행 |
-| P3R-CI-01 | CI에서 backend, migration, API, frontend 검사를 실행하고 원격 Actions 결과를 확인한다. | P1 | IN_PROGRESS | `.github/workflows/ci.yml` | 로컬 pytest 93 passed; `npm run build` 성공 (Vite 6.4.3, 1756 modules); 로컬 Uvicorn startup 및 health/registry/simulation-status 200; 원격 Actions 확인 전 | 381e683 | 푸시 뒤 GitHub Actions 결과 확인 |
+| P3R-CI-01 | CI에서 backend, migration, API, frontend 검사를 실행하고 원격 Actions 결과를 확인한다. | P1 | VERIFIED | `.github/workflows/ci.yml` | 로컬 pytest 93 passed; `npm run build` 성공 (Vite 6.4.3, 1756 modules); 로컬 Uvicorn startup 및 health/registry/simulation-status 200; GitHub Actions run [40998039914](https://github.com/alfred0105/lab-process-rag/actions/runs/40998039914)에서 backend pytest와 frontend build 모두 성공 | 381e683 | Actions의 Node.js 20 deprecation 및 ubuntu-latest→Ubuntu 26 공지; Actions runtime 정책 갱신 시 workflow actions 버전 확인 |
 | P3R-SAFE-01 | 외부 실행 승인·로컬 파일/네트워크 격리·인증·자원제한을 실제 경계에서 강제한다. | P0 | IN_PROGRESS | OpenFOAM approval, upload handlers, CORS | CFD 요청은 명시 승인 없이는 거부 | 381e683 | 다중 사용자 인증/인가, guest 프로세스 강제 종료·자원 제한, 전체 security test |
 
 ### Phase 3 최종 보완 기록 (2026-10-30)
@@ -303,4 +303,4 @@ Phase 3는 핵심 조각을 연결했지만 전체 orchestration 완료는 아�
 | 날짜 | 변경 | 검증 근거 |
 |---|---|---|
 | 2026-10-30 | 전체 개선 프롬프트, Phase 3 요구사항, 이전 제품 흐름과 감사자료를 ID 로드맵으로 통합. 문헌 출처 오분류 수정, goal 기반 tool policy, PHREEQC 실행/검증/persist 및 일부 UI를 추가. | 89 backend tests; npm build; real PHREEQC calculation; 265 local observations source audit. Phase 3 구현 커밋 34439b6. |
-| 2026-10-30 | Topic별 분석·simulation run ID 격리, lease 기반 작업 필드·복구, OpenFOAM 사용자 승인/단일 worker 큐 및 로드맵 잔여 항목 업데이트. | backend 93 passed; frontend build; Uvicorn health/registry/simulation status 200; PHREEQC SI 0.3067868 / 0.194 s / 38.5 MB max RSS on Apple M5; OpenFOAM 14 VM detected, CFD execution not started behind explicit approval gate. Code commit 381e683. |
+| 2026-10-30 | Topic별 분석·simulation run ID 격리, lease 기반 작업 필드·복구, OpenFOAM 사용자 승인/단일 worker 큐 및 로드맵 잔여 항목 업데이트. | backend 93 passed; frontend build; Uvicorn health/registry/simulation status 200; PHREEQC SI 0.3067868 / 0.194 s / 38.5 MB max RSS on Apple M5; OpenFOAM 14 VM detected, CFD execution not started behind explicit approval gate; GitHub Actions run 40998039914 backend/frontend success. Code commit 381e683. |
