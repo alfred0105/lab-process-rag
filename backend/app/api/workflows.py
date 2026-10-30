@@ -42,7 +42,10 @@ def _plan_context(db, experiment):
         runs.append({"id":run.id,"topic_id":run.topic_id,"experiment_id":run.experiment_id,"modality":run.modality,
             "analysis_status":run.analysis_status,"review_status":review,"sha256":run.sha256,"result":result,
             "demo":bool(result.get("demo_data")) and not _isolated_synthetic_test_mode(),"filename":run.filename})
-    return record,runs
+    simulation_runs=db.query(SimulationRun).filter_by(experiment_id=experiment.id).order_by(SimulationRun.id.desc()).all()
+    simulations=[{"id":item.id,"status":item.status,"model_id":item.model_id,
+        "idempotency_key":item.idempotency_key} for item in simulation_runs]
+    return record,runs,simulations
 
 def _payload(db, flow):
     nodes=db.query(WorkflowNode).filter_by(workflow_id=flow.id).order_by(WorkflowNode.id).all()
@@ -114,8 +117,16 @@ def plan_or_enqueue_workflow(payload:WorkflowPlanRequest,db:Session=Depends(get_
     experiment=db.query(Experiment).filter_by(id=payload.experiment_id,topic_id=payload.topic_id).first()
     if not experiment: raise HTTPException(404,"Experiment not found in this topic")
     if experiment.demo: raise HTTPException(422,"Scientific workflow planning is disabled for demo experiments")
-    record,runs=_plan_context(db,experiment)
-    plan=plan_workflow(goal=payload.goal,record=record,analysis_runs=runs)
+    record,runs,simulation_runs=_plan_context(db,experiment)
+    if payload.process_step_id is not None:
+        step_ids={step["id"] for step in record["steps"]}
+        if payload.process_step_id not in step_ids:
+            raise HTTPException(422,{"reason":"process_step_out_of_scope"})
+    plan=plan_workflow(goal=payload.goal,record=record,analysis_runs=runs,
+        simulation_inputs=payload.simulation_inputs,
+        simulation_runs=simulation_runs,
+        database_identifier=payload.database_identifier,process_step_id=payload.process_step_id,
+        approval_confirmed=payload.approval_confirmed)
     plan["approval_confirmed"]=bool(payload.approval_confirmed)
     if not payload.enqueue:
         return plan

@@ -1,6 +1,18 @@
-# Phase 4 handoff: optimization-ready observation contract
+# Phase 4 handoff: Gaussian Process & Bayesian Optimization
 
-상태: 계약 정의 초안. Bayesian optimization 실행은 포함하지 않는다.
+상태: **NOT_STARTED**. 현재 문서는 Phase 3 이후 GP/BO 구현 요구와 입력 계약을 정의한다. Bayesian optimization 실행, 학습, 후보 추천은 아직 포함하지 않는다. Phase 4는 학습형 JEV를 선행조건으로 요구하지 않으며 기존 RuleBasedDecisionPolicy와 독립된 optimizer로 시작한다.
+
+## 목표 구현 범위
+
+- 승인된 실험 데이터의 optimization-ready contract와 실측/source/review 필터
+- feature engineering, 물리 단위 정규화, 변수 bounds 및 물리 제약
+- Gaussian Process regression, kernel 후보 선택, hyperparameter 최적화와 predictive uncertainty
+- Bayesian acquisition: Expected Improvement, Probability of Improvement, Upper Confidence Bound
+- constraint-aware/noise-aware optimization, replicate 및 다목적/Pareto 지원
+- baseline 비교, grouped/campaign-aware cross-validation, leakage 방지와 surrogate validation
+- 다음 실험 후보 ranking, 불확도 높은 구간 abstention 및 필수 입력 요청
+
+Phase 4는 합성·공개 benchmark로 엔진 동작을 검증할 수 있지만, 실제 연구 최적화 성능은 승인된 실측 데이터와 사전에 정한 목표/제약 평가 없이는 VERIFIED로 처리하지 않는다.
 
 Phase 4는 아래 계약을 충족한 승인 실측 관측만 최적화 데이터로 사용할 수 있다.
 

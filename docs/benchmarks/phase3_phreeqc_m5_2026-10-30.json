@@ -1,0 +1,25 @@
+{
+  "benchmark": "PHREEQC aqueous equilibrium adapter runtime microbenchmark",
+  "scientific_accuracy_test": false,
+  "device": "Apple M5, 24 GiB unified memory, macOS 27.0.1 arm64",
+  "python": "3.12.14",
+  "repeats": 30,
+  "input": {
+    "temperature_c": 25,
+    "pH": 8.3,
+    "totals_molal": {
+      "Ca": 0.001,
+      "C(4)": 0.001
+    },
+    "phases": ["Calcite"]
+  },
+  "all_outputs_passed_schema_validation": true,
+  "runtime_seconds": {
+    "p50": 0.0017629994999879273,
+    "p95_nearest_rank": 0.002092457998514874,
+    "min": 0.0016808330001367722,
+    "max": 0.07133329100179253
+  },
+  "process_peak_rss_mb": 140.578125,
+  "limitation": "Process peak RSS includes Python imports and PHREEQC; it does not isolate worker/API/VM/model memory. This measures one adapter, not a full DAG or whole-system memory."
+}

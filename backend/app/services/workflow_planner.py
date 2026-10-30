@@ -14,7 +14,12 @@ def _action(decision: dict) -> str:
 
 def plan_workflow(*, goal: str, record: dict, analysis_runs: list[dict],
                   openfoam_installed: bool = False,
-                  openfoam_template_available: bool = False) -> dict:
+                  openfoam_template_available: bool = False,
+                  simulation_inputs: dict | None = None,
+                  simulation_runs: list[dict] | None = None,
+                  database_identifier: str = "phreeqc.dat",
+                  process_step_id: int | None = None,
+                  approval_confirmed: bool = False) -> dict:
     state = ScientificStateBuilder.build(record, analysis_runs)
     recommendation_data = __import__("app.services.tool_registry", fromlist=["recommend_tools"]).recommend_tools(
         record, analysis_runs, goal=goal, openfoam_installed=openfoam_installed,
@@ -29,6 +34,7 @@ def plan_workflow(*, goal: str, record: dict, analysis_runs: list[dict],
     reasons = [decision.get("reason", "")]
     approval_required = False
     executable = False
+    existing_result_id = None
 
     goal_text = goal.casefold()
     if any(term in goal_text for term in ("explain", "설명해", "설명 생성", "해석해줘")):
@@ -91,12 +97,57 @@ def plan_workflow(*, goal: str, record: dict, analysis_runs: list[dict],
             nodes = []
             reasons = ["Topic과 실험 범위에서 사용 가능한 비데모 원본 측정 실행을 찾지 못했습니다. 파일을 먼저 등록해야 합니다."]
     elif action != "GENERATE_EXPLANATION" and (bool(selected_id and selected_id.startswith("phreeqc.")) or is_phreeqc_goal):
-        # Existing process variables are not silently translated into ionic totals.
-        action = "REQUEST_DATA"
-        missing = ["용액의 분석 총량(원소별 mol/kgw 또는 명시적으로 변환 가능한 단위)",
-                   "계산 pH 또는 명시된 pH sweep 범위", "온도와 선택 PHREEQC 데이터베이스 적합성 확인"]
-        reasons = ["기록된 시약 투입량만으로 용존 원소 총량·용해율·전하 균형을 추정하지 않습니다."]
+        # PHREEQC inputs are supplied explicitly in analytical molality; never
+        # derive dissolved totals or charge balance from a recipe.
         approval_required = True
+        if database_identifier != "phreeqc.dat":
+            action = "ABSTAIN"
+            missing = [f"지원하지 않는 PHREEQC 데이터베이스: {database_identifier}"]
+            reasons = ["현재 실행 adapter는 phreeqc.dat만 지원합니다. 다른 데이터베이스를 자동 대체하지 않습니다."]
+        elif not simulation_inputs:
+            action = "REQUEST_DATA"
+            missing = ["분석 총량(totals_molal; 원소별 mol/kgw)", "고정 pH", "온도(°C)", "비교할 고체상 목록(선택)"]
+            reasons = ["기록된 시약 투입량만으로 용존 원소 총량·용해율·전하 균형을 추정하지 않습니다."]
+        else:
+            from app.services.tool_adapters import PHREEQCAdapter
+            is_sweep = "pH_min" in simulation_inputs or "pH_max" in simulation_inputs
+            phreeqc_tool_id = "phreeqc.aqueous_sweep.v1" if is_sweep else "phreeqc.aqueous_equilibrium.v1"
+            try:
+                checked = PHREEQCAdapter(sweep=is_sweep).validate_inputs(simulation_inputs)
+                from app.services.simulation.phreeqc import ELEMENT_TOTALS
+                unsupported = sorted(set(checked["totals_molal"]) - ELEMENT_TOTALS)
+                if unsupported:
+                    raise ValueError(f"지원하지 않는 원소 총량: {', '.join(unsupported)}")
+            except Exception as exc:
+                action = "ABSTAIN"
+                missing = [str(exc)]
+                reasons = ["입력이 현재 PHREEQC adapter의 검증 계약을 통과하지 못했습니다."]
+            else:
+                selected_id = phreeqc_tool_id
+                from app.services.simulation.cache import phreeqc_cache_identity
+                from app.services.tool_registry import ToolRegistry
+                definition=ToolRegistry().get(phreeqc_tool_id)
+                expected_key,_=phreeqc_cache_identity(tool_id=phreeqc_tool_id,tool_version=definition.version,
+                    topic_id=int(record["topic_id"]),experiment_id=int(record["id"]),process_step_id=process_step_id,parameters=checked)
+                cached=next((run for run in (simulation_runs or []) if run.get("idempotency_key")==expected_key and run.get("status")=="completed"),None)
+                if cached:
+                    action="REVIEW_RESULT"
+                    existing_result_id=cached["id"]
+                    reasons=["동일한 Topic·실험·단계·입력·도구·데이터베이스의 완료 계산이 있습니다. 새 실행 대신 기존 결과와 계보를 검토하도록 연결합니다."]
+                else:
+                    nodes = [
+                        {"key": "validate_record", "tool_id": "experiment.data_quality.v1", "depends_on": [], "inputs": {}},
+                        {"key": "phreeqc_simulation", "tool_id": phreeqc_tool_id, "depends_on": ["validate_record"],
+                         "inputs": {"inputs": checked, "process_step_id": process_step_id}},
+                    ]
+                    if approval_confirmed:
+                        action = "RUN_SIMULATION"
+                        executable = True
+                        reasons = ["사용자가 입력한 분석 총량·온도·pH를 PHREEQC Worker DAG로 전달합니다."]
+                    else:
+                        action = "REQUIRES_REVIEW"
+                        executable = False
+                        reasons = ["입력값과 데이터베이스 적합성을 검토하고 명시적으로 승인하면 실행할 수 있습니다."]
     elif any(term in goal_text for term in ("openfoam", "cfd", "유동", "유체", "혼합 유동")):
         action = "ABSTAIN"
         reasons = ["현재 선택된 목표에 실행 가능한 승인된 CFD 계획이 없습니다. 지원 기하학·격자·물성·VM 상태와 별도 승인이 필요합니다."]
@@ -124,14 +175,15 @@ def plan_workflow(*, goal: str, record: dict, analysis_runs: list[dict],
         "goal": goal,
         "nodes": nodes,
         "dependencies": [{"node": node["key"], "depends_on": node["depends_on"]} for node in nodes],
-        "selected_tool_id": selected_id if action in {"RUN_ANALYSIS", "RUN_SIMULATION", "RUN_DATA_VALIDATION"} else None,
+        "selected_tool_id": selected_id if action in {"RUN_ANALYSIS", "RUN_SIMULATION", "RUN_DATA_VALIDATION", "REQUIRES_REVIEW"} else None,
         "reasons": [reason for reason in reasons if reason],
         "missing_inputs": missing,
         "estimated_resources": {"execution_mode": "local durable Worker" if executable else "not scheduled",
                                  "timeout_seconds": 300 if executable else None,
                                  "memory_estimate": None},
         "approval_required": approval_required,
-        "approval_confirmed": False,
+        "approval_confirmed": approval_confirmed,
+        "existing_result_id": existing_result_id,
         "executable": executable,
         "decision_policy": "RuleBasedDecisionPolicy",
         "scientific_state": state,

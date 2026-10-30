@@ -165,7 +165,7 @@ def _link_simulation_to_node(db, node: WorkflowNode, simulation: SimulationRun, 
     result=simulation.result_json or {}
     node.status="COMPLETED"; node.result_type="simulation_run"; node.result_id=simulation.id
     node.output_json={"simulation_run_id":simulation.id,"result":result,"validation":_simulation_validation(simulation),
-        "source_type":"SIMULATION","typed_outputs":typed_phreeqc_outputs(result,simulation.id),
+        "source_type":"SIMULATION","typed_outputs":typed_phreeqc_outputs(result,simulation.id,review_status="COMPUTED"),
         "cache_reused":reused,"cache_source_workflow_id":(result.get("provenance") or {}).get("workflow_id"),
         "handoff_provenance":[],"completed_at":utcnow().isoformat()+"Z"}
     node.worker_id=None; node.lease_expires_at=None; node.heartbeat_at=utcnow(); node.finished_at=utcnow()
@@ -235,7 +235,9 @@ def _persist_analysis(db,node,output,run,workflow):
         if isinstance(value,(int,float)) and not isinstance(value,bool) and math.isfinite(float(value)):
             typed_outputs[key]={"value":value,"unit":unit,"meaning":meaning,"source_type":source,
                 "source_id":f"analysis-run:{run.id}:{key}","validation_status":"NUMERICALLY_VALID",
-                "review_status":"COMPUTED","uncertainty":None}
+                "review_status":"COMPUTED","tool_id":output.tool_id,"tool_version":definition.version,
+                "parent_data_ids":[f"uploaded-file-sha256:{run.sha256}",f"experiment:{experiment.id}"],
+                "uncertainty":None}
     if output.tool_id.startswith("afm."):
         unit=str(output.result.get("height_unit") or "")
         for metric in ("Sa","Sq","Sz"):
@@ -251,6 +253,35 @@ def _persist_analysis(db,node,output,run,workflow):
     node.output_json={"analysis_run_id":run.id,"tool_id":output.tool_id,"validation":validation,"source_type":source,
         "original_sha256":run.sha256,"observed_peak_count":len(output.result.get("observed_peaks",[])),
         "typed_outputs":typed_outputs,"review_status":"COMPUTED"}
+
+
+def _validate_persisted_simulation_source(db, typed, workflow):
+    """Fail closed when a simulation typed value has no matching saved run."""
+    parts=str(typed.get("source_id", "")).split(":",2)
+    if len(parts)!=3 or parts[0]!="simulation-run" or not parts[1].isdigit(): return False
+    simulation=db.get(SimulationRun,int(parts[1]))
+    if not simulation or simulation.status!="completed" or simulation.experiment_id!=workflow.experiment_id: return False
+    experiment=db.get(Experiment,simulation.experiment_id)
+    if not experiment or experiment.topic_id!=workflow.topic_id: return False
+    result=simulation.result_json or {}; provenance=result.get("provenance") or {}
+    if (typed.get("review_status")!="COMPUTED" or provenance.get("review_status")!="COMPUTED"
+            or typed.get("tool_id")!=provenance.get("tool_id")
+            or typed.get("tool_version")!=provenance.get("tool_version")
+            or typed.get("database_sha256")!=result.get("database_sha256")):
+        return False
+    suffix=parts[2]; value=None
+    if suffix in result: value=result[suffix]
+    elif suffix.startswith("si:"):
+        phase=suffix[3:]
+        row=next((item for item in result.get("saturation_indices",[]) if item.get("phase")==phase),None)
+        value=row.get("saturation_index") if row else None
+    elif suffix.startswith("species:"):
+        species=suffix[8:]
+        row=next((item for item in result.get("aqueous_species",[]) if item.get("name")==species),None)
+        value=row.get("molality") if row else None
+    if isinstance(value,bool) or not isinstance(value,(int,float)) or not math.isfinite(float(value)):
+        return False
+    return math.isclose(float(value),float(typed.get("value")),rel_tol=1e-12,abs_tol=1e-15)
 
 
 def _execute_node(node_id:int,worker_id:str,generation:int,lease:Lease):
@@ -277,6 +308,8 @@ def _execute_node(node_id:int,worker_id:str,generation:int,lease:Lease):
                         or typed.get("review_status") not in {"COMPUTED","ACCEPTED"}
                         or not typed.get("source_id")
                         or typed.get("validation_status") not in {"NUMERICALLY_VALID","VALIDATED"}):
+                    raise ValueError("typed_handoff_missing_or_incompatible")
+                if typed.get("source_type")=="SIMULATION" and not _validate_persisted_simulation_source(db,typed,workflow):
                     raise ValueError("typed_handoff_missing_or_incompatible")
                 try:
                     delivered_value, delivered_uncertainty = convert_declared_value(
@@ -413,11 +446,12 @@ def _execute_node(node_id:int,worker_id:str,generation:int,lease:Lease):
                     "tool_version":definition.version,"algorithm_version":"phreeqc-adapter:2","database_sha256":payload.get("database_sha256"),
                     "topic_id":workflow.topic_id,"experiment_id":workflow.experiment_id,"process_step_id":simulation.process_step_id,
                     "worker_id":worker_id,"workflow_id":workflow.id,"idempotency_key":simulation.idempotency_key,
-                    "validation":output["validation"],"source_type":"SIMULATION"}}
+                    "validation":output["validation"],"review_status":"COMPUTED","source_type":"SIMULATION",
+                    "parent_data_ids":[f"experiment:{workflow.experiment_id}"]+([f"process-step:{simulation.process_step_id}"] if simulation.process_step_id else [])}}
                 simulation.status="completed"; simulation.worker_id=None; simulation.lease_expires_at=None
                 simulation.heartbeat_at=finished; simulation.finished_at=finished; simulation.log_text="Completed by durable workflow worker."
                 simulation.error_code=""; simulation.error_text=""
-                typed_outputs=typed_phreeqc_outputs(payload,simulation.id)
+                typed_outputs=typed_phreeqc_outputs(simulation.result_json,simulation.id,review_status="COMPUTED")
                 current.result_type="simulation_run"; current.result_id=simulation.id
                 current.output_json={"simulation_run_id":simulation.id,"result":payload,"validation":output["validation"],
                     "source_type":"SIMULATION","typed_outputs":typed_outputs,"cache_reused":False,"handoff_provenance":handoff}

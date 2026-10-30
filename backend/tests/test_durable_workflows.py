@@ -115,11 +115,60 @@ def test_typed_handoff_requires_finite_value_and_source_validation(tmp_path,monk
     db.close();engine.dispose()
 
 
+@pytest.mark.parametrize("override",[
+    {"review_status":None},
+    {"source_type":"UNTRUSTED"},
+    {"source_id":""},
+    {"meaning":"different physical meaning"},
+    {"unit":"degC"},
+])
+def test_typed_handoff_rejects_missing_or_incompatible_contract_fields(tmp_path,monkeypatch,override):
+    engine,sessions,db,topic,experiment=_db(tmp_path,monkeypatch)
+    flow=WorkflowRun(topic_id=topic.id,experiment_id=experiment.id,goal="typed contract adversarial checks",status="QUEUED",graph_json={},created_at=datetime.utcnow())
+    db.add(flow);db.flush()
+    typed={"value":25.0,"unit":"pH","meaning":"calculated equilibrium pH","source_type":"LAB_RECORD",
+        "source_id":"simulation-run:1:calculated_pH","validation_status":"NUMERICALLY_VALID","review_status":"COMPUTED","uncertainty":None}
+    if override=={"review_status":None}:
+        typed.pop("review_status")
+    else:
+        typed.update(override)
+    db.add_all([
+        WorkflowNode(workflow_id=flow.id,node_key="source",tool_id="experiment.data_quality.v1",dependency_keys=[],
+            input_json={},output_json={"typed_outputs":{"calculated_pH":typed}},status="COMPLETED",created_at=datetime.utcnow()),
+        WorkflowNode(workflow_id=flow.id,node_key="consumer",tool_id="experiment.data_quality.v1",dependency_keys=["source"],
+            input_json={"pH":{"$ref":{"node":"source","path":"calculated_pH","unit":"pH","meaning":"calculated equilibrium pH"}}},created_at=datetime.utcnow())])
+    db.commit();db.close()
+    assert worker.run_once("typed-contract-worker")
+    db=sessions();consumer=db.query(WorkflowNode).filter_by(node_key="consumer").one()
+    assert consumer.status=="FAILED" and consumer.error_text=="typed_handoff_missing_or_incompatible"
+    db.close();engine.dispose()
+
+
+def test_typed_phreeqc_handoff_rejects_nonexistent_persisted_source(tmp_path,monkeypatch):
+    engine,sessions,db,topic,experiment=_db(tmp_path,monkeypatch)
+    flow=WorkflowRun(topic_id=topic.id,experiment_id=experiment.id,goal="reject missing persisted source",status="QUEUED",graph_json={},created_at=datetime.utcnow())
+    db.add(flow);db.flush()
+    typed={"value":8.2,"unit":"pH","meaning":"calculated equilibrium pH","source_type":"SIMULATION",
+        "source_id":"simulation-run:999:calculated_pH","validation_status":"NUMERICALLY_VALID","review_status":"COMPUTED",
+        "tool_id":"phreeqc.aqueous_equilibrium.v1","tool_version":"1","database_sha256":"a"*64,
+        "parent_data_ids":[f"experiment:{experiment.id}"],"uncertainty":None}
+    db.add_all([
+        WorkflowNode(workflow_id=flow.id,node_key="source",tool_id="experiment.data_quality.v1",dependency_keys=[],
+            input_json={},output_json={"typed_outputs":{"calculated_pH":typed}},status="COMPLETED",created_at=datetime.utcnow()),
+        WorkflowNode(workflow_id=flow.id,node_key="consumer",tool_id="experiment.data_quality.v1",dependency_keys=["source"],
+            input_json={"pH":{"$ref":{"node":"source","path":"calculated_pH","unit":"pH","meaning":"calculated equilibrium pH"}}},created_at=datetime.utcnow())])
+    db.commit();db.close()
+    assert worker.run_once("missing-source-worker")
+    db=sessions();consumer=db.query(WorkflowNode).filter_by(node_key="consumer").one()
+    assert consumer.status=="FAILED" and consumer.error_text=="typed_handoff_missing_or_incompatible"
+    db.close();engine.dispose()
+
+
 def test_typed_handoff_propagates_verified_source_lineage(tmp_path,monkeypatch):
     engine,sessions,db,topic,experiment=_db(tmp_path,monkeypatch)
     flow=WorkflowRun(topic_id=topic.id,experiment_id=experiment.id,goal="typed handoff lineage",status="QUEUED",graph_json={},created_at=datetime.utcnow())
     db.add(flow);db.flush()
-    typed={"value":25.0,"unit":"degC","meaning":"temperature","source_type":"SIMULATION",
+    typed={"value":25.0,"unit":"degC","meaning":"temperature","source_type":"LAB_RECORD",
         "source_id":"simulation-run:1:temperature","validation_status":"NUMERICALLY_VALID","review_status":"COMPUTED","uncertainty":None}
     db.add_all([
         WorkflowNode(workflow_id=flow.id,node_key="source",tool_id="experiment.data_quality.v1",dependency_keys=[],
@@ -131,7 +180,7 @@ def test_typed_handoff_propagates_verified_source_lineage(tmp_path,monkeypatch):
     db=sessions();consumer=db.query(WorkflowNode).filter_by(node_key="consumer").one()
     assert consumer.status=="COMPLETED"
     assert consumer.output_json["handoff_provenance"][0]["source_id"]=="simulation-run:1:temperature"
-    assert consumer.output_json["handoff_provenance"][0]["source_type"]=="SIMULATION"
+    assert consumer.output_json["handoff_provenance"][0]["source_type"]=="LAB_RECORD"
     db.close();engine.dispose()
 
 
@@ -142,7 +191,7 @@ def test_typed_handoff_converts_compatible_units_and_preserves_source_unit(tmp_p
     db.add_all([
         WorkflowNode(workflow_id=flow.id,node_key="source",tool_id="experiment.data_quality.v1",dependency_keys=[],
             input_json={},output_json={"typed_outputs":{"volume":{"value":1000.0,"unit":"microliter","meaning":"measured liquid volume",
-                "source_type":"SIMULATION","source_id":"simulation-run:1:volume","validation_status":"NUMERICALLY_VALID",
+                "source_type":"LAB_RECORD","source_id":"lab-record:1:volume","validation_status":"NUMERICALLY_VALID",
                 "review_status":"COMPUTED","uncertainty":10.0}}},status="COMPLETED",created_at=datetime.utcnow()),
         WorkflowNode(workflow_id=flow.id,node_key="consumer",tool_id="experiment.data_quality.v1",dependency_keys=["source"],
             input_json={"volume":{"$ref":{"node":"source","path":"volume","unit":"milliliter","meaning":"measured liquid volume"}}},created_at=datetime.utcnow())])
@@ -212,20 +261,63 @@ def test_real_phreeqc_workflow_persists_simulation_provenance_and_observations(t
             response=client.post("/api/workflows",json={"topic_id":topic_id,"experiment_id":experiment_id,"goal":"Check carbonate equilibrium and retain the model provenance","nodes":[
                 {"key":"quality","tool_id":"experiment.data_quality.v1","inputs":{}},
                 {"key":"equilibrium","tool_id":"phreeqc.aqueous_equilibrium.v1","depends_on":["quality"],"approval_confirmed":True,
-                 "inputs":{"inputs":{"temperature_c":25,"pH":8.3,"totals_molal":{"Ca":0.001,"C(4)":0.001},"phases":["Calcite"]}}}]})
+                 "inputs":{"inputs":{"temperature_c":25,"pH":8.3,"totals_molal":{"Ca":0.001,"C(4)":0.001},"phases":["Calcite"]}}},
+                {"key":"consumer","tool_id":"phreeqc.aqueous_equilibrium.v1","depends_on":["equilibrium"],"approval_confirmed":True,
+                 "inputs":{"inputs":{"temperature_c":25,"pH":{"$ref":{"node":"equilibrium","path":"calculated_pH","unit":"pH","meaning":"calculated equilibrium pH"}},"totals_molal":{"Ca":0.002,"C(4)":0.001},"phases":["Calcite"]}}}]})
             assert response.status_code==202,response.text
             workflow_id=response.json()["id"]
             assert worker.run_once("phase3-test") is True
             assert worker.run_once("phase3-test") is True
+            assert worker.run_once("phase3-test") is True
             state=client.get(f"/api/workflows/{workflow_id}?topic_id={topic_id}").json()
             assert state["status"]=="COMPLETED"
-            assert [node["status"] for node in state["nodes"]]==["COMPLETED","COMPLETED"]
-            stored=sessions();simulation=stored.query(SimulationRun).one()
+            assert [node["status"] for node in state["nodes"]]==["COMPLETED","COMPLETED","COMPLETED"]
+            first_typed=state["nodes"][1]["output"]["typed_outputs"]["calculated_pH"]
+            assert first_typed["review_status"]=="COMPUTED"
+            assert first_typed["tool_id"]=="phreeqc.aqueous_equilibrium.v1"
+            assert first_typed["tool_version"]
+            assert first_typed["database_sha256"]
+            assert state["nodes"][2]["output"]["handoff_provenance"][0]["value"]==first_typed["value"]
+            assert state["nodes"][2]["output"]["result"]["input_pH"]==first_typed["value"]
+            stored=sessions();simulation=stored.query(SimulationRun).order_by(SimulationRun.id).first()
+            assert stored.query(SimulationRun).filter_by(status="completed").count()==2
             assert simulation.status=="completed"
             assert simulation.result_json["provenance"]["tool_id"]=="phreeqc.aqueous_equilibrium.v1"
             assert simulation.result_json["saturation_indices"][0]["phase"]=="Calcite"
             assert stored.query(ScientificObservation).filter_by(source_type="SIMULATION",review_status="COMPUTED").count()>=3
             stored.close()
+    finally:
+        app.dependency_overrides.clear();engine.dispose()
+
+
+def test_phreeqc_planner_requires_explicit_approval_then_enqueues_real_dag(tmp_path,monkeypatch):
+    pytest.importorskip("phreeqpython")
+    from fastapi.testclient import TestClient
+    from app.db.database import get_db
+    from app.main import app
+    engine,sessions,db,topic,experiment=_db(tmp_path,monkeypatch);topic_id=topic.id;experiment_id=experiment.id;db.close()
+    def get_test_db():
+        session=sessions()
+        try:yield session
+        finally:session.close()
+    app.dependency_overrides[get_db]=get_test_db
+    request={"topic_id":topic_id,"experiment_id":experiment_id,"goal":"PHREEQC 수용액 화학종 평형 계산",
+        "simulation_inputs":{"temperature_c":25,"pH":8.3,"totals_molal":{"Ca":0.001,"C(4)":0.001},"phases":["Calcite"]}}
+    try:
+        with TestClient(app) as client:
+            preview=client.post("/api/workflows/plan",json=request)
+            assert preview.status_code==202,preview.text
+            assert preview.json()["action"]=="REQUIRES_REVIEW"
+            assert preview.json()["nodes"]
+            assert not preview.json()["executable"]
+            queued=client.post("/api/workflows/plan",json={**request,"enqueue":True,"approval_confirmed":True})
+            assert queued.status_code==202,queued.text
+            workflow_id=queued.json()["workflow"]["id"]
+            assert worker.run_once("planner-phreeqc-test") is True
+            assert worker.run_once("planner-phreeqc-test") is True
+            state=client.get(f"/api/workflows/{workflow_id}?topic_id={topic_id}").json()
+            assert state["status"]=="COMPLETED"
+            assert state["nodes"][1]["output"]["result"]["aqueous_species"]
     finally:
         app.dependency_overrides.clear();engine.dispose()
 
@@ -261,6 +353,14 @@ def test_two_dags_reuse_one_completed_phreeqc_calculation(tmp_path,monkeypatch):
     assert [node.status for node in nodes]==["COMPLETED","COMPLETED"]
     assert nodes[0].result_id==nodes[1].result_id==runs[0].id
     assert sorted(node.output_json["cache_reused"] for node in nodes)==[False,True]
+    for node in nodes:
+        typed=node.output_json["typed_outputs"]["calculated_pH"]
+        assert typed["review_status"]=="COMPUTED"
+        assert typed["source_id"].startswith(f"simulation-run:{runs[0].id}:")
+        assert typed["tool_id"]=="phreeqc.aqueous_equilibrium.v1"
+        assert typed["tool_version"]==ToolRegistry().get("phreeqc.aqueous_equilibrium.v1").version
+        assert typed["database_sha256"]
+        assert typed["parent_data_ids"]==[f"experiment:{runs[0].experiment_id}"]
     db.close();engine.dispose()
 
 

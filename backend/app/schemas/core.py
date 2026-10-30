@@ -163,7 +163,10 @@ class AqueousEquilibriumRequest(BaseModel):
     totals_molal: dict[str, float] = Field(min_length=1, max_length=24)
     phases: list[str] = Field(default_factory=list, max_length=15)
 
-class AqueousSweepRequest(AqueousEquilibriumRequest):
+class AqueousSweepRequest(BaseModel):
+    temperature_c: float = Field(ge=-20, le=150)
+    totals_molal: dict[str, float] = Field(min_length=1, max_length=24)
+    phases: list[str] = Field(default_factory=list, max_length=15)
     pH_min: float = Field(ge=-2, le=16)
     pH_max: float = Field(ge=-2, le=16)
     points: int = Field(default=17, ge=3, le=31)
@@ -220,6 +223,10 @@ class WorkflowPlanRequest(BaseModel):
     goal: str = Field(min_length=3, max_length=1000)
     enqueue: bool = False
     approval_confirmed: bool = False
+    # Explicit analytical totals only. Recipe masses are never converted here.
+    simulation_inputs: dict[str, Any] | None = None
+    database_identifier: str = Field(default="phreeqc.dat", min_length=1, max_length=120)
+    process_step_id: int | None = Field(default=None, gt=0)
 
 
 class StirredReactionPathRequest(AqueousEquilibriumRequest):

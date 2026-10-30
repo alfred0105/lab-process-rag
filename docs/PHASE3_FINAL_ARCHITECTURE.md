@@ -55,6 +55,8 @@ The reproducible command is `cd backend && .venv/bin/python scripts/benchmark_ph
 
 ## Phase 3 disposition
 
+> The following earlier disposition is a historical snapshot. The authoritative current audit is in [`PHASE3_SOFTWARE_CLOSURE.md`](PHASE3_SOFTWARE_CLOSURE.md).
+
 `PHASE_3_IN_PROGRESS`. The durable execution foundation and a real PHREEQC DAG are implemented and tested, and one official PHREEQC reference case is reproduced. The complete 12-scenario system validation, real uploaded XRD/AFM/SEM/TEM workflow coverage, OpenFOAM CFD validation, browser E2E, worker crash recovery, complete adapter coverage, workflow-level idempotency, and full M5 contention measurements remain outstanding. Those items stay open on the master roadmap.
 
 ## Final software verification pass (2026-10-30)
@@ -64,3 +66,7 @@ The latest test additions and actual verification are tracked in [`PHASE3_SOFTWA
 The scoped Apple M5 24 GiB PHREEQC microbenchmark ran 30 times: p50 1.902 ms, nearest-rank p95 3.168 ms, process peak RSS 140.72 MB. This is one adapter only; it is not a complete service benchmark. No OpenFOAM CFD was executed. No real instrument data was available, so none of the synthetic image/curve tests establish measurement accuracy.
 
 GitHub Actions run [41009238796](https://github.com/alfred0105/lab-process-rag/actions/runs/41009238796) for commit `51953fc` passed all three jobs (backend, production frontend build, and browser E2E). The latest final-pass state remains **`PHASE_3_SOFTWARE_IN_PROGRESS`** until all 12 integrated scenarios and broader workflow performance are verified. The OpenFOAM software parser fixture matrix is verified; no physical CFD was run. External scientific/device validation remains separately pending. See [`PHASE4_HANDOFF.md`](PHASE4_HANDOFF.md) for the optimization observation contract; the Phase 4 optimizer itself is not implemented.
+
+## Latest closure audit — 2026-10-30
+
+The latest local validation on changes after `115d591` reports backend **164 passed**, frontend production build successful, Playwright browser E2E **1 passed**, and a 30-repeat M5 PHREEQC adapter benchmark (p50 1.763 ms, p95 2.092 ms, peak process RSS 140.58 MB). A real PHREEQC result is now consumed numerically by a dependent PHREEQC Worker node, with review/provenance metadata preserved and checked against its persisted source. The current disposition remains **`PHASE_3_SOFTWARE_IN_PROGRESS`** pending full DAG/tool performance measurements and GitHub Actions for the closure commit. No instrument data or approved CFD solver run was used. See [`MASTER_ROADMAP.md`](MASTER_ROADMAP.md) for current Phase 0–7 realignment.

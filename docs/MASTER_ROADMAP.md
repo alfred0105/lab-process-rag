@@ -29,11 +29,45 @@
 - 목표 하드웨어는 MacBook Air M5, 통합 메모리 24GB. AI 피크 약 12GB 목표는 전체 RAM 한도와 구분하고 실제 기기에서 측정한다.
 - 사용자가 선택한 Gemma 계열은 교체 가능한 백본 후보로 둔다. JEV는 실험에서 다음 행동/도구를 선택하는 별도 Decision Head이며 분석 도구를 대체하지 않는다. 모델 가중치는 저장소에 포함하지 않는다.
 
-## 기준선
+## 최신 공식 상태 — 2026-10-30 Phase 3 closure 감사
+
+작업 기준 커밋은 `115d591c6509f95ad7da6ceddc2e6548812fb7cc`이며 최신 `origin/main`과 일치했다. 첨부된 최종 closure 요청을 반영해 PHREEQC Typed Handoff의 `COMPUTED` 상태·tool/version·DB hash·부모 계보 누락을 수정하고, 실제 PHREEQC 결과를 다음 PHREEQC Worker 계산이 소비하는 node-to-node 회귀를 추가했다. 구조화된 조성/단위·온도·pH 또는 sweep·DB 식별자·단계·승인 기반 Planner도 연결했다.
+
+현재 상태는 **`PHASE_3_SOFTWARE_IN_PROGRESS`** 다. 완료 조건 전체를 재검증하고 있어 아직 Phase 3 종료 판정을 내리지 않는다. 외부 실측 장비 정확도, 승인된 VM의 실제 CFD, 장비 제어는 **`EXTERNAL_VALIDATION_PENDING`** 으로 별도 관리한다. 이 공식 최신 상태가 아래 역사적 감사 스냅샷의 과거 상태를 대체한다.
+
+## 공식 Phase 0~7 개발 구조 (2026-10-30 확정)
+
+아래가 현재 기준 개발 순서다. 기존 상세 ID·요구 설명·상태·검증 기록은 문서 하단의 **역사적 분류를 포함한 요구사항 원장**에 그대로 보존한다. 재정렬은 ID를 없애거나 구현 상태를 승격하지 않는다.
+
+| 현재 Phase | 목표와 포함 범위 | 진입/완료 판정 |
+|---|---|---|
+| Phase 0 — Stability & Foundation | DB/Alembic, FastAPI, 기본 React UI, 백업·복구, 회귀 테스트·CI, 안정성 및 공통 품질 | 데이터 보존·복구와 API/UI 기본 흐름 검증 |
+| Phase 1 — Scientific Data Foundation | Topic/Experiment, Materials, Process Steps, Method Versions, ScientificObservation, 출처 분류, 검토·승인·provenance | 승인된 실측·문헌·합성·계산의 분리 및 계보 검증 |
+| Phase 2 — Scientific Knowledge & RAG | PDF ingestion, RAG, evidence retrieval, citation/provenance, scientific claims, 문헌/실험 분리, 분석 도구 기초 | 인용·주제 격리·근거 누락 보류 검증 |
+| Phase 3 — Scientific Tool Execution & Orchestration | Tool Registry, DecisionPolicy interface, ValidationGate, adapters/ResultValidator, ScientificStateBuilder, durable queue/worker/lease/fencing, DAG/Planner, XRD·AFM·SEM·TEM·PHREEQC, 승인 기반 OpenFOAM, 데이터 검증·typed handoff·테스트/성능 | 아래 Phase 3 closure 보고서의 실제 소프트웨어 통과 조건. 장비 정확도 및 승인 CFD는 별도 외부 검증 |
+| Phase 4 — Gaussian Process & Bayesian Optimization | 승인된 실험 관측 계약, feature/정규화/물리 경계, GP·kernel·hyperparameter, uncertainty, acquisition (EI/PI/UCB), 제약·noise·replicate·multi-objective/Pareto, CV·leakage 방지·surrogate 검증·candidate ranking·abstention | 비데모 승인 실측 없이 실제 연구 최적화 성능 VERIFIED 금지. JEV 선행조건 아님 |
+| Phase 5 — Learned JEV Decision Head | 상태 표현, 행동/도구 선택 레이블, 요청·검토·분석·시뮬·최적화·보류 데이터셋, 학습 head, OOD·calibration, rule baseline, accuracy/F1/Brier/ECE/risk-coverage/latency | Phase 4 optimizer 상태·결과와 action 학습을 통합해 평가 |
+| Phase 6 — Shared Transformer / Early Exit / Conditional LM | 공유 백본 및 decision/LM head, hidden state reuse, confidence gating, conditional generation, layerwise early exit, KV·quantization·memory, MLX/Ollama 비교, M5 24GB latency/열·전력 측정 | Transformer 계산량 감소와 판단/언어 품질을 실제 비교 측정 |
+| Phase 7 — Autonomous Experiment Optimization Loop | 데이터→ScientificState→JEV→tool/simulation→검증→BO→다음 후보→사람 승인→실험 기록→결과·학습 갱신, active learning·drift·재현성·안전 감사 | 실제 장비 실행은 별도 안전 제어 및 연구자 승인 없이는 자동화하지 않음 |
+
+### 이전 Phase 표기의 이관
+
+기존 요구 ID와 전체 상세 설명을 보존하기 위해 과거 분류는 아래 이관표에 따라 읽는다. 하단의 과거 Phase 4~7 구간은 구현 당시 분류 기록이며 현재 개발 순서를 뜻하지 않는다. `PROD-001~006`은 데이터 기반 일부를 Phase 1, 워크플로 UI를 Phase 3, 공통 UX를 Cross-cutting으로 이관하고, `PROD-007`은 Phase 4 최적화 UI에 둔다. `OPT-*`는 Phase 4, 학습형 `JEV-*`/결정 모델 항목은 Phase 5, shared backbone/Early Exit은 Phase 6, 폐루프 `LOOP-*`은 Phase 7로 이관한다. `SAFE-*`, `AUTH-*`, `UI-*`, `TEST-*`, `CI-*`, `PERF-*`, `DATA-*`, `PROV-*`, `RAG-*`, `DOC-*` 등 공통 품질 요구는 원래 ID를 유지해 적용 Phase와 함께 Cross-cutting track으로 관리한다.
+
+| 과거 분류 | 현재 위치 |
+|---|---|
+| Phase 4 사용자 연구 흐름/UI | 데이터 계층은 Phase 1, 도구 실행 화면은 Phase 3, 나머지 UI/UX는 Cross-cutting |
+| Phase 5 Gaussian Process/BO | Phase 4 |
+| Phase 5/6 JEV 판단 및 학습 | Phase 5 |
+| Phase 6 Shared Transformer/Early Exit | Phase 6 |
+| Phase 7 Security/UI/Testing/CI/Performance | 공통 Cross-cutting 및 해당 Phase 통과 조건 |
+| Phase 7 Closed Loop | Phase 7 |
+
+## 이전 감사 기준선 (과거 스냅샷; 최신 공식 상태는 위 closure 항목)
 
 | 항목 | 2026-10-30 기준 증거 |
 |---|---|
-| 최신 main | 0ccad66006c311c30b96af4233377cab0f720d0d, 원격과 일치 확인 |
+| 당시 최신 main | 0ccad66006c311c30b96af4233377cab0f720d0d, 원격과 일치 확인 |
 | Phase 3 작업 검증 | backend 전체 89 tests passed; npm run build 성공(Vite 6.4.3, 1756 modules). 경고는 SQLAlchemy/Starlette/SWIG deprecation 중심 |
 | 로컬 DB | Alembic 0003_science_compat; Phase 3 전 백업 보관; observations 265 중 LITERATURE 173, SYNTHETIC_DEMO 92, LAB_RECORD/LAB_RESULT 0 (현재 local DB에는 이들 유형의 별도 데이터 없음); reference 실험에서 lab로 잘못 분류된 observation 0 |
 | 백업 | data/backups/lab_process_pre_phase3_2026-10-30.db (이번 출처 분류 수정 전) |
@@ -192,7 +226,7 @@
 
 이번 보완은 Phase 3 전체 완료를 뜻하지 않는다. 분석·시뮬레이션 단일 작업 경로와 데이터 격리의 일부를 검증했으나, 12개 통합 시나리오 전체, 자동 다단계 오케스트레이션, PHREEQC 외부 golden case 대조, OpenFOAM 실제 VM 수렴/취소, 모델별 추가 simulation adapters, 자원 한도, UI 브라우저 E2E, 성능 평가는 남아 있다. Phase 3은 `IN_PROGRESS`; Phase 4 진입 완료 판정은 보류한다.
 
-## Phase 4 — 사용자 연구 흐름과 UI
+## 역사적 요구사항 원장 — 과거 Phase 4 분류 (현재 Phase 1·3 및 Cross-cutting으로 이관)
 
 | ID | 요구사항 상세 | 우선순위 | 상태 | 관련 소스·구현/대안 | 완료 조건 및 현재 검증 | 커밋 | 남은 작업·의존성 |
 |---|---|---:|---|---|---|---|---|
@@ -204,7 +238,7 @@
 | PROD-006 | 한눈에 읽기, 빠른 시작/간결 입력, Korean/English 지원, 가로/세로 레이아웃 및 단계 탐색 usability | P2 | IMPLEMENTED | frontend/src/, language.tsx, style.css | TypeScript/build 성공 | 기존 + 0ccad66 | 실제 사용자 usability 및 keyboard/screen reader |
 | PROD-007 | 분석을 통해 개선 후보/다음 조건을 근거·불확도·누락·제약과 함께 보되 원인/성공률을 과장하지 않고 적용 전 승인 | P0 | NOT_STARTED | future optimization UI | 아직 추천 optimizer 없음 | — | OPT-001~006 필요 |
 
-## Phase 5 — 의사결정 및 Bayesian Optimization
+## 역사적 요구사항 원장 — 과거 Phase 5 분류 (최적화는 현재 Phase 4, JEV는 Phase 5로 이관)
 
 | ID | 요구사항 상세 | 우선순위 | 상태 | 관련 소스·구현/대안 | 완료 조건 및 현재 검증 | 커밋 | 남은 작업·의존성 |
 |---|---|---:|---|---|---|---|---|
@@ -219,7 +253,7 @@
 | OPT-005 | paired data로 시뮬레이션 bias/discrepancy를 보정하고 출처를 유지; sim output은 실측 학습 라벨이 아님 | P1 | NOT_STARTED | ScientificObservation, future calibration module | source-type 구분만 구현 | 0ccad66 | 실제 같은 조건의 sim/lab 자료 |
 | OPT-006 | 실험→JEV action→분석/시뮬→BO→연구자 승인→결과→검토의 폐루프를 재현 가능한 campaign으로 보존 | P0 | NOT_STARTED | future campaign schema/API/UI | 전체 chain 미연결 | — | Phase 1, 3, 5 선행 |
 
-## Phase 3 최종 통과 작업 — 2026-10-30
+## Phase 3 최종 통과 작업 — 2026-10-30 (이전 closure 스냅샷)
 
 첨부된 `Phase 3 최종 통과 작업 지시서`의 세부 조건을 보존하고, 이번 변경으로 확인한 코드와 검증을 추적한다. 구현된 코드와 통과 검증을 구별하며, 테스트 fixture는 실제 장비 데이터로 간주하지 않는다.
 
@@ -259,17 +293,19 @@
 
 ### 이번 작업의 검증 집계 및 최종 판정
 
+이 하위 절의 표는 2026-10-30 이전 closure pass에 대한 역사적 결과이며 아래 `최신 closure realignment`가 최신 상태다.
+
 - `cd backend && .venv/bin/pytest -q`: 119 passed (Typed Handoff 회귀 포함). 동일 코드의 GitHub Actions 전체 pytest도 통과했다. Deprecation warnings은 기존 SQLAlchemy `utcnow`, Starlette/httpx, SWIG import 경고다.
 - `cd frontend && npm run build`: 성공, Vite 6.4.3, 1757 modules.
 - 원격 GitHub Actions run `41004695605`: backend와 frontend job 모두 성공; frontend `npm ci` 및 production build 포함.
 - Local browser: 분석 화면에서 연구 목표 입력 및 계획 미리보기 UI 렌더링을 확인. 선택 Topic의 비데모 실험이 0건이라 실제 browser E2E enqueue는 실행하지 않았다.
 - 실제 PHREEQC Worker workflow test와 synthetic XRD parser Worker workflow fixture test는 분리해 기록했다. synthetic fixture는 연구 결과 정확도의 근거가 아니다.
 - OpenFOAM VM 계산은 실행하지 않았다.
-- 최종 상태: **`PHASE_3_IN_PROGRESS`**. Cache, planner 기본 경로, crash fencing 및 subprocess cancellation은 구현·검증됐다. 실측 XRD/AFM/SEM/TEM, PHREEQC 독립 Adapter golden comparison, 실제 OpenFOAM 승인 검증, 브라우저 E2E, 성능 측정, remaining typed Adapter coverage가 필수 상태로 남아 있다.
+- 해당 시점 최종 상태: **`PHASE_3_IN_PROGRESS`**. Cache, planner 기본 경로, crash fencing 및 subprocess cancellation은 구현·검증됐다. 실측 XRD/AFM/SEM/TEM, PHREEQC 독립 Adapter golden comparison, 실제 OpenFOAM 승인 검증, 브라우저 E2E, 성능 측정, remaining typed Adapter coverage가 당시 미완료였다.
 - 이 추가 감사 기록은 기존 요구사항과 상세 Phase 3 하위 요구사항을 삭제하거나 대체하지 않는다.
 | OPT-007 | 평균 예측, Ridge, Random Forest, Gaussian Process 및 필요한 물리제약 회귀를 공정군별 baseline으로 비교; EI 등 acquisition, 다목표·잡음 반복측정·복수 후보를 고려하고 근거 부족 때 탐색/보류 | P1 | NOT_STARTED | benchmark and future optimizer | Ridge 문헌 baseline만 존재 | benchmark report | 최적화 목표/범위/제약 정의와 승인 실험자료 선행 |
 
-## Phase 6 — Shared Transformer JEV, Early Exit, 리소스
+## 역사적 요구사항 원장 — 과거 Phase 6 분류 (Shared Transformer/Early Exit은 현재 Phase 6으로 이관)
 
 | ID | 요구사항 상세 | 우선순위 | 상태 | 관련 소스·구현/대안 | 완료 조건 및 현재 검증 | 커밋 | 남은 작업·의존성 |
 |---|---|---:|---|---|---|---|---|
@@ -288,7 +324,7 @@
 | PERF-004 | Gemma 선택안을 포함한 양자화/소형 오픈웨이트 모델을 context별 RAM·속도·정확도·열화로 비교; 앞선 Qwen 후보는 필요 시 비교 기준선으로만 두고 선택 모델을 고정 가정하지 않음 | P1 | NOT_STARTED | docs/OPEN_WEIGHT_MODELS_2026.md, runtime | 보고서 조사만 존재 | — | 현재 노트북의 실측 및 과학 도메인 평가 |
 | INFO-001 | 시료·시약 정보가 결정에 필요하면 논문/공인 DB/공급자 자료를 provenance와 함께 검색해 제안; 일반 이름만으로 purity·hydrate·농도·밀도 등을 추측하지 않고 필요값과 단위를 사용자에게 요청하며 모르면 blank로 유지 | P1 | IN_PROGRESS | material lookup, Gemma assistant, ScientificStateBuilder | 소재 정보 및 누락정보 요청 경계 일부 존재 | existing | source-ranked lookup, confirmation workflow, tested material identifier/units and retrieval citations |
 
-## Phase 7 — 보안·UI·테스트·CI·성능과 폐루프
+## 역사적 요구사항 원장 — 과거 Phase 7 분류 (공통 품질은 Cross-cutting, 폐루프는 현재 Phase 7로 이관)
 
 | ID | 요구사항 상세 | 우선순위 | 상태 | 관련 소스·구현/대안 | 완료 조건 및 현재 검증 | 커밋 | 남은 작업·의존성 |
 |---|---|---:|---|---|---|---|---|
@@ -390,6 +426,21 @@ This audit adds new IDs rather than removing or weakening earlier IDs. Detailed 
 | P4-HANDOFF-01 | Keep an explicit typed, provenance-safe optimization-ready observation contract | 4 / P0 | IMPLEMENTED | docs/PHASE4_HANDOFF.md | Fields and data eligibility/exclusion rules documented; no optimizer code claimed. | 45dbd8b | Validate against persisted observation schema before Phase 4 GP/BO implementation |
 
 **최신 판정:** `PHASE_3_SOFTWARE_IN_PROGRESS`. 151 backend tests pass. AFM/SEM/TEM synthetic worker tests, XRD regression, planner fixture and typed handoff verification are present. Browser E2E and complete integration/performance/OpenFOAM fixture coverage are not yet evidenced. 실측 장비 데이터, 승인된 실제 CFD, 장비 자동 제어는 `EXTERNAL_VALIDATION_PENDING`으로 분리하며 소프트웨어 PASS로 계산하지 않는다. 이 상태를 Phase 4 진입 완료로 선언하지 않는다.
+
+## 최신 closure realignment 및 증거 (2026-10-30)
+
+이 표가 역사적 감사 행보다 우선하는 현재 판정이다. 사용자 확정 Phase 0~7은 위 공식 구조를 사용하고, 과거 Phase 4~7 표는 아래의 상세 요구 ID를 보존하기 위한 원장이다.
+
+| ID | 상세 요구사항 | 우선순위/현재 Phase | 상태 | 관련 파일 | 완료 조건 및 최신 실행 증거 | 커밋 | 잔여 작업/의존성 |
+|---|---|---|---|---|---|---|---|
+| P3C-PHQ-TYPED-01 | PHREEQC typed outputs에 계산/연구자 검토 상태를 분리하고 tool·version·DB hash·부모 계보·source·단위·meaning·validation·uncertainty metadata를 direct/cache 경로 동일하게 유지한다. metadata를 복구할 수 없는 과거 output은 거부한다. | P0 / Phase 3 | IMPLEMENTED | `backend/app/services/simulation/cache.py`, `backend/app/worker.py`, `backend/app/api/routes.py` | 실제 PHREEQC Node A→typed output→Node B 입력→두 번째 실제 계산 및 동시 캐시 재사용 대상 regression 추가; target tests 통과. 전체 회귀와 원격 CI 확인 전 VERIFIED 아님 | closure commit pending | Consumer에서 실제 persisted source/run을 대조하는 전체 artifact-contract audit 및 full regression/CI |
+| P3C-PHQ-PLAN-01 | PHREEQC equilibrium/pH-sweep structured input, supported DB/ion, missing fields, approval gate, actual durable DAG and matching-completed-result review behavior | P0 / Phase 3 | IMPLEMENTED | `schemas/core.py`, `workflow_planner.py`, `api/workflows.py`, `worker.py` | 실제 engine으로 API plan→승인→enqueue→Worker→DB 저장 경로 테스트 추가, missing/unsupported/approved/equilibrium/sweep/reuse planner tests 통과 | closure commit pending | PHREEQC custom DB fingerprints unsupported; broader Korean/English goal behavior matrix |
+| P3C-ROADMAP-01 | 모든 기존 요구 ID/상세는 보존하며 현재 단계 제목을 확정 Phase 0~7 구조와 cross-cutting tracks로 재정렬한다. | P0 / 공통 | IMPLEMENTED | `docs/MASTER_ROADMAP.md` | 새 canonical Phase 0~7 명시, 과거 UI/BO/JEV phase 번호를 historical ledger로 재표기, 이동표와 ID 원장 보존 | closure commit pending | 이후 요구 추가 시 현재 Phase와 원래 ID 모두 기록 |
+| P3C-VERIFY-01 | backend, frontend, browser, remote CI 결과를 변경 커밋에 대해 재실행·기록한다. | P0 / 공통 | IN_PROGRESS | tests, frontend E2E, `.github/workflows/ci.yml`, Phase 3 reports | 현 로컬: backend 158 passed, frontend build success, Playwright 1 passed | closure commit pending | push 이후 Actions 3 jobs 전부 green 확인 |
+| P3C-PERF-01 | Planner·queue·Worker·SQLite·analysis·DAG·cache cold/warm latency, CPU, process RSS를 반복 측정한다. | P1 / Phase 3 + performance track | IN_PROGRESS | `backend/scripts/benchmark_phase3.py`, closure report | 기존 M5 PHREEQC adapter-only 30 repeat 결과(p50 1.902 ms, p95 3.168 ms, peak RSS 140.72 MB)만 존재 | prior benchmark | 통합 DAG·도구별 반복 벤치마크/JSON 결과 및 API/Worker 분리 메모리 측정 |
+| P3C-EXTERNAL-01 | 실제 XRD/AFM/SEM/TEM 정확도, 승인된 OpenFOAM VM solver 수렴, 실제 실험 장비 제어·물리결과를 독립 검증한다. | 외부 / Phase 3 | BLOCKED | instrument files, OpenFOAM VM/case, safety protocol | 이번에 실행/승인되지 않음; Phase 3 software 상태와 구분 | — | 원본 장비 측정 파일·장비 설정/ground truth, 연구자 승인된 VM 시험 제공 |
+
+로컬 최종 실행 집계(2026-10-30): `backend/.venv/bin/pytest -q` **164 passed**, `frontend/npm run build` 성공 (Vite 6.4.5; 1,757 modules), `npm run test:e2e` **1 passed**. Full DAG 성능과 push 후 CI는 위에 명시한 미완료 요구사항이다. 현재 공식 판정은 `PHASE_3_SOFTWARE_IN_PROGRESS`; 외부 실측/CFD는 `EXTERNAL_VALIDATION_PENDING`이다.
 
 ### Phase 3 final audit work log
 

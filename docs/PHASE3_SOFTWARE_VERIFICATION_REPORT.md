@@ -1,5 +1,13 @@
 # Phase 3 software verification report
 
+## 최신 closure 감사 추가 — 2026-10-30
+
+외부 최신 기준 커밋 `115d591c6509f95ad7da6ceddc2e6548812fb7cc`에서 다시 실행한 전체 테스트는 **153 passed** 였다. 추가 감사에서 PHREEQC DAG 출력의 `review_status`/출처 계약이 빠져 Worker consumer에서 실패할 수 있는 결함과, 정상 입력에서도 Planner가 PHREEQC를 `REQUEST_DATA`로만 반환하는 미연결 경로를 확인했다.
+
+이번 코드 변경은 PHREEQC Typed Output에 계산 상태(`COMPUTED`), 도구·버전, DB SHA-256, 계보를 기록하고, 사용자가 승인하기 전에는 실행 불가한 구조화 입력 기반 평형/pH-sweep Planner DAG를 연결했다. 테스트는 실제 PHREEQC 엔진으로 첫 노드의 calculated pH를 두 번째 계산 입력으로 전달해 실제 수치계산에 사용했으며, 동시 DAG 캐시 재사용도 Typed metadata를 보존하는지 확인한다. 지원하지 않는 원소/데이터베이스 입력은 보류한다.
+
+수정 후 다시 실행한 로컬 결과는 backend **164 passed**, production build 성공, browser E2E **1 passed**다. 현재 커밋의 GitHub Actions 확인과 full DAG/도구별 통합 성능 계측이 남아 공식 판정은 **`PHASE_3_SOFTWARE_IN_PROGRESS`** 다. 외부 장비 자료 기반 정확도와 승인 CFD는 `EXTERNAL_VALIDATION_PENDING` 이다. 변경 상세와 잔여 조건은 [`PHASE3_SOFTWARE_CLOSURE.md`](PHASE3_SOFTWARE_CLOSURE.md)를 기준으로 한다.
+
 검증일: 2026-10-30
 기준 브랜치: `main`
 상태: `PHASE_3_SOFTWARE_IN_PROGRESS` (브라우저·소프트웨어 통합 검증 진행 중)

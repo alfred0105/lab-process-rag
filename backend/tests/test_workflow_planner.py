@@ -40,6 +40,48 @@ def test_phreeqc_plan_requests_chemical_totals_not_recipe_guess():
     assert any("원소별" in value for value in plan["missing_inputs"])
 
 
+def test_phreeqc_plan_requires_review_then_builds_approved_dag():
+    inputs={"temperature_c":25,"pH":8.3,"totals_molal":{"Ca":0.001,"C(4)":0.001},"phases":["Calcite"]}
+    pending=plan_workflow(goal="PHREEQC 수용액 평형 계산",record=_record(),analysis_runs=[],simulation_inputs=inputs)
+    assert pending["action"]=="REQUIRES_REVIEW"
+    assert not pending["executable"]
+    assert pending["nodes"][1]["tool_id"]=="phreeqc.aqueous_equilibrium.v1"
+    approved=plan_workflow(goal="PHREEQC 수용액 평형 계산",record=_record(),analysis_runs=[],simulation_inputs=inputs,approval_confirmed=True)
+    assert approved["action"]=="RUN_SIMULATION"
+    assert approved["executable"]
+    assert approved["nodes"][1]["inputs"]["inputs"]==inputs
+
+
+def test_phreeqc_planner_abstains_on_unavailable_database_or_unsupported_species():
+    inputs={"temperature_c":25,"pH":8,"totals_molal":{"Ca":0.001},"phases":[]}
+    unsupported_db=plan_workflow(goal="PHREEQC equilibrium",record=_record(),analysis_runs=[],simulation_inputs=inputs,database_identifier="unsupported.dat")
+    unsupported_species=plan_workflow(goal="PHREEQC equilibrium",record=_record(),analysis_runs=[],simulation_inputs={**inputs,"totals_molal":{"Xx":1}})
+    assert unsupported_db["action"]=="ABSTAIN"
+    assert unsupported_species["action"]=="ABSTAIN"
+
+
+def test_phreeqc_planner_builds_explicit_pH_sweep_tool():
+    inputs={"temperature_c":25,"totals_molal":{"Ca":0.001,"C(4)":0.001},"phases":["Calcite"],
+        "pH_min":6,"pH_max":10,"points":5}
+    plan=plan_workflow(goal="PHREEQC pH sweep 수용액",record=_record(),analysis_runs=[],simulation_inputs=inputs,approval_confirmed=True)
+    assert plan["action"]=="RUN_SIMULATION"
+    assert plan["nodes"][1]["tool_id"]=="phreeqc.aqueous_sweep.v1"
+
+
+def test_phreeqc_planner_surfaces_matching_completed_result_without_reexecution():
+    from app.services.simulation.cache import phreeqc_cache_identity
+    from app.services.tool_adapters import PHREEQCAdapter
+    from app.services.tool_registry import ToolRegistry
+    inputs=PHREEQCAdapter().validate_inputs({"temperature_c":25,"pH":8,"totals_molal":{"Ca":0.001},"phases":[]})
+    tool=ToolRegistry().get("phreeqc.aqueous_equilibrium.v1")
+    key,_=phreeqc_cache_identity(tool_id=tool.tool_id,tool_version=tool.version,topic_id=3,experiment_id=7,process_step_id=None,parameters=inputs)
+    plan=plan_workflow(goal="PHREEQC aqueous speciation",record=_record(),analysis_runs=[],simulation_inputs=inputs,
+        simulation_runs=[{"id":42,"status":"completed","idempotency_key":key}])
+    assert plan["action"]=="REVIEW_RESULT"
+    assert plan["existing_result_id"]==42
+    assert plan["nodes"]==[] and not plan["executable"]
+
+
 def test_unapproved_cfd_goal_abstains():
     plan = plan_workflow(goal="OpenFOAM CFD 유동 해석", record=_record(), analysis_runs=[])
     assert plan["action"] == "ABSTAIN"

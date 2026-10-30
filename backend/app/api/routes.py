@@ -403,6 +403,7 @@ def execute_scientific_tool(payload:ToolExecutionRequest,db:Session=Depends(get_
         finished=datetime.now(timezone.utc).replace(tzinfo=None)
         result={**raw_result,"provenance":{"tool_id":tool.tool_id,"tool_version":tool.version,"model_id":model_id,"database_id":"phreeqc.dat","input":parameters,
             "assumptions":raw_result.get("limitations",[]),"validation":validation,"idempotency_key":idempotency_key,
+            "review_status":"COMPUTED",
             "source_type":"SIMULATION","parent_data_ids":[f"experiment:{experiment.id}"]+([f"process-step:{payload.process_step_id}"] if payload.process_step_id else []),"started_at":started.isoformat()+"Z","finished_at":finished.isoformat()+"Z"}}
         run.status="completed"; run.worker_id=None; run.lease_expires_at=None; run.result_json=result; run.log_text="PHREEQC adapter completed and passed output validation."; run.finished_at=finished
         db.flush()
