@@ -270,6 +270,14 @@ class SimulationRun(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     __table_args__ = (UniqueConstraint("idempotency_key", name="uq_simulation_run_idempotency_key"),)
     idempotency_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    worker_id: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+    heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    timeout_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    cancel_requested: Mapped[bool] = mapped_column(Boolean, default=False)
+    attempt: Mapped[int] = mapped_column(Integer, default=1)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=1)
+    error_code: Mapped[str] = mapped_column(String(100), default="")
     experiment_id: Mapped[int] = mapped_column(ForeignKey("experiments.id", ondelete="CASCADE"), index=True)
     process_step_id: Mapped[int | None] = mapped_column(ForeignKey("process_steps.id", ondelete="SET NULL"), nullable=True, index=True)
     model_id: Mapped[str] = mapped_column(String(120))
@@ -306,6 +314,19 @@ class ScientificObservation(Base):
     normalization_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
     review_events: Mapped[list["MeasurementReviewEvent"]] = relationship(back_populates="observation", cascade="all, delete-orphan", order_by="MeasurementReviewEvent.id")
+
+class ScientificDataAuditEvent(Base):
+    """Append-only audit for provenance/data corrections without deleting source rows."""
+    __tablename__ = "scientific_data_audit_events"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entity_type: Mapped[str] = mapped_column(String(60), index=True)
+    entity_id: Mapped[int] = mapped_column(Integer, index=True)
+    topic_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    field_name: Mapped[str] = mapped_column(String(100))
+    old_value: Mapped[dict] = mapped_column(JSON)
+    new_value: Mapped[dict] = mapped_column(JSON)
+    reason: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
 
 class MeasurementReviewEvent(Base):
     """Immutable review history; current status is the latest event for a run."""

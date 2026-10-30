@@ -35,16 +35,18 @@ def test_analysis_api_persists_original_and_mask_with_provenance(tmp_path, monke
             topic_response = client.post("/api/topics", json={"name": "Analysis test", "description": ""})
             assert topic_response.status_code == 200, topic_response.text
             topic_id = topic_response.json()["id"]
+            second_topic=client.post("/api/topics",json={"name":"Separate analysis topic","description":""}).json()
             reference_experiment=client.post("/api/experiments",json={"topic_id":topic_id,"name":"Published paper image","target":"microscopy","status":"reference","steps":[{"name":"Published measurement"}]}).json()
             observation = ScientificObservation(topic_id=topic_id, parameter_id="test_temperature", original_value="25", original_unit="degC",
                 normalized_value=298.15, normalized_unit="kelvin", value_type="number", source_type="LAB_RECORD", source_id="test:temperature",
                 review_status="PENDING")
             test_db = TestSession(); test_db.add(observation); test_db.commit(); test_db.refresh(observation); observation_id=observation.id; test_db.close()
-            rejected_early = client.post(f"/api/data/observations/{observation_id}/review", json={"reviewer":"Researcher","review_status":"ACCEPTED","reason":"checked"})
+            assert client.post(f"/api/data/observations/{observation_id}/review?topic_id={second_topic['id']}",json={"reviewer":"R","review_status":"REVIEWED","opinion":"cross-topic"}).status_code==404
+            rejected_early = client.post(f"/api/data/observations/{observation_id}/review?topic_id={topic_id}", json={"reviewer":"Researcher","review_status":"ACCEPTED","reason":"checked"})
             assert rejected_early.status_code == 409
-            reviewed_observation = client.post(f"/api/data/observations/{observation_id}/review", json={"reviewer":"Researcher","review_status":"REVIEWED","opinion":"Value and unit checked."})
+            reviewed_observation = client.post(f"/api/data/observations/{observation_id}/review?topic_id={topic_id}", json={"reviewer":"Researcher","review_status":"REVIEWED","opinion":"Value and unit checked."})
             assert reviewed_observation.status_code == 200, reviewed_observation.text
-            accepted_observation = client.post(f"/api/data/observations/{observation_id}/review", json={"reviewer":"Researcher","review_status":"ACCEPTED","reason":"Traceable to lab notebook."})
+            accepted_observation = client.post(f"/api/data/observations/{observation_id}/review?topic_id={topic_id}", json={"reviewer":"Researcher","review_status":"ACCEPTED","reason":"Traceable to lab notebook."})
             assert accepted_observation.status_code == 200, accepted_observation.text
             assert accepted_observation.json()["review_status"] == "ACCEPTED"
             assert len(accepted_observation.json()["review_history"]) == 2
@@ -60,8 +62,20 @@ def test_analysis_api_persists_original_and_mask_with_provenance(tmp_path, monke
             assert run["result"]["component_count"] == 1
             assert len(run["sha256"]) == 64
             assert client.get(run["result"]["mask_url"]).content
-            assert client.get(f"/api/analysis/runs/{run['id']}/original").content == buffer.getvalue()
+            assert client.get(f"/api/analysis/runs/{run['id']}/original?topic_id={topic_id}").content == buffer.getvalue()
             assert client.get(f"/api/analysis/runs?topic_id={topic_id}").json()[0]["id"] == run["id"]
+            same_topic_repeat=client.post("/api/analysis/run",data={"modality":"tem","topic_id":str(topic_id),"pixel_size_nm":"0.5","foreground":"bright"},files={"file":("repeat.png",buffer.getvalue(),"image/png")})
+            assert same_topic_repeat.status_code==200 and same_topic_repeat.json()["id"]==run["id"]
+            cross_topic=client.post("/api/analysis/run",data={"modality":"tem","topic_id":str(second_topic["id"]),"pixel_size_nm":"0.5","foreground":"bright"},files={"file":("same.png",buffer.getvalue(),"image/png")})
+            assert cross_topic.status_code==200, cross_topic.text
+            assert cross_topic.json()["id"]!=run["id"]
+            assert cross_topic.json()["topic_id"]==second_topic["id"]
+            assert client.get(f"/api/analysis/runs/{run['id']}/original?topic_id={second_topic['id']}").status_code==404
+            assert client.get(f"/api/analysis/runs/{run['id']}/mask?topic_id={second_topic['id']}").status_code==404
+            assert client.post(f"/api/analysis/runs/{run['id']}/review?topic_id={second_topic['id']}",json={"reviewer":"R","review_status":"REVIEWED"}).status_code==404
+            assert client.post(f"/api/analysis/runs/{run['id']}/phase-match?topic_id={second_topic['id']}").status_code==404
+            assert client.post(f"/api/analysis/runs/{run['id']}/explain?topic_id={second_topic['id']}").status_code==404
+            assert client.get(f"/api/analysis/runs?topic_id={second_topic['id']}").json()[0]["id"]==cross_topic.json()["id"]
             reference_analysis=client.post("/api/analysis/run",data={"modality":"sem","topic_id":str(topic_id),"experiment_id":str(reference_experiment["id"]),"pixel_size_nm":"0.5"},files={"file":("paper-image.png",buffer.getvalue(),"image/png")})
             assert reference_analysis.status_code==200,reference_analysis.text
             assert reference_analysis.json()["result"]["analysis_provenance"]["source_type"]=="LITERATURE_ANALYSIS_OUTPUT"
@@ -73,12 +87,12 @@ def test_analysis_api_persists_original_and_mask_with_provenance(tmp_path, monke
                 assert all(item["source_type"]!="LITERATURE_ANALYSIS_OUTPUT" for item in optimized)
             finally: test_db.close()
 
-            premature = client.post(f"/api/analysis/runs/{run['id']}/review", json={"reviewer":"Researcher","review_status":"ACCEPTED","reason":"looks good"})
+            premature = client.post(f"/api/analysis/runs/{run['id']}/review?topic_id={topic_id}", json={"reviewer":"Researcher","review_status":"ACCEPTED","reason":"looks good"})
             assert premature.status_code == 409
-            reviewed = client.post(f"/api/analysis/runs/{run['id']}/review", json={"reviewer":"Researcher","review_status":"REVIEWED","opinion":"Compared the mask with the source."})
+            reviewed = client.post(f"/api/analysis/runs/{run['id']}/review?topic_id={topic_id}", json={"reviewer":"Researcher","review_status":"REVIEWED","opinion":"Compared the mask with the source."})
             assert reviewed.status_code == 200, reviewed.text
             assert reviewed.json()["review_status"] == "REVIEWED"
-            accepted = client.post(f"/api/analysis/runs/{run['id']}/review", json={"reviewer":"Researcher","review_status":"ACCEPTED","reason":"Scale and segmentation checked."})
+            accepted = client.post(f"/api/analysis/runs/{run['id']}/review?topic_id={topic_id}", json={"reviewer":"Researcher","review_status":"ACCEPTED","reason":"Scale and segmentation checked."})
             assert accepted.status_code == 200, accepted.text
             assert len(accepted.json()["review_history"]) == 2
             approved = client.get(f"/api/optimization/observations/approved?topic_id={topic_id}")
@@ -93,7 +107,7 @@ def test_analysis_api_persists_original_and_mask_with_provenance(tmp_path, monke
                     return {"summary": "이미지 분할 미리보기 결과입니다.", "review_notes": ["입자 경계를 원본과 대조하세요."]}
 
             monkeypatch.setattr(routes, "configured_provider", lambda _settings: FakeGemma())
-            explanation = client.post(f"/api/analysis/runs/{run['id']}/explain")
+            explanation = client.post(f"/api/analysis/runs/{run['id']}/explain?topic_id={topic_id}")
             assert explanation.status_code == 200, explanation.text
             assert explanation.json()["analysis_run_id"] == run["id"]
             assert "not a measurement" in explanation.json()["notice"]

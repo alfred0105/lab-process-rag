@@ -9,9 +9,9 @@ from alembic.script import ScriptDirectory
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.api.routes import router
+from app.api.routes import router, resume_approved_openfoam_jobs
 from app.db.database import DB_PATH, ROOT, Base, engine, SessionLocal
-from app.db.models import Experiment, ExperimentMethod, MethodVersion, ResearchTopic, ResearchMaterial, ExperimentMaterial, Paper, MaterialAnalysisRun, SimulationRun, ScientificObservation
+from app.db.models import Experiment, ExperimentMethod, MethodVersion, ResearchTopic, ResearchMaterial, ExperimentMaterial, Paper, MaterialAnalysisRun, SimulationRun, ScientificObservation, ScientificDataAuditEvent
 from app.services.scientific_data import classify_analysis_source, make_observation
 
 def migrate_legacy_data():
@@ -173,6 +173,9 @@ def backfill_scientific_observations():
             expected=classify_analysis_source(experiment,demo_data=bool((analysis_run.result_json or {}).get("demo_data")))
             for observation in db.query(ScientificObservation).filter_by(analysis_run_id=analysis_run.id).all():
                 if observation.source_type in {"ANALYSIS_OUTPUT","SYNTHETIC_DEMO","LITERATURE_ANALYSIS_OUTPUT"} and observation.source_type!=expected:
+                    db.add(ScientificDataAuditEvent(entity_type="scientific_observation",entity_id=observation.id,topic_id=observation.topic_id,
+                        field_name="source_type",old_value={"value":observation.source_type},new_value={"value":expected},
+                        reason=f"Source classification reconciled from linked analysis run {analysis_run.id} and experiment status."))
                     observation.source_type=expected
         db.commit()
     except Exception:
@@ -185,11 +188,14 @@ def recover_interrupted_tool_runs():
     """Mark synchronous idempotent tool runs interrupted by a server restart."""
     db=SessionLocal()
     try:
-        interrupted=db.query(SimulationRun).filter(SimulationRun.idempotency_key.is_not(None),SimulationRun.status=="running").all()
         now=datetime.now(timezone.utc).replace(tzinfo=None)
+        interrupted=db.query(SimulationRun).filter(SimulationRun.status=="running",SimulationRun.lease_expires_at.is_not(None),SimulationRun.lease_expires_at<=now).all()
         for run in interrupted:
             run.status="failed"
             run.error_text="Server restarted before the scientific tool run completed; retry must be explicit."
+            run.error_code="LEASE_EXPIRED_AFTER_RESTART"
+            run.worker_id=None
+            run.lease_expires_at=None
             run.log_text=(run.log_text+"\nRecovered as failed during application startup.").strip()
             run.finished_at=now
         if interrupted: db.commit()
@@ -209,6 +215,7 @@ async def lifespan(app:FastAPI):
     import_used_materials_to_library()
     backfill_scientific_observations()
     recover_interrupted_tool_runs()
+    resume_approved_openfoam_jobs()
     yield
 
 app=FastAPI(title="Lab Process RAG",version="0.1.0",description="Paper-backed claims are cited; Gemma general knowledge is labeled separately.",lifespan=lifespan)

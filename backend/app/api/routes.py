@@ -1,19 +1,20 @@
 import json
 import uuid
 import math
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import os
 import shutil
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 
 import httpx
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, selectinload
 from app.db.database import ROOT, SessionLocal, get_db
 from app.db.models import Experiment, ExperimentMaterial, ExperimentMethod, MethodVersion, ResearchTopic, ResearchMaterial, Paper, EvidenceChunk, PaperSummary, ProcessStep, ProcessVariable, ExperimentResult, FailureObservation, ExperimentEnvironmentRecord, ProcessStepLog, ExperimentAttachment, ProcessStageExperiment, AssistantInteraction, MaterialAnalysisRun, IntegratedAnalysisSession, SimulationRun, ScientificObservation, MeasurementReviewEvent
-from app.schemas.core import AssistantAsk, SimulationInputReviewRequest, ProcessVariableUpdate, ExperimentMaterialIn, AnalysisExplanation, IntegratedAnalysisRequest, IntegratedAnalysisClaim, DecisionBrief, DecisionOption, DecisionChoiceRequest, MeasurementReviewRequest, Claim, EvidenceStatus, ExperimentIn, ResearchTopicIn, ResearchMaterialIn, MethodIn, DesignRequest, ProcessChange, StepLogIn, StageExperimentIn, PHEstimateRequest, AqueousEquilibriumRequest, AqueousSweepRequest, StirredReactionPathRequest, ToolExecutionRequest
+from app.schemas.core import AssistantAsk, SimulationInputReviewRequest, ProcessVariableUpdate, ExperimentMaterialIn, AnalysisExplanation, IntegratedAnalysisRequest, IntegratedAnalysisClaim, DecisionBrief, DecisionOption, DecisionChoiceRequest, MeasurementReviewRequest, Claim, EvidenceStatus, ExperimentIn, ResearchTopicIn, ResearchMaterialIn, MethodIn, DesignRequest, ProcessChange, StepLogIn, StageExperimentIn, PHEstimateRequest, AqueousEquilibriumRequest, AqueousSweepRequest, StirredReactionPathRequest, ToolExecutionRequest, OpenFOAMRunRequest
 from app.services.ingestion.pdf import MAX_PDF_SIZE_BYTES, ingest_pdf
 from app.services.retrieval.provider import SQLiteFTSProvider
 from app.services.experiment.compare import compare
@@ -39,6 +40,7 @@ from app.services.benchmark_data import BenchmarkDataError, catalog as benchmark
 from app.services.scientific_data import classify_analysis_source, make_observation
 from app.services.tool_registry import ToolRegistry, ToolExecutor, ResultValidator, ValidationGate, recommend_tools
 router=APIRouter(); retrieval=SQLiteFTSProvider()
+_OPENFOAM_EXECUTOR=ThreadPoolExecutor(max_workers=1,thread_name_prefix="lab-openfoam")
 
 ANALYSIS_ROOT = ROOT / "data" / "material-analysis"
 MAX_ANALYSIS_UPLOAD_BYTES = 25 * 1024 * 1024
@@ -320,6 +322,8 @@ def execute_scientific_tool(payload:ToolExecutionRequest,db:Session=Depends(get_
     """Execute only explicitly supported deterministic adapters and persist provenance."""
     experiment=exp_query(db).filter_by(id=payload.experiment_id).first()
     if not experiment: raise HTTPException(404,"Experiment not found")
+    if payload.process_step_id is not None and not any(step.id==payload.process_step_id for step in experiment.steps):
+        raise HTTPException(422,"Selected process step does not belong to this experiment")
     tool=ToolRegistry().get(payload.tool_id)
     if not tool: raise HTTPException(404,"Unknown scientific tool")
     if payload.tool_id.startswith("openfoam."):
@@ -353,7 +357,7 @@ def execute_scientific_tool(payload:ToolExecutionRequest,db:Session=Depends(get_
     gate=ValidationGate.validate({"readiness":"REQUIRES_REVIEW","execution_policy":"review_inputs_before_run"},approval_granted=payload.approval_confirmed)
     if not gate["allowed"]: raise HTTPException(409,{"reason":"scientific_input_review_required","validation_gate":gate})
     model_id="PHREEQC-3 / phreeqc.dat"
-    stable_input={"tool_id":tool.tool_id,"tool_version":tool.version,"model_id":model_id,"experiment_id":experiment.id,"parameters":parameters}
+    stable_input={"tool_id":tool.tool_id,"tool_version":tool.version,"model_id":model_id,"database_id":"phreeqc.dat","engine":"phreeqpython-1.6.2","experiment_id":experiment.id,"process_step_id":payload.process_step_id,"parameters":parameters}
     idempotency_key=sha256_bytes(json.dumps(stable_input,sort_keys=True,separators=(",",":"),ensure_ascii=False).encode())
     existing=db.query(SimulationRun).filter_by(idempotency_key=idempotency_key).first()
     if existing and existing.status=="completed":
@@ -365,16 +369,20 @@ def execute_scientific_tool(payload:ToolExecutionRequest,db:Session=Depends(get_
     started=datetime.now(timezone.utc).replace(tzinfo=None)
     if existing:
         attempts=int((existing.input_json or {}).get("attempt",1))+1
+        if attempts>existing.max_attempts: raise HTTPException(409,{"reason":"maximum_explicit_retries_reached","simulation_run_id":existing.id,"max_attempts":existing.max_attempts})
         history=list((existing.input_json or {}).get("retry_history",[]))
         history.append({"status":existing.status,"error":existing.error_text,"finished_at":existing.finished_at.isoformat()+"Z" if existing.finished_at else None})
         existing.status="running"; existing.input_json={**parameters,"attempt":attempts,"retry_history":history,"idempotency_payload":stable_input}
-        existing.result_json=None; existing.error_text=""; existing.started_at=started; existing.finished_at=None
+        existing.attempt=attempts; existing.worker_id=f"request-{uuid.uuid4().hex}"; existing.heartbeat_at=started
+        existing.lease_expires_at=started+timedelta(minutes=5); existing.timeout_seconds=300; existing.cancel_requested=False
+        existing.result_json=None; existing.error_text=""; existing.error_code=""; existing.started_at=started; existing.finished_at=None
         existing.log_text="Explicit retry started after a prior failed attempt."
         run=existing
     else:
-        run=SimulationRun(experiment_id=experiment.id,model_id=tool.tool_id,status="running",idempotency_key=idempotency_key,
+        run=SimulationRun(experiment_id=experiment.id,process_step_id=payload.process_step_id,model_id=tool.tool_id,status="running",idempotency_key=idempotency_key,
             input_json={**parameters,"attempt":1,"idempotency_payload":stable_input},started_at=started,
-            log_text="Inputs passed Pydantic validation and the explicit review gate.")
+            worker_id=f"request-{uuid.uuid4().hex}",heartbeat_at=started,lease_expires_at=started+timedelta(minutes=5),
+            timeout_seconds=300,attempt=1,max_attempts=3,log_text="Inputs passed Pydantic validation and the explicit review gate.")
         db.add(run)
     try: db.commit(); db.refresh(run)
     except Exception as exc:
@@ -384,25 +392,25 @@ def execute_scientific_tool(payload:ToolExecutionRequest,db:Session=Depends(get_
         raise
     try: result=adapter.execute(parameters)
     except Exception as exc:
-        run.status="failed"; run.log_text="PHREEQC adapter failed before producing a result."; run.error_text=str(exc)[:4000]; run.finished_at=datetime.now(timezone.utc).replace(tzinfo=None); db.commit()
+        run.status="failed"; run.worker_id=None; run.lease_expires_at=None; run.error_code="PHREEQC_EXECUTION_FAILED"; run.log_text="PHREEQC adapter failed before producing a result."; run.error_text=str(exc)[:4000]; run.finished_at=datetime.now(timezone.utc).replace(tzinfo=None); db.commit()
         if isinstance(exc,RuntimeError): raise HTTPException(503,str(exc))
         if isinstance(exc,ValueError): raise HTTPException(422,str(exc))
         raise HTTPException(422,f"Scientific tool failed: {exc}")
     validation=adapter.validate_outputs(result)
     if not validation["valid"]:
-        run.status="invalid_output"; run.result_json=result; run.log_text="PHREEQC returned output that failed scientific schema validation."; run.error_text=str(validation); run.finished_at=datetime.now(timezone.utc).replace(tzinfo=None); db.commit()
+        run.status="invalid_output"; run.worker_id=None; run.lease_expires_at=None; run.error_code="OUTPUT_VALIDATION_FAILED"; run.result_json=result; run.log_text="PHREEQC returned output that failed scientific schema validation."; run.error_text=str(validation); run.finished_at=datetime.now(timezone.utc).replace(tzinfo=None); db.commit()
         raise HTTPException(422,{"reason":"scientific_output_validation_failed","validation":validation})
     def persist_phreeqc_result(raw_result):
         finished=datetime.now(timezone.utc).replace(tzinfo=None)
         result={**raw_result,"provenance":{"tool_id":tool.tool_id,"tool_version":tool.version,"model_id":model_id,"database_id":"phreeqc.dat","input":parameters,
             "assumptions":raw_result.get("limitations",[]),"validation":validation,"idempotency_key":idempotency_key,
-            "source_type":"SIMULATION","parent_data_ids":[f"experiment:{experiment.id}"],"started_at":started.isoformat()+"Z","finished_at":finished.isoformat()+"Z"}}
-        run.status="completed"; run.result_json=result; run.log_text="PHREEQC adapter completed and passed output validation."; run.finished_at=finished
+            "source_type":"SIMULATION","parent_data_ids":[f"experiment:{experiment.id}"]+([f"process-step:{payload.process_step_id}"] if payload.process_step_id else []),"started_at":started.isoformat()+"Z","finished_at":finished.isoformat()+"Z"}}
+        run.status="completed"; run.worker_id=None; run.lease_expires_at=None; run.result_json=result; run.log_text="PHREEQC adapter completed and passed output validation."; run.finished_at=finished
         db.flush()
         for key,value in raw_result.items():
             if isinstance(value,(int,float)) and not isinstance(value,bool) and math.isfinite(float(value)):
                 db.add(make_observation(topic_id=experiment.topic_id,experiment_id=experiment.id,method_version_id=experiment.method_version_id,
-                    process_step_id=None,step_name="PHREEQC simulation",name=key,value=value,
+                    process_step_id=payload.process_step_id,step_name="PHREEQC simulation",name=key,value=value,
                     unit={"temperature_c":"degC","input_pH":"pH","calculated_pH":"pH"}.get(key),source_type="SIMULATION",
                     source_id=f"simulation-run:{run.id}:{key}",review_status="COMPUTED"))
         db.commit(); db.refresh(run)
@@ -442,7 +450,9 @@ async def create_analysis_run(
     source_hash=sha256_bytes(data)
     candidate_tool={"xrd":"xrd.local_peaks.v1","afm":"afm.plane_level_roughness.v1","sem":"microscopy.otsu_components.v1","tem":"microscopy.otsu_components.v1"}.get(modality.lower())
     if candidate_tool is None: raise HTTPException(422,"Unsupported measurement modality")
-    previous=db.query(MaterialAnalysisRun).filter_by(experiment_id=experiment_id,modality=modality.lower(),sha256=source_hash,tool_id=candidate_tool,analysis_status="completed").order_by(MaterialAnalysisRun.id.desc()).all()
+    # A matching hash/settings may be reused only inside the same research topic.
+    # Each topic still receives its own run record and ownership lineage.
+    previous=db.query(MaterialAnalysisRun).filter_by(topic_id=topic_id,experiment_id=experiment_id,modality=modality.lower(),sha256=source_hash,tool_id=candidate_tool,analysis_status="completed").order_by(MaterialAnalysisRun.id.desc()).all()
     for saved in previous:
         provenance=(saved.result_json or {}).get("analysis_provenance",{})
         definition=ToolRegistry().get(candidate_tool)
@@ -483,7 +493,7 @@ async def create_analysis_run(
         if output.artifact and output.artifact_extension:
             artifact_path=artifact_dir/f"{analysis_run_id}.{output.artifact_extension}"
             artifact_path.write_bytes(output.artifact)
-            result={**result,"mask_url":f"/api/analysis/runs/{analysis_run_id}/mask"}
+            result={**result,"mask_url":f"/api/analysis/runs/{analysis_run_id}/mask?topic_id={topic_id}"}
         item=MaterialAnalysisRun(experiment_id=experiment_id,topic_id=topic_id,modality=modality.lower(),tool_id=output.tool_id,
             filename=filename,sha256=source_hash,original_path=str(original_path),artifact_path=str(artifact_path) if artifact_path else None,
             result_json=result,analysis_status="completed",result_key=result_key,process_step_id=process_step_id)
@@ -514,8 +524,8 @@ async def create_analysis_run(
         raise HTTPException(422,str(exc)) from exc
 
 @router.post("/analysis/runs/{run_id}/review")
-def review_analysis_run(run_id:int,payload:MeasurementReviewRequest,db:Session=Depends(get_db)):
-    item=db.get(MaterialAnalysisRun,run_id)
+def review_analysis_run(run_id:int,topic_id:int=Query(...,gt=0),payload:MeasurementReviewRequest=...,db:Session=Depends(get_db)):
+    item=db.query(MaterialAnalysisRun).filter_by(id=run_id,topic_id=topic_id).first()
     if not item: raise HTTPException(404,"Analysis run not found")
     if item.analysis_status!="completed": raise HTTPException(409,"Only computed analysis results can be reviewed")
     previous=item.review_events[-1].review_status if item.review_events else ("COMPUTED" if item.analysis_status=="completed" else "PENDING")
@@ -566,8 +576,8 @@ def approved_optimization_observations(topic_id:int,db:Session=Depends(get_db)):
         for item in rows],"notice":"Only accepted real lab conditions and measured/computed lab outcomes are returned as separate roles. Candidate pairs require at least two experiments; model fitness is not implied."}
 
 @router.post("/data/observations/{observation_id}/review")
-def review_scientific_observation(observation_id:int,payload:MeasurementReviewRequest,db:Session=Depends(get_db)):
-    item=db.get(ScientificObservation,observation_id)
+def review_scientific_observation(observation_id:int,topic_id:int=Query(...,gt=0),payload:MeasurementReviewRequest=...,db:Session=Depends(get_db)):
+    item=db.query(ScientificObservation).filter_by(id=observation_id,topic_id=topic_id).first()
     if not item: raise HTTPException(404,"Scientific observation not found")
     previous=item.review_events[-1].review_status if item.review_events else "PENDING"
     if payload.review_status in {"ACCEPTED","REJECTED"} and previous!="REVIEWED": raise HTTPException(409,"Review this observation before accepting or rejecting it")
@@ -581,9 +591,13 @@ def review_scientific_observation(observation_id:int,payload:MeasurementReviewRe
     return {"observation_id":item.id,"review_status":item.review_status,"review_event_id":event.id,
         "review_history":[{"status":row.review_status,"reviewer":row.reviewer,"opinion":row.opinion,"reason":row.reason,"created_at":row.created_at.isoformat()+"Z"} for row in item.review_events]}
 
-def _analysis_file(db:Session,run_id:int,artifact:bool):
-    item=db.get(MaterialAnalysisRun,run_id)
+def _analysis_run_for_topic(db:Session,run_id:int,topic_id:int):
+    item=db.query(MaterialAnalysisRun).filter_by(id=run_id,topic_id=topic_id).first()
     if not item: raise HTTPException(404,"Analysis run not found")
+    return item
+
+def _analysis_file(db:Session,run_id:int,topic_id:int,artifact:bool):
+    item=_analysis_run_for_topic(db,run_id,topic_id)
     relative=item.artifact_path if artifact else item.original_path
     if artifact and not relative: raise HTTPException(404,"This run has no derived artifact")
     stored=Path(relative)
@@ -617,28 +631,29 @@ async def save_pending_analysis(
     return serialize_analysis(item)
 
 @router.get("/analysis/runs/{run_id}/original")
-def analysis_original(run_id:int,db:Session=Depends(get_db)):
-    path=_analysis_file(db,run_id,False)
+def analysis_original(run_id:int,topic_id:int=Query(...,gt=0),db:Session=Depends(get_db)):
+    path=_analysis_file(db,run_id,topic_id,False)
     return FileResponse(path,filename=Path(path).name)
 
 @router.get("/analysis/runs/{run_id}/mask")
-def analysis_mask(run_id:int,db:Session=Depends(get_db)):
-    path=_analysis_file(db,run_id,True)
+def analysis_mask(run_id:int,topic_id:int=Query(...,gt=0),db:Session=Depends(get_db)):
+    path=_analysis_file(db,run_id,topic_id,True)
     return FileResponse(path,media_type="image/png",filename=Path(path).name)
 
 @router.post("/analysis/runs/{run_id}/phase-match")
 async def analysis_phase_match(
     run_id:int,
+    topic_id:int=Query(...,gt=0),
     formulas:str=Form(""),
     elements:str=Form(""),
     wavelength_angstrom:float=Form(1.5406),
     tolerance_degrees:float=Form(0.3),
     db:Session=Depends(get_db),
 ):
-    item=db.get(MaterialAnalysisRun,run_id)
+    item=_analysis_run_for_topic(db,run_id,topic_id)
     if not item: raise HTTPException(404,"Analysis run not found")
     if item.modality.lower()!="xrd": raise HTTPException(422,"Reference phase matching is available for XRD runs only")
-    path=_analysis_file(db,run_id,False)
+    path=_analysis_file(db,run_id,topic_id,False)
     try:
         return await match_xrd_phases(
             path.read_bytes(),
@@ -657,8 +672,8 @@ async def analysis_phase_match(
         raise HTTPException(502,"The public COD reference database could not be reached. Retry later or review the original XRD pattern.") from exc
 
 @router.post("/analysis/runs/{run_id}/explain")
-def explain_analysis_run(run_id:int,language:str=Query("ko",pattern="^(ko|en)$"),db:Session=Depends(get_db)):
-    item=db.get(MaterialAnalysisRun,run_id)
+def explain_analysis_run(run_id:int,topic_id:int=Query(...,gt=0),language:str=Query("ko",pattern="^(ko|en)$"),db:Session=Depends(get_db)):
+    item=_analysis_run_for_topic(db,run_id,topic_id)
     if not item: raise HTTPException(404,"Analysis run not found")
     if item.analysis_status!="completed": raise HTTPException(409,"This measurement is waiting for its specialist format adapter")
     settings=AISettings.from_environment()
@@ -1314,23 +1329,50 @@ def _simulation_run_payload(item:SimulationRun):
 
 def _execute_openfoam_run(run_id:int,config:dict):
     db=SessionLocal()
+    worker_id=f"openfoam-{uuid.uuid4().hex}"
+    now=datetime.now(timezone.utc).replace(tzinfo=None)
     try:
-        item=db.get(SimulationRun,run_id)
-        if not item: return
-        item.status="running"; item.started_at=datetime.now(timezone.utc).replace(tzinfo=None); db.commit()
+        claimed=db.query(SimulationRun).filter(SimulationRun.id==run_id,SimulationRun.status=="queued").update({
+            SimulationRun.status:"running",SimulationRun.worker_id:worker_id,SimulationRun.started_at:now,
+            SimulationRun.heartbeat_at:now,SimulationRun.lease_expires_at:now+timedelta(seconds=2100),
+            SimulationRun.timeout_seconds:1800,SimulationRun.cancel_requested:False,
+        },synchronize_session=False)
+        db.commit()
+        if claimed!=1: return
         result,log=run_openfoam(config)
-        item=db.get(SimulationRun,run_id); item.status="completed"; item.result_json=result; item.log_text=log; item.finished_at=datetime.now(timezone.utc).replace(tzinfo=None); db.commit()
+        item=db.get(SimulationRun,run_id)
+        if not item or item.worker_id!=worker_id: return
+        tool=ToolRegistry().get("openfoam.simpleRushtonMRF.v1")
+        checked=ResultValidator.validate(tool,{**result,"solver_completed_marker":"End"}) if tool else {"valid":False,"reason":"tool_not_registered"}
+        finished=datetime.now(timezone.utc).replace(tzinfo=None)
+        item.worker_id=None; item.lease_expires_at=None; item.heartbeat_at=finished; item.finished_at=finished
+        if not checked["valid"]:
+            item.status="invalid_output"; item.error_code="OUTPUT_VALIDATION_FAILED"; item.error_text=json.dumps(checked,ensure_ascii=False)
+        else:
+            item.status="completed"; item.result_json={**result,"solver_completed_marker":"End","provenance":{"source_type":"SIMULATION","tool_id":"openfoam.simpleRushtonMRF.v1",
+                "tool_version":"14","template":"simpleRushtonMRF","input":config,"validation":checked,
+                "parent_data_ids":[f"experiment:{item.experiment_id}"]}}
+            item.log_text=log
+        db.commit()
+    except subprocess.TimeoutExpired as exc:
+        item=db.get(SimulationRun,run_id)
+        if item and item.worker_id==worker_id:
+            item.status="timed_out"; item.error_code="OPENFOAM_TIMEOUT"; item.error_text=str(exc)[:8000]
+            item.worker_id=None; item.lease_expires_at=None; item.finished_at=datetime.now(timezone.utc).replace(tzinfo=None); db.commit()
     except Exception as exc:
         item=db.get(SimulationRun,run_id)
-        if item:
-            item.status="failed"; item.error_text=str(exc)[:8000]; item.finished_at=datetime.now(timezone.utc).replace(tzinfo=None); db.commit()
+        if item and item.worker_id==worker_id:
+            item.status="failed"; item.error_code="OPENFOAM_EXECUTION_FAILED"; item.error_text=str(exc)[:8000]
+            item.worker_id=None; item.lease_expires_at=None; item.finished_at=datetime.now(timezone.utc).replace(tzinfo=None); db.commit()
     finally: db.close()
 
 @router.post("/experiments/{experiment_id}/simulations/openfoam-runs",status_code=202)
-def start_openfoam_run(experiment_id:int,background:BackgroundTasks,db:Session=Depends(get_db)):
+def start_openfoam_run(experiment_id:int,payload:OpenFOAMRunRequest,db:Session=Depends(get_db)):
     experiment=exp_query(db).filter_by(id=experiment_id).first()
     if not experiment: raise HTTPException(404,"Experiment not found")
     if experiment.demo: raise HTTPException(422,"CFD execution is disabled for demo records")
+    if not payload.approval_confirmed:
+        raise HTTPException(409,{"reason":"explicit_openfoam_approval_required","requires_human_approval":True})
     record=serialize_exp(experiment); plan=plan_simple_rushton_case(record)
     if plan["status"]!="ready_for_review":
         raise HTTPException(422,{"message":"OpenFOAM case inputs are incomplete or incompatible; no simulation was started.","plan":plan})
@@ -1339,11 +1381,54 @@ def start_openfoam_run(experiment_id:int,background:BackgroundTasks,db:Session=D
         raise HTTPException(503,"The local OpenFOAM 14 simpleRushtonMRF template is not available.")
     checks={item["key"]:item.get("value_si") for item in plan["checks"]}
     config={"tank_diameter_m":checks["cylindrical_tank_diameter"],"tank_height_m":checks["cylindrical_tank_height"],"impeller_diameter_m":checks["impeller_diameter"],"blade_count":checks["blade_count"],"rpm":checks["stirring_speed"],"nu_m2_s":checks["kinematic_viscosity"]}
+    stable={"tool_id":"openfoam.simpleRushtonMRF.v1","tool_version":"14","template":"simpleRushtonMRF","experiment_id":experiment.id,"inputs":config}
+    idempotency_key=sha256_bytes(json.dumps(stable,sort_keys=True,separators=(",",":"),ensure_ascii=False).encode())
+    existing=db.query(SimulationRun).filter_by(idempotency_key=idempotency_key).first()
+    if existing and existing.status in {"queued","running","completed"}:
+        return _simulation_run_payload(existing)
+    if existing and not payload.retry_failed:
+        raise HTTPException(409,{"reason":"failed_openfoam_run_requires_explicit_retry","simulation_run_id":existing.id,"status":existing.status})
     target_step=next((step for step in experiment.steps if any("stir" in value.name.lower() or "교반" in value.name for value in step.variables)),None)
-    item=SimulationRun(experiment_id=experiment.id,process_step_id=target_step.id if target_step else None,model_id=plan["model_id"],status="queued",input_json={**config,"template":"OpenFOAM 14 simpleRushtonMRF","source_record_code":experiment.code,"measured_data_modified":False})
-    db.add(item); db.commit(); db.refresh(item)
-    background.add_task(_execute_openfoam_run,item.id,config)
+    job_data={**config,"template":"OpenFOAM 14 simpleRushtonMRF","source_record_code":experiment.code,
+        "measured_data_modified":False,"explicit_approval":True,"approved_at":datetime.now(timezone.utc).replace(tzinfo=None).isoformat()+"Z",
+        "idempotency_payload":stable,"attempt":(existing.attempt+1 if existing else 1)}
+    if existing:
+        if existing.attempt>=existing.max_attempts: raise HTTPException(409,{"reason":"maximum_openfoam_attempts_reached","max_attempts":existing.max_attempts})
+        retry_history=list((existing.input_json or {}).get("retry_history",[]))
+        retry_history.append({"status":existing.status,"error_code":existing.error_code,"error":existing.error_text,
+            "finished_at":existing.finished_at.isoformat()+"Z" if existing.finished_at else None})
+        job_data["retry_history"]=retry_history
+        existing.status="queued"; existing.input_json=job_data; existing.result_json=None; existing.error_text=""; existing.error_code=""
+        existing.cancel_requested=False; existing.worker_id=None; existing.lease_expires_at=None; existing.finished_at=None
+        existing.attempt+=1; existing.started_at=None; existing.log_text="Explicit retry queued after prior failure."
+        item=existing
+    else:
+        item=SimulationRun(experiment_id=experiment.id,process_step_id=target_step.id if target_step else None,
+            model_id=plan["model_id"],status="queued",idempotency_key=idempotency_key,input_json=job_data,
+            timeout_seconds=1800,attempt=1,max_attempts=2,log_text="Inputs passed geometry checks and explicit VM execution approval.")
+        db.add(item)
+    try: db.commit(); db.refresh(item)
+    except Exception as exc:
+        db.rollback()
+        claimed=db.query(SimulationRun).filter_by(idempotency_key=idempotency_key).first()
+        if claimed: raise HTTPException(409,{"reason":"duplicate_openfoam_job_claimed","simulation_run_id":claimed.id,"status":claimed.status}) from exc
+        raise
+    _OPENFOAM_EXECUTOR.submit(_execute_openfoam_run,item.id,config)
     return _simulation_run_payload(item)
+
+def resume_approved_openfoam_jobs():
+    """Requeue only durable OpenFOAM requests that already recorded explicit approval."""
+    db=SessionLocal()
+    try:
+        queued=db.query(SimulationRun).filter_by(status="queued").order_by(SimulationRun.created_at).all()
+        for item in queued:
+            config=item.input_json or {}
+            if not config.get("explicit_approval"):
+                continue
+            required=("tank_diameter_m","tank_height_m","impeller_diameter_m","rpm","nu_m2_s","blade_count")
+            if all(key in config for key in required):
+                _OPENFOAM_EXECUTOR.submit(_execute_openfoam_run,item.id,{key:config[key] for key in required})
+    finally: db.close()
 
 @router.get("/experiments/{experiment_id}/simulations/openfoam-runs")
 def list_openfoam_runs(experiment_id:int,db:Session=Depends(get_db)):
@@ -1353,8 +1438,9 @@ def list_openfoam_runs(experiment_id:int,db:Session=Depends(get_db)):
     return [_simulation_run_payload(item) for item in db.query(SimulationRun).filter_by(experiment_id=experiment_id).order_by(SimulationRun.created_at.desc()).limit(30).all()]
 
 @router.get("/simulations/openfoam-runs/{run_id}")
-def get_openfoam_run(run_id:int,db:Session=Depends(get_db)):
-    item=db.get(SimulationRun,run_id)
+def get_openfoam_run(run_id:int,topic_id:int=Query(...,gt=0),db:Session=Depends(get_db)):
+    item=(db.query(SimulationRun).join(Experiment,SimulationRun.experiment_id==Experiment.id)
+          .filter(SimulationRun.id==run_id,Experiment.topic_id==topic_id).first())
     if not item: raise HTTPException(404,"Simulation run not found")
     return _simulation_run_payload(item)
 @router.post("/simulations/input-review")

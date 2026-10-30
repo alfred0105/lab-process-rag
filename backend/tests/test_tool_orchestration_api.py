@@ -110,6 +110,7 @@ def test_real_phreeqc_tool_api_executes_and_persists_result(tmp_path):
 
 
 def test_startup_recovery_marks_interrupted_idempotent_runs_retryable(tmp_path,monkeypatch):
+    from datetime import datetime, timedelta, timezone
     from app import main
     from app.db.models import Experiment, ResearchTopic, SimulationRun
     engine=create_engine(f"sqlite:///{tmp_path/'recovery.db'}",connect_args={"check_same_thread":False})
@@ -120,14 +121,45 @@ def test_startup_recovery_marks_interrupted_idempotent_runs_retryable(tmp_path,m
     topic=ResearchTopic(name="Recovery test",description=""); db.add(topic); db.flush()
     experiment=Experiment(topic_id=topic.id,code="EXP-RECOVERY",name="Interrupted",target="solution",status="in_progress")
     db.add(experiment); db.flush()
-    run=SimulationRun(experiment_id=experiment.id,model_id="phreeqc.aqueous_equilibrium.v1",status="running",idempotency_key="a"*64,input_json={})
-    db.add(run); db.commit(); run_id=run.id; db.close()
+    now=datetime.now(timezone.utc).replace(tzinfo=None)
+    run=SimulationRun(experiment_id=experiment.id,model_id="phreeqc.aqueous_equilibrium.v1",status="running",idempotency_key="a"*64,input_json={},worker_id="dead-worker",lease_expires_at=now-timedelta(seconds=1))
+    healthy=SimulationRun(experiment_id=experiment.id,model_id="openfoam.simpleRushtonMRF.v1",status="running",idempotency_key="b"*64,input_json={},worker_id="live-worker",lease_expires_at=now+timedelta(minutes=10))
+    db.add_all([run,healthy]); db.commit(); run_id=run.id; healthy_id=healthy.id; db.close()
     try:
         main.recover_interrupted_tool_runs()
         db=sessions(); recovered=db.get(SimulationRun,run_id)
         assert recovered.status=="failed"
         assert "Server restarted" in recovered.error_text
         assert recovered.finished_at is not None
+        active=db.get(SimulationRun,healthy_id)
+        assert active.status=="running"
+        assert active.worker_id=="live-worker"
         db.close()
     finally: engine.dispose()
+
+
+def test_openfoam_run_detail_is_scoped_to_experiment_topic(tmp_path):
+    from app.db.models import Experiment, ResearchTopic, SimulationRun
+    engine=create_engine(f"sqlite:///{tmp_path/'openfoam-topic-scope.db'}",connect_args={"check_same_thread":False})
+    sessions=sessionmaker(bind=engine,autoflush=False,autocommit=False)
+    Base.metadata.create_all(bind=engine)
+    def get_test_db():
+        db=sessions()
+        try: yield db
+        finally: db.close()
+    app.dependency_overrides[get_db]=get_test_db
+    try:
+        db=sessions()
+        topic_a=ResearchTopic(name="OpenFOAM owner",description=""); topic_b=ResearchTopic(name="Other topic",description="")
+        db.add_all([topic_a,topic_b]); db.flush()
+        experiment=Experiment(topic_id=topic_a.id,code="EXP-OF-SCOPE",name="CFD",target="mixing",status="in_progress")
+        db.add(experiment); db.flush()
+        run=SimulationRun(experiment_id=experiment.id,model_id="openfoam.simpleRushtonMRF.v1",status="completed",input_json={},result_json={})
+        db.add(run); db.commit(); run_id=run.id; owner_topic=topic_a.id; other_topic=topic_b.id; db.close()
+        with TestClient(app) as client:
+            assert client.get(f"/api/simulations/openfoam-runs/{run_id}?topic_id={owner_topic}").status_code==200
+            assert client.get(f"/api/simulations/openfoam-runs/{run_id}?topic_id={other_topic}").status_code==404
+    finally:
+        app.dependency_overrides.clear()
+        engine.dispose()
 

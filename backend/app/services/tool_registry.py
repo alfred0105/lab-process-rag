@@ -170,8 +170,10 @@ class ResultValidator:
             for key in ("input_pH", "calculated_pH", "temperature_c"):
                 if key in result and (not isinstance(result[key], (int, float)) or isinstance(result[key], bool)):
                     return {"valid":False,"reason":f"phreeqc_{key}_must_be_numeric"}
-            if "calculated_pH" in result and not 0 <= float(result["calculated_pH"]) <= 14:
-                return {"valid":False,"reason":"phreeqc_calculated_pH_out_of_range"}
+            # Do not impose the conventional aqueous pH 0–14 interval on
+            # model output: concentrated/non-ideal solutions and model
+            # conventions can produce values outside it. The model input
+            # schema and finite-number check remain the applicable guards.
             species=result.get("aqueous_species", [])
             if not isinstance(species, list) or any(not isinstance(item, dict) or not item.get("name") or not isinstance(item.get("molality"), (int,float)) or item["molality"] < 0 for item in species):
                 return {"valid":False,"reason":"phreeqc_species_schema_or_molality_invalid"}
@@ -198,6 +200,18 @@ class ResultValidator:
             count=result.get("component_count",result.get("object_count"))
             if not isinstance(count,int) or isinstance(count,bool) or count < 0:
                 return {"valid":False,"reason":"microscopy_component_count_invalid"}
+        if tool.tool_id.startswith("openfoam."):
+            trace=result.get("power_trace")
+            if result.get("solver_completed_marker")!="End":
+                return {"valid":False,"reason":"openfoam_solver_normal_completion_unverified"}
+            if not isinstance(trace,list) or len(trace)<2:
+                return {"valid":False,"reason":"openfoam_power_trace_insufficient"}
+            required=("time_s","divStressU","divStressDotU","stressDDotGradU","divPU","gradPU","pDivU","divTauU","divTauDotU","tauDDotGradU")
+            if any(not isinstance(row,dict) or any(not isinstance(row.get(key),(int,float)) or isinstance(row.get(key),bool) or not math.isfinite(float(row[key])) for key in required) for row in trace):
+                return {"valid":False,"reason":"openfoam_power_trace_schema_invalid"}
+            times=[float(row["time_s"]) for row in trace]
+            if any(right<=left for left,right in zip(times,times[1:])):
+                return {"valid":False,"reason":"openfoam_time_trace_not_increasing"}
         return {"valid":True,"tool_id":tool.tool_id,"numeric_values_checked":len(numbers)}
 
 

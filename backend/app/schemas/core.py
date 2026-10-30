@@ -173,6 +173,11 @@ class ToolExecutionRequest(BaseModel):
     tool_id: str = Field(min_length=3, max_length=120)
     inputs: dict = Field(default_factory=dict)
     analysis_run_id: int | None = None
+    process_step_id: int | None = Field(default=None, ge=1)
+    approval_confirmed: bool = False
+    retry_failed: bool = False
+
+class OpenFOAMRunRequest(BaseModel):
     approval_confirmed: bool = False
     retry_failed: bool = False
 

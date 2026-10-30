@@ -67,18 +67,23 @@ export default function MaterialDataReview({ experiments, onOpenExperiments, onD
   }, [selected?.id]);
 
   useEffect(() => {
-    if (!selected || !openfoamRuns.some(item => item.status === 'queued' || item.status === 'running')) return;
+    if (!selected || typeof selected.topic_id !== 'number' || !openfoamRuns.some(item => item.status === 'queued' || item.status === 'running')) return;
+    const topicId = selected.topic_id;
     const timer = window.setInterval(() => {
       const active = openfoamRuns.filter(item => item.status === 'queued' || item.status === 'running');
-      void Promise.all(active.map(item => getOpenfoamRun(item.id))).then(updated => setOpenfoamRuns(current => current.map(item => updated.find(next => next.id === item.id) ?? item)));
+      void Promise.all(active.map(item => getOpenfoamRun(item.id, topicId))).then(updated => setOpenfoamRuns(current => current.map(item => updated.find(next => next.id === item.id) ?? item)));
     }, 2500);
     return () => window.clearInterval(timer);
   }, [selected?.id, openfoamRuns]);
 
   const runOpenfoam = async () => {
     if (!selected || startingOpenfoam) return;
+    const approved = window.confirm(language === 'ko'
+      ? 'OpenFOAM CFD 계산을 Multipass 가상환경에서 시작합니다. 계산 자원을 사용하며 실험 결과를 예측하거나 장비를 제어하지 않습니다. 실행을 승인할까요?'
+      : 'This starts an OpenFOAM CFD calculation in the Multipass VM. It uses compute resources and does not predict experimental outcomes or control equipment. Approve this run?');
+    if (!approved) return;
     setStartingOpenfoam(true); setError('');
-    try { const created = await startOpenfoamRun(selected.id); setOpenfoamRuns(current => [created, ...current]); }
+    try { const created = await startOpenfoamRun(selected.id, true); setOpenfoamRuns(current => [created, ...current]); }
     catch (cause) { setError(t(cause instanceof Error ? cause.message : String(cause))); }
     finally { setStartingOpenfoam(false); }
   };

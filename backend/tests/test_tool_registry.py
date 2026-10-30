@@ -56,8 +56,18 @@ def test_result_validator_rejects_non_finite_and_checks_phreeqc_provenance():
     assert not ResultValidator.validate(tool,{"model_id":"PHREEQC-3","input_pH":7,"aqueous_species":[],"saturation_indices":[],"x":float("nan")})["valid"]
     assert not ResultValidator.validate(tool,{"saturation_indices":[]})["valid"]
     assert ResultValidator.validate(tool,{"model_id":"PHREEQC-3 / phreeqc.dat","input_pH":7,"aqueous_species":[],"saturation_indices":[],"limitations":[]})["valid"]
-    assert not ResultValidator.validate(tool,{"model_id":"PHREEQC-3 / phreeqc.dat","input_pH":7,"calculated_pH":18,"aqueous_species":[],"saturation_indices":[],"limitations":[]})["valid"]
+    assert ResultValidator.validate(tool,{"model_id":"PHREEQC-3 / phreeqc.dat","input_pH":7,"calculated_pH":18,"aqueous_species":[],"saturation_indices":[],"limitations":[]})["valid"]
+    assert not ResultValidator.validate(tool,{"model_id":"PHREEQC-3 / phreeqc.dat","input_pH":7,"calculated_pH":float("inf"),"aqueous_species":[],"saturation_indices":[],"limitations":[]})["valid"]
     assert not ResultValidator.validate(tool,{"model_id":"PHREEQC-3 / phreeqc.dat","input_pH":7,"aqueous_species":[{"name":"Zn+2","molality":-1}],"saturation_indices":[],"limitations":[]})["valid"]
+
+def test_openfoam_result_requires_normal_solver_end_and_monotone_finite_trace():
+    from app.services.tool_registry import ResultValidator
+    tool=ToolRegistry().get("openfoam.simpleRushtonMRF.v1")
+    row={"time_s":0,"divStressU":0,"divStressDotU":0,"stressDDotGradU":0,"divPU":0,"gradPU":0,"pDivU":0,"divTauU":0,"divTauDotU":0,"tauDDotGradU":0}
+    valid={"solver_completed_marker":"End","power_trace":[row,{**row,"time_s":1}]}
+    assert ResultValidator.validate(tool,valid)["valid"]
+    assert not ResultValidator.validate(tool,{**valid,"solver_completed_marker":""})["valid"]
+    assert not ResultValidator.validate(tool,{**valid,"power_trace":[row,{**row,"time_s":0}]})["valid"]
 
 def test_tool_executor_runs_fresh_gate_after_prepare_and_before_execute():
     from app.services.tool_registry import ToolExecutor
