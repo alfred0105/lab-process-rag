@@ -6,7 +6,7 @@
 
 이번 코드 변경은 PHREEQC Typed Output에 계산 상태(`COMPUTED`), 도구·버전, DB SHA-256, 계보를 기록하고, 사용자가 승인하기 전에는 실행 불가한 구조화 입력 기반 평형/pH-sweep Planner DAG를 연결했다. 테스트는 실제 PHREEQC 엔진으로 첫 노드의 calculated pH를 두 번째 계산 입력으로 전달해 실제 수치계산에 사용했으며, 동시 DAG 캐시 재사용도 Typed metadata를 보존하는지 확인한다. 지원하지 않는 원소/데이터베이스 입력은 보류한다.
 
-수정 후 다시 실행한 로컬 결과는 backend **164 passed**, production build 성공, browser E2E **1 passed**다. 현재 커밋의 GitHub Actions 확인과 full DAG/도구별 통합 성능 계측이 남아 공식 판정은 **`PHASE_3_SOFTWARE_IN_PROGRESS`** 다. 외부 장비 자료 기반 정확도와 승인 CFD는 `EXTERNAL_VALIDATION_PENDING` 이다. 변경 상세와 잔여 조건은 [`PHASE3_SOFTWARE_CLOSURE.md`](PHASE3_SOFTWARE_CLOSURE.md)를 기준으로 한다.
+수정 후 다시 실행한 로컬 결과는 backend **164 passed**, production build 성공, browser E2E **1 passed**다. 코드 commit `73b65c1`의 GitHub Actions run [41011813494](https://github.com/alfred0105/lab-process-rag/actions/runs/41011813494)에서 backend, frontend build, browser E2E 세 job 모두 통과했다. full DAG/도구별 통합 성능 계측과 전 도구 typed-artifact/cache 계보 감사가 남아 공식 판정은 **`PHASE_3_SOFTWARE_IN_PROGRESS`** 다. 외부 장비 자료 기반 정확도와 승인 CFD는 `EXTERNAL_VALIDATION_PENDING` 이다. 변경 상세와 잔여 조건은 [`PHASE3_SOFTWARE_CLOSURE.md`](PHASE3_SOFTWARE_CLOSURE.md)를 기준으로 한다.
 
 검증일: 2026-10-30
 기준 브랜치: `main`

@@ -36,7 +36,7 @@ Repository: `alfred0105/lab-process-rag`
 | Backend 전체 `pytest -q` | **164 passed** | synthetic material fixtures는 구현 경로 검사이며 실측 정확도 아님 |
 | Frontend production build | **성공** | TypeScript 빌드와 Vite 6.4.5, 1,757 modules 변환 |
 | Browser Playwright E2E | **1 passed** | 실제 브라우저에서 planner→enqueue→cancel→완료→refresh 복원→실패/retry와 Topic 격리 확인. 이 E2E는 XRD 시나리오이며 PHREEQC Planner UI를 다루지는 않음 |
-| GitHub Actions | 미확정 | 현재 변경의 push 후 backend/frontend/browser-e2e 모두 확인해야 함 |
+| GitHub Actions | **성공** | run [41011813494](https://github.com/alfred0105/lab-process-rag/actions/runs/41011813494), commit `73b65c1`: backend, frontend build, browser-e2e 세 job 모두 성공 |
 
 전체 pytest는 173개 경고도 출력한다. 경고는 현재 실행 실패를 일으키지 않지만 SQLAlchemy `datetime.utcnow()`, SWIG 및 Starlette TestClient deprecation이 남아 있다.
 
@@ -77,11 +77,11 @@ USGS Example 2 official reference test는 원래 공식 batch/equilibrium phase 
 
 ## 남은 소프트웨어 일과 외부 검증
 
-1. 현재 코드 상태의 browser E2E를 재실행하고 새 commit의 GitHub Actions 세 job을 확인한다.
+1. 현재 코드 상태의 browser E2E와 GitHub Actions 세 job을 commit `73b65c1`에서 통과했다. 후속 문서-only commit의 CI 상태도 최종 확인한다.
 2. 어댑터 단위 결과를 넘는 반복 Planner/queue/worker/SQLite/analysis/full-DAG cold-warm 벤치마크와 JSON/CSV 결과를 만든다.
 3. OpenFOAM parser/mesh/residual/termination/cancel/timeout/approval의 정상·비정상 fixture matrix가 모든 필수 상태를 실제로 덮는지 closure assertion을 정리한다. VM 내부 solver 물리 계산은 연구자 승인 전 실행하지 않는다.
 4. 모든 Phase 3 실행 도구의 typed scalar/artifact contract, cache/retry/restart metadata를 전수 점검한다.
 5. 기존 roadmap 상세 ID는 유지한 채 Phase 0~7의 현재 구조로 이관한다. 과거 `Phase 4=UI`, `Phase 5=BO` 표기는 historical mapping에서만 해석한다.
 6. 실제 XRD/AFM/SEM/TEM 장비 파일, reviewer 검증, 승인된 OpenFOAM VM 사례가 제공되면 별도의 과학·물리 검증을 한다.
 
-따라서 지금은 `PHASE_3_SOFTWARE_VERIFIED`가 아니다. 실행 가능한 소프트웨어 통합 조건을 마저 검증한 후에만 Phase 3을 닫는다. 실제 장비 정확도와 승인 CFD는 그 판정과 분리된 `EXTERNAL_VALIDATION_PENDING` 항목이다.
+따라서 지금은 `PHASE_3_SOFTWARE_VERIFIED`가 아니다. 통합 성능 요구와 전 도구 typed-artifact/cache 계약 감사가 남아 있다. 실제 장비 정확도와 승인 CFD는 그 판정과 분리된 `EXTERNAL_VALIDATION_PENDING` 항목이다.
