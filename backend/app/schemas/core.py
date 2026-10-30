@@ -173,6 +173,8 @@ class ToolExecutionRequest(BaseModel):
     tool_id: str = Field(min_length=3, max_length=120)
     inputs: dict = Field(default_factory=dict)
     analysis_run_id: int | None = None
+    approval_confirmed: bool = False
+    retry_failed: bool = False
 
 class StirredReactionPathRequest(AqueousEquilibriumRequest):
     titrant: Literal["HCl", "NaOH"]

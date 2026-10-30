@@ -16,6 +16,7 @@ def test_legacy_sqlite_schema_upgrades_twice_without_duplicate_columns(tmp_path)
         connection.exec_driver_sql("CREATE TABLE papers (id INTEGER PRIMARY KEY)")
         connection.exec_driver_sql("CREATE TABLE material_analysis_runs (id INTEGER PRIMARY KEY)")
         connection.exec_driver_sql("CREATE TABLE integrated_analysis_sessions (id INTEGER PRIMARY KEY)")
+        connection.exec_driver_sql("CREATE TABLE simulation_runs (id INTEGER PRIMARY KEY, status VARCHAR(30))")
         # Simulate the early extension tables produced before Alembic tracked
         # their schema: topic_id and observation review targets are missing.
         connection.exec_driver_sql("""CREATE TABLE scientific_observations (
@@ -47,6 +48,7 @@ def test_legacy_sqlite_schema_upgrades_twice_without_duplicate_columns(tmp_path)
         "integrated_analysis_sessions":{"simulation_run_ids"},
         "scientific_observations":{"parameter_id","normalized_value","source_type","review_status"},
         "measurement_review_events":{"review_status","reviewer","original_file_hash","observation_id"},
+        "simulation_runs":{"idempotency_key"},
     }
     for table,columns in expected.items():
         assert columns <= {column["name"] for column in inspector.get_columns(table)}
@@ -54,7 +56,8 @@ def test_legacy_sqlite_schema_upgrades_twice_without_duplicate_columns(tmp_path)
     assert review_columns["analysis_run_id"]["nullable"] is True
     assert review_columns["observation_id"]["nullable"] is True
     with engine.connect() as connection:
-        assert connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one()=="0003_science_compat"
+        assert connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one()=="0004_simulation_idempotency"
         assert connection.exec_driver_sql("SELECT parameter_id FROM scientific_observations WHERE id=7").scalar_one()=="temperature"
         assert connection.exec_driver_sql("SELECT reviewer FROM measurement_review_events WHERE id=9").scalar_one()=="old reviewer"
+    assert any(index["name"]=="uq_simulation_run_idempotency_key" and index["unique"] for index in inspector.get_indexes("simulation_runs"))
     engine.dispose()

@@ -8,6 +8,14 @@ import pint
 
 from app.db.models import ScientificObservation
 
+def classify_analysis_source(experiment, *, demo_data: bool = False) -> str:
+    """Keep the provenance of values derived from experimental or reference files."""
+    if demo_data or (experiment is not None and experiment.demo):
+        return "SYNTHETIC_DEMO"
+    if experiment is not None and experiment.status == "reference":
+        return "LITERATURE_ANALYSIS_OUTPUT"
+    return "ANALYSIS_OUTPUT"
+
 _UNITS = pint.UnitRegistry(autoconvert_offset_to_baseunit=True)
 _NUMBER = re.compile(r"^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$")
 _BOOLS = {"true": True, "false": False, "yes": True, "no": False, "성공": True, "실패": False, "예": True, "아니오": False}
@@ -71,7 +79,7 @@ def normalize_scalar(step_name: str, name: str, value: object, unit: str | None 
 
 
 def make_observation(*, experiment_id: int | None, method_version_id: int | None, process_step_id: int | None, step_name: str, name: str, value: object, unit: str | None, source_type: str, source_id: str, topic_id: int | None = None, material: str | None = None, material_id: int | None = None, analysis_run_id: int | None = None, review_status: str = "PENDING", uncertainty: float | None = None) -> ScientificObservation:
-    if source_type not in {"LAB_RECORD", "LAB_RESULT", "SYNTHETIC_DEMO", "LITERATURE", "SIMULATION", "ANALYSIS_OUTPUT"}:
+    if source_type not in {"LAB_RECORD", "LAB_RESULT", "SYNTHETIC_DEMO", "LITERATURE", "LITERATURE_ANALYSIS_OUTPUT", "SIMULATION", "ANALYSIS_OUTPUT"}:
         raise ValueError(f"unsupported scientific observation source type: {source_type}")
     data = normalize_scalar(step_name, name, value, unit, material=material, uncertainty=uncertainty)
     return ScientificObservation(

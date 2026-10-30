@@ -1,7 +1,7 @@
 import json
 import uuid
 import math
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 import os
 import shutil
@@ -32,11 +32,12 @@ from app.services.simulation.spin_coating import estimate_spin_coated_film
 from app.services.simulation.film_postprocess import solvent_catalog, simulate_film_drying, simulate_thermal_cycle
 from app.services.simulation.coating_prefill import apply_gemma_coating_map, make_gemma_mapping_record
 from app.services.llm import AISettings, LLMUnavailable, configured_provider, inference_semaphore
-from app.services.material_analysis.service import AnalysisInputError, analyze as run_material_analysis, sha256 as sha256_bytes
+from app.services.material_analysis.service import AnalysisInputError, sha256 as sha256_bytes
+from app.services.tool_adapters import MaterialAnalysisAdapter, PHREEQCAdapter
 from app.services.material_analysis.phase_match import ReferenceDatabaseUnavailable, match_xrd_phases
 from app.services.benchmark_data import BenchmarkDataError, catalog as benchmark_catalog, dataset_records as benchmark_records, summarize as summarize_benchmark
-from app.services.scientific_data import make_observation
-from app.services.tool_registry import ToolRegistry, ResultValidator, recommend_tools
+from app.services.scientific_data import classify_analysis_source, make_observation
+from app.services.tool_registry import ToolRegistry, ToolExecutor, ResultValidator, ValidationGate, recommend_tools
 router=APIRouter(); retrieval=SQLiteFTSProvider()
 
 ANALYSIS_ROOT = ROOT / "data" / "material-analysis"
@@ -227,7 +228,7 @@ def create_exp(db,payload):
     for o in payload.observations: db.add(FailureObservation(experiment_id=e.id,category=o.category,description=o.description,severity=o.severity))
     for record in payload.environment_records:
         if record.step_index >= len(created_steps): raise HTTPException(status_code=422,detail="Environment record references an unknown process step")
-        db.add(ExperimentEnvironmentRecord(experiment_id=e.id,process_step_id=created_steps[record.step_index].id,phase=record.phase,temperature_c=record.temperature_c,relative_humidity_percent=record.relative_humidity_percent,pressure_kpa=record.pressure_kpa,notes=record.notes,measured_at=record.measured_at or datetime.utcnow()))
+        db.add(ExperimentEnvironmentRecord(experiment_id=e.id,process_step_id=created_steps[record.step_index].id,phase=record.phase,temperature_c=record.temperature_c,relative_humidity_percent=record.relative_humidity_percent,pressure_kpa=record.pressure_kpa,notes=record.notes,measured_at=record.measured_at or datetime.now(timezone.utc).replace(tzinfo=None)))
     db.commit(); return exp_query(db).filter_by(id=e.id).first()
 
 @router.get("/health")
@@ -333,6 +334,8 @@ def execute_scientific_tool(payload:ToolExecutionRequest,db:Session=Depends(get_
         return {"status":"ALREADY_ANALYZED","tool_id":tool.tool_id,"analysis_run":serialize_analysis(run),"validation":checked,
             "provenance":{"original_sha256":run.sha256,"algorithm_version":(run.result_json or {}).get("algorithm_version","unknown"),"persisted":True}}
     if payload.tool_id=="experiment.data_quality.v1":
+        gate=ValidationGate.validate({"readiness":"READY","execution_policy":"read_only"})
+        if not gate["allowed"]: raise HTTPException(409,gate["reason"])
         record=serialize_exp(experiment)
         issues=[]
         for step in record["steps"]:
@@ -342,51 +345,70 @@ def execute_scientific_tool(payload:ToolExecutionRequest,db:Session=Depends(get_
         return {"status":"completed","tool_id":tool.tool_id,"result":{"issue_count":len(issues),"issues":issues,"checked_conditions":sum(len(step["variables"]) for step in record["steps"])},"source":"saved_experiment_record"}
     if payload.tool_id not in {"phreeqc.aqueous_equilibrium.v1","phreeqc.aqueous_sweep.v1"}:
         raise HTTPException(501,"This registered tool has no executable adapter yet")
-    try:
-        if payload.tool_id=="phreeqc.aqueous_equilibrium.v1":
-            parameters=AqueousEquilibriumRequest.model_validate(payload.inputs).model_dump()
-            runner=calculate_aqueous_equilibrium
-        else:
-            parameters=AqueousSweepRequest.model_validate(payload.inputs).model_dump()
-            parameters.pop("pH",None)
-            runner=sweep_aqueous_equilibrium
-    except Exception as exc:
-        raise HTTPException(422,f"Tool input validation failed: {exc}")
+    adapter=PHREEQCAdapter(sweep=payload.tool_id=="phreeqc.aqueous_sweep.v1")
+    try: parameters=adapter.validate_inputs(payload.inputs)
+    except Exception as exc: raise HTTPException(422,f"Tool input validation failed: {exc}") from exc
     if any(not math.isfinite(float(value)) for value in parameters.get("totals_molal",{}).values()):
         raise HTTPException(422,"Concentration inputs must be finite numbers")
+    gate=ValidationGate.validate({"readiness":"REQUIRES_REVIEW","execution_policy":"review_inputs_before_run"},approval_granted=payload.approval_confirmed)
+    if not gate["allowed"]: raise HTTPException(409,{"reason":"scientific_input_review_required","validation_gate":gate})
     model_id="PHREEQC-3 / phreeqc.dat"
-    existing=db.query(SimulationRun).filter_by(experiment_id=experiment.id,model_id=tool.tool_id,status="completed",input_json=parameters).order_by(SimulationRun.id.desc()).first()
+    stable_input={"tool_id":tool.tool_id,"tool_version":tool.version,"model_id":model_id,"experiment_id":experiment.id,"parameters":parameters}
+    idempotency_key=sha256_bytes(json.dumps(stable_input,sort_keys=True,separators=(",",":"),ensure_ascii=False).encode())
+    existing=db.query(SimulationRun).filter_by(idempotency_key=idempotency_key).first()
+    if existing and existing.status=="completed":
+        return {"status":"REUSED","tool_id":tool.tool_id,"simulation_run_id":existing.id,"result":existing.result_json,"provenance":{"input":parameters,"model_id":model_id,"idempotency_key":idempotency_key}}
+    if existing and existing.status in {"queued","running"}:
+        raise HTTPException(409,{"reason":"identical_execution_already_running","simulation_run_id":existing.id,"status":existing.status})
+    if existing and existing.status in {"failed","invalid_output","timed_out","cancelled"} and not payload.retry_failed:
+        raise HTTPException(409,{"reason":"previous_attempt_failed_retry_must_be_explicit","simulation_run_id":existing.id,"status":existing.status})
+    started=datetime.now(timezone.utc).replace(tzinfo=None)
     if existing:
-        return {"status":"REUSED","tool_id":tool.tool_id,"simulation_run_id":existing.id,"result":existing.result_json,"provenance":{"input":existing.input_json,"model_id":model_id}}
-    started=datetime.utcnow()
-    try: result=runner(**parameters)
+        attempts=int((existing.input_json or {}).get("attempt",1))+1
+        history=list((existing.input_json or {}).get("retry_history",[]))
+        history.append({"status":existing.status,"error":existing.error_text,"finished_at":existing.finished_at.isoformat()+"Z" if existing.finished_at else None})
+        existing.status="running"; existing.input_json={**parameters,"attempt":attempts,"retry_history":history,"idempotency_payload":stable_input}
+        existing.result_json=None; existing.error_text=""; existing.started_at=started; existing.finished_at=None
+        existing.log_text="Explicit retry started after a prior failed attempt."
+        run=existing
+    else:
+        run=SimulationRun(experiment_id=experiment.id,model_id=tool.tool_id,status="running",idempotency_key=idempotency_key,
+            input_json={**parameters,"attempt":1,"idempotency_payload":stable_input},started_at=started,
+            log_text="Inputs passed Pydantic validation and the explicit review gate.")
+        db.add(run)
+    try: db.commit(); db.refresh(run)
     except Exception as exc:
-        failure=SimulationRun(experiment_id=experiment.id,model_id=tool.tool_id,status="failed",input_json=parameters,
-            log_text="PHREEQC adapter failed before producing a result.",error_text=str(exc)[:4000],started_at=started,finished_at=datetime.utcnow())
-        db.add(failure); db.commit()
+        db.rollback()
+        conflict=db.query(SimulationRun).filter_by(idempotency_key=idempotency_key).first()
+        if conflict: raise HTTPException(409,{"reason":"duplicate_execution_claimed_concurrently","simulation_run_id":conflict.id,"status":conflict.status}) from exc
+        raise
+    try: result=adapter.execute(parameters)
+    except Exception as exc:
+        run.status="failed"; run.log_text="PHREEQC adapter failed before producing a result."; run.error_text=str(exc)[:4000]; run.finished_at=datetime.now(timezone.utc).replace(tzinfo=None); db.commit()
         if isinstance(exc,RuntimeError): raise HTTPException(503,str(exc))
         if isinstance(exc,ValueError): raise HTTPException(422,str(exc))
         raise HTTPException(422,f"Scientific tool failed: {exc}")
-    validation=ResultValidator.validate(tool,result)
+    validation=adapter.validate_outputs(result)
     if not validation["valid"]:
-        failure=SimulationRun(experiment_id=experiment.id,model_id=tool.tool_id,status="invalid_output",input_json=parameters,
-            result_json=result,log_text="PHREEQC returned output that failed scientific schema validation.",error_text=str(validation),started_at=started,finished_at=datetime.utcnow())
-        db.add(failure); db.commit()
+        run.status="invalid_output"; run.result_json=result; run.log_text="PHREEQC returned output that failed scientific schema validation."; run.error_text=str(validation); run.finished_at=datetime.now(timezone.utc).replace(tzinfo=None); db.commit()
         raise HTTPException(422,{"reason":"scientific_output_validation_failed","validation":validation})
-    result={**result,"provenance":{"tool_id":tool.tool_id,"tool_version":tool.version,"model_id":model_id,"input":parameters,
-        "assumptions":result.get("limitations",[]),"validation":validation,"started_at":started.isoformat()+"Z"}}
-    run=SimulationRun(experiment_id=experiment.id,model_id=tool.tool_id,status="completed",input_json=parameters,result_json=result,
-        log_text="PHREEQC adapter completed and passed output validation.",started_at=started,finished_at=datetime.utcnow())
-    db.add(run); db.flush()
-    for key,value in result.items():
-        if isinstance(value,(int,float)) and not isinstance(value,bool) and math.isfinite(float(value)):
-            db.add(make_observation(topic_id=experiment.topic_id,experiment_id=experiment.id,method_version_id=experiment.method_version_id,
-                process_step_id=None,step_name="PHREEQC simulation",name=key,value=value,
-                unit={"temperature_c":"degC","input_pH":"pH","calculated_pH":"pH"}.get(key),source_type="SIMULATION",
-                source_id=f"simulation-run:{run.id}:{key}",review_status="COMPUTED"))
-    db.commit(); db.refresh(run)
-    return {"status":"completed","tool_id":tool.tool_id,"simulation_run_id":run.id,"result":run.result_json,
-        "validation":validation,"provenance":{"input":parameters,"model_id":model_id,"tool_version":tool.version}}
+    def persist_phreeqc_result(raw_result):
+        finished=datetime.now(timezone.utc).replace(tzinfo=None)
+        result={**raw_result,"provenance":{"tool_id":tool.tool_id,"tool_version":tool.version,"model_id":model_id,"database_id":"phreeqc.dat","input":parameters,
+            "assumptions":raw_result.get("limitations",[]),"validation":validation,"idempotency_key":idempotency_key,
+            "source_type":"SIMULATION","parent_data_ids":[f"experiment:{experiment.id}"],"started_at":started.isoformat()+"Z","finished_at":finished.isoformat()+"Z"}}
+        run.status="completed"; run.result_json=result; run.log_text="PHREEQC adapter completed and passed output validation."; run.finished_at=finished
+        db.flush()
+        for key,value in raw_result.items():
+            if isinstance(value,(int,float)) and not isinstance(value,bool) and math.isfinite(float(value)):
+                db.add(make_observation(topic_id=experiment.topic_id,experiment_id=experiment.id,method_version_id=experiment.method_version_id,
+                    process_step_id=None,step_name="PHREEQC simulation",name=key,value=value,
+                    unit={"temperature_c":"degC","input_pH":"pH","calculated_pH":"pH"}.get(key),source_type="SIMULATION",
+                    source_id=f"simulation-run:{run.id}:{key}",review_status="COMPUTED"))
+        db.commit(); db.refresh(run)
+        return {"status":"completed","tool_id":tool.tool_id,"simulation_run_id":run.id,"result":run.result_json,
+            "validation":validation,"provenance":{"input":parameters,"model_id":model_id,"tool_version":tool.version}}
+    return adapter.persist(result,persist_phreeqc_result)
 
 def serialize_analysis(item: MaterialAnalysisRun):
     history=item.review_events or []
@@ -405,6 +427,7 @@ async def create_analysis_run(
 ):
     filename=Path(file.filename or "upload").name
     if not db.get(ResearchTopic,topic_id): raise HTTPException(404,"Research topic not found")
+    linked_experiment=None
     if experiment_id is not None:
         linked_experiment=db.get(Experiment,experiment_id)
         if not linked_experiment: raise HTTPException(404,"Experiment not found")
@@ -413,44 +436,82 @@ async def create_analysis_run(
     data=await file.read(MAX_ANALYSIS_UPLOAD_BYTES+1)
     if not data: raise HTTPException(400,"Uploaded analysis file is empty")
     if len(data)>MAX_ANALYSIS_UPLOAD_BYTES: raise HTTPException(413,"Analysis files are limited to 25 MiB in this pilot")
-    try: output=run_material_analysis(modality,data,filename,xrd_x_unit=xrd_x_unit,afm_height_unit=afm_height_unit,pixel_size_nm=pixel_size_nm,foreground=foreground)
-    except AnalysisInputError as exc: raise HTTPException(422,str(exc))
-    if tool_id and tool_id != output.tool_id:
-        raise HTTPException(501,detail=f"The selected analysis tool '{tool_id}' is not connected for this modality yet. Choose an available tool or connect its adapter first.")
-    run_id=uuid.uuid4().hex
+    started=datetime.now(timezone.utc).replace(tzinfo=None)
+    parameters={"modality":modality.lower(),"xrd_x_unit":xrd_x_unit,"afm_height_unit":afm_height_unit,
+        "pixel_size_nm":pixel_size_nm,"foreground":foreground}
+    source_hash=sha256_bytes(data)
+    candidate_tool={"xrd":"xrd.local_peaks.v1","afm":"afm.plane_level_roughness.v1","sem":"microscopy.otsu_components.v1","tem":"microscopy.otsu_components.v1"}.get(modality.lower())
+    if candidate_tool is None: raise HTTPException(422,"Unsupported measurement modality")
+    previous=db.query(MaterialAnalysisRun).filter_by(experiment_id=experiment_id,modality=modality.lower(),sha256=source_hash,tool_id=candidate_tool,analysis_status="completed").order_by(MaterialAnalysisRun.id.desc()).all()
+    for saved in previous:
+        provenance=(saved.result_json or {}).get("analysis_provenance",{})
+        definition=ToolRegistry().get(candidate_tool)
+        if provenance.get("algorithm_version")==definition.version and provenance.get("parameters")==parameters:
+            return serialize_analysis(saved)
+    adapter=MaterialAnalysisAdapter()
+    executor=ToolExecutor(ToolRegistry())
+    analysis_run_id=uuid.uuid4().hex
     original_dir=ANALYSIS_ROOT/"originals"; artifact_dir=ANALYSIS_ROOT/"artifacts"
     original_dir.mkdir(parents=True,exist_ok=True); artifact_dir.mkdir(parents=True,exist_ok=True)
     suffix=Path(filename).suffix.lower()
-    original_path=original_dir/f"{run_id}{suffix}"
+    original_path=original_dir/f"{analysis_run_id}{suffix}"
     artifact_path=None
-    original_path.write_bytes(data)
-    result=output.result
-    if output.artifact and output.artifact_extension:
-        artifact_path=artifact_dir/f"{run_id}.{output.artifact_extension}"
-        artifact_path.write_bytes(output.artifact)
-        result={**result,"mask_url":f"/api/analysis/runs/{run_id}/mask"}
-    item=MaterialAnalysisRun(
-        experiment_id=experiment_id,topic_id=topic_id,modality=modality.lower(),tool_id=output.tool_id,
-        filename=filename,sha256=sha256_bytes(data),original_path=str(original_path),
-        artifact_path=str(artifact_path) if artifact_path else None,result_json=result,analysis_status="completed",result_key=result_key,process_step_id=process_step_id,
-    )
-    db.add(item)
+
+    def validate_fresh_gate(checked, prepared):
+        definition=ToolRegistry().get(candidate_tool)
+        gate=ValidationGate.validate({"readiness":"READY","execution_policy":definition.execution_policy if definition else "review_required"},approval_granted=True)
+        if not gate["allowed"]:
+            raise HTTPException(409,{"reason":"analysis_execution_blocked","validation_gate":gate})
+
+    def persist_analysis(output):
+        nonlocal artifact_path
+        definition=ToolRegistry().get(output.tool_id)
+        if not definition: raise HTTPException(501,"Analyzer output has no registered tool definition")
+        if tool_id and tool_id!=output.tool_id:
+            raise HTTPException(501,detail=f"The selected analysis tool '{tool_id}' is not connected for this modality yet. Choose an available tool or connect its adapter first.")
+        output_validation=ResultValidator.validate(definition,output.result)
+        if not output_validation["valid"]: raise HTTPException(422,{"reason":"analysis_output_failed_validation","validation":output_validation})
+        original_path.write_bytes(data)
+        source_type=classify_analysis_source(linked_experiment,demo_data=bool((output.result or {}).get("demo_data")))
+        finished=datetime.now(timezone.utc).replace(tzinfo=None)
+        result={**output.result,"analysis_provenance":{"experiment_id":experiment_id,"topic_id":topic_id,
+            "method_version_id":linked_experiment.method_version_id if linked_experiment else None,"process_step_id":process_step_id,
+            "source_type":source_type,"original_sha256":source_hash,"parent_data_ids":[f"uploaded-file-sha256:{source_hash}"]+
+                ([f"experiment:{linked_experiment.id}"] if linked_experiment else []),"tool_id":output.tool_id,
+            "tool_version":definition.version,"algorithm_version":definition.version,"parameters":parameters,
+            "validation":output_validation,"review_status":"COMPUTED","started_at":started.isoformat()+"Z","finished_at":finished.isoformat()+"Z"}}
+        if output.artifact and output.artifact_extension:
+            artifact_path=artifact_dir/f"{analysis_run_id}.{output.artifact_extension}"
+            artifact_path.write_bytes(output.artifact)
+            result={**result,"mask_url":f"/api/analysis/runs/{analysis_run_id}/mask"}
+        item=MaterialAnalysisRun(experiment_id=experiment_id,topic_id=topic_id,modality=modality.lower(),tool_id=output.tool_id,
+            filename=filename,sha256=source_hash,original_path=str(original_path),artifact_path=str(artifact_path) if artifact_path else None,
+            result_json=result,analysis_status="completed",result_key=result_key,process_step_id=process_step_id)
+        db.add(item)
+        try:
+            db.flush()
+            step_name=next((step.name for step in linked_experiment.steps if step.id==process_step_id),"measurement analysis") if linked_experiment else "measurement analysis"
+            for key,value in output.result.items():
+                if isinstance(value,(int,float)) and not isinstance(value,bool) and math.isfinite(float(value)):
+                    unit=output.result.get("height_unit") if key in {"Sa","Sq","Sz","height_min_leveled","height_max_leveled"} else "nm" if key.startswith("component_area_nm2") else None
+                    db.add(make_observation(topic_id=topic_id,experiment_id=experiment_id,method_version_id=linked_experiment.method_version_id if linked_experiment else None,
+                        process_step_id=process_step_id,step_name=step_name,name=key,value=value,unit=unit,source_type=source_type,
+                        source_id=f"analysis-run:{item.id}:{key}",analysis_run_id=item.id,review_status="COMPUTED"))
+            db.commit(); db.refresh(item)
+        except Exception:
+            db.rollback(); original_path.unlink(missing_ok=True)
+            if artifact_path: artifact_path.unlink(missing_ok=True)
+            raise
+        return serialize_analysis(item)
+
     try:
-        db.flush()
-        linked_experiment=db.get(Experiment,experiment_id) if experiment_id else None
-        source_type="SYNTHETIC_DEMO" if bool((result or {}).get("demo_data")) or bool(linked_experiment and linked_experiment.demo) else "ANALYSIS_OUTPUT"
-        for key,value in result.items():
-            if isinstance(value,(int,float)) and not isinstance(value,bool) and math.isfinite(float(value)):
-                db.add(make_observation(topic_id=topic_id,experiment_id=experiment_id,method_version_id=linked_experiment.method_version_id if linked_experiment else None,
-                    process_step_id=process_step_id,step_name=linked_experiment.steps[0].name if linked_experiment and linked_experiment.steps else "measurement analysis",
-                    name=key,value=value,unit=None,source_type=source_type,source_id=f"analysis-run:{item.id}:{key}",analysis_run_id=item.id,
-                    review_status="COMPUTED"))
-        db.commit(); db.refresh(item)
-    except Exception:
-        db.rollback(); original_path.unlink(missing_ok=True)
-        if artifact_path: artifact_path.unlink(missing_ok=True)
-        raise
-    return serialize_analysis(item)
+        # The user explicitly submitted the measurement for analysis. This
+        # authorizes computation, not scientific acceptance of its interpretation.
+        return executor.execute_adapter(adapter,{"data":data,"modality":modality,"filename":filename,**parameters},persist_analysis,before_execute=validate_fresh_gate)
+    except AnalysisInputError as exc:
+        raise HTTPException(422,str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(422,str(exc)) from exc
 
 @router.post("/analysis/runs/{run_id}/review")
 def review_analysis_run(run_id:int,payload:MeasurementReviewRequest,db:Session=Depends(get_db)):
@@ -967,7 +1028,7 @@ def experiment(experiment_id:int,db:Session=Depends(get_db)):
 def add_step_log(experiment_id:int,step_id:int,payload:StepLogIn,db:Session=Depends(get_db)):
     step=db.query(ProcessStep).filter_by(id=step_id,experiment_id=experiment_id).first()
     if not step: raise HTTPException(404,"Process step not found in this experiment")
-    item=ProcessStepLog(experiment_id=experiment_id,process_step_id=step_id,kind=payload.kind,label=payload.label.strip(),value=payload.value.strip(),unit=payload.unit.strip() if payload.unit else None,notes=payload.notes.strip(),occurred_at=payload.occurred_at or datetime.utcnow())
+    item=ProcessStepLog(experiment_id=experiment_id,process_step_id=step_id,kind=payload.kind,label=payload.label.strip(),value=payload.value.strip(),unit=payload.unit.strip() if payload.unit else None,notes=payload.notes.strip(),occurred_at=payload.occurred_at or datetime.now(timezone.utc).replace(tzinfo=None))
     db.add(item); db.commit()
     return {"id":item.id,"step_id":step_id,"step_name":step.name,"kind":item.kind,"label":item.label,"value":item.value,"unit":item.unit,"notes":item.notes,"occurred_at":item.occurred_at.isoformat()+"Z"}
 
@@ -1016,7 +1077,7 @@ def delete_step_log(experiment_id:int,log_id:int,db:Session=Depends(get_db)):
 def add_stage_experiment(experiment_id:int,step_id:int,payload:StageExperimentIn,db:Session=Depends(get_db)):
     step=db.query(ProcessStep).filter_by(id=step_id,experiment_id=experiment_id).first()
     if not step: raise HTTPException(404,"Process step not found in this experiment")
-    item=ProcessStageExperiment(experiment_id=experiment_id,process_step_id=step_id,name=payload.name.strip(),performed_at=payload.performed_at or datetime.utcnow(),status=payload.status,conditions=[value.model_dump() for value in payload.conditions],results=[value.model_dump() for value in payload.results],notes=payload.notes.strip())
+    item=ProcessStageExperiment(experiment_id=experiment_id,process_step_id=step_id,name=payload.name.strip(),performed_at=payload.performed_at or datetime.now(timezone.utc).replace(tzinfo=None),status=payload.status,conditions=[value.model_dump() for value in payload.conditions],results=[value.model_dump() for value in payload.results],notes=payload.notes.strip())
     db.add(item); db.commit(); db.refresh(item)
     return {"id":item.id,"experiment_id":experiment_id,"step_id":step_id,"step_name":step.name,"name":item.name,"performed_at":item.performed_at.isoformat()+"Z","status":item.status,"conditions":item.conditions,"results":item.results,"notes":item.notes}
 
@@ -1256,13 +1317,13 @@ def _execute_openfoam_run(run_id:int,config:dict):
     try:
         item=db.get(SimulationRun,run_id)
         if not item: return
-        item.status="running"; item.started_at=datetime.utcnow(); db.commit()
+        item.status="running"; item.started_at=datetime.now(timezone.utc).replace(tzinfo=None); db.commit()
         result,log=run_openfoam(config)
-        item=db.get(SimulationRun,run_id); item.status="completed"; item.result_json=result; item.log_text=log; item.finished_at=datetime.utcnow(); db.commit()
+        item=db.get(SimulationRun,run_id); item.status="completed"; item.result_json=result; item.log_text=log; item.finished_at=datetime.now(timezone.utc).replace(tzinfo=None); db.commit()
     except Exception as exc:
         item=db.get(SimulationRun,run_id)
         if item:
-            item.status="failed"; item.error_text=str(exc)[:8000]; item.finished_at=datetime.utcnow(); db.commit()
+            item.status="failed"; item.error_text=str(exc)[:8000]; item.finished_at=datetime.now(timezone.utc).replace(tzinfo=None); db.commit()
     finally: db.close()
 
 @router.post("/experiments/{experiment_id}/simulations/openfoam-runs",status_code=202)

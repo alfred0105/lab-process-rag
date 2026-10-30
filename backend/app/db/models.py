@@ -1,5 +1,5 @@
 from datetime import date as DateType, datetime
-from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, Float, ForeignKey, Integer, JSON, String, Text
+from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, Float, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .database import Base
 
@@ -268,6 +268,8 @@ class SimulationRun(Base):
     """Immutable-input record for a numerical simulation, separate from lab measurements."""
     __tablename__ = "simulation_runs"
     id: Mapped[int] = mapped_column(primary_key=True)
+    __table_args__ = (UniqueConstraint("idempotency_key", name="uq_simulation_run_idempotency_key"),)
+    idempotency_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
     experiment_id: Mapped[int] = mapped_column(ForeignKey("experiments.id", ondelete="CASCADE"), index=True)
     process_step_id: Mapped[int | None] = mapped_column(ForeignKey("process_steps.id", ondelete="SET NULL"), nullable=True, index=True)
     model_id: Mapped[str] = mapped_column(String(120))

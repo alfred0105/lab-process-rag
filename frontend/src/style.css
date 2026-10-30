@@ -176,3 +176,5 @@
 
 .tool-goal-picker{display:grid;gap:5px;margin-top:9px;color:#60736e;font-size:11px;font-weight:650}.tool-goal-picker select{max-width:340px;min-height:34px;padding:6px 9px;border:1px solid #d5e1de;border-radius:7px;background:#fff;color:#263e39;font:inherit}
 .tool-recommendation-item .button{margin-top:8px}.tool-execution-output{max-height:220px;overflow:auto;white-space:pre-wrap;padding:11px;border-radius:8px;background:#f1f6f4;color:#36534b;font-size:11px}
+
+.phreeqc-run-control{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:12px;padding:10px 12px;border:1px solid #e4ece9;border-radius:8px;background:#fbfdfc}.phreeqc-run-control>label{display:flex;align-items:flex-start;gap:8px;max-width:680px;color:#61777a;font-size:10px;line-height:1.5}.phreeqc-run-control input{width:14px;height:14px;margin:1px 0 0;accent-color:#16866a;flex:0 0 auto}.phreeqc-run-control .button:disabled{opacity:.5;cursor:not-allowed}

@@ -56,6 +56,24 @@ def test_result_validator_rejects_non_finite_and_checks_phreeqc_provenance():
     assert not ResultValidator.validate(tool,{"model_id":"PHREEQC-3","input_pH":7,"aqueous_species":[],"saturation_indices":[],"x":float("nan")})["valid"]
     assert not ResultValidator.validate(tool,{"saturation_indices":[]})["valid"]
     assert ResultValidator.validate(tool,{"model_id":"PHREEQC-3 / phreeqc.dat","input_pH":7,"aqueous_species":[],"saturation_indices":[],"limitations":[]})["valid"]
+    assert not ResultValidator.validate(tool,{"model_id":"PHREEQC-3 / phreeqc.dat","input_pH":7,"calculated_pH":18,"aqueous_species":[],"saturation_indices":[],"limitations":[]})["valid"]
+    assert not ResultValidator.validate(tool,{"model_id":"PHREEQC-3 / phreeqc.dat","input_pH":7,"aqueous_species":[{"name":"Zn+2","molality":-1}],"saturation_indices":[],"limitations":[]})["valid"]
+
+def test_tool_executor_runs_fresh_gate_after_prepare_and_before_execute():
+    from app.services.tool_registry import ToolExecutor
+    events=[]
+    class Adapter:
+        tool_id="example"
+        def validate_inputs(self,inputs): events.append("validate"); return inputs
+        def prepare(self,inputs): events.append("prepare"); return inputs
+        def execute(self,inputs): events.append("execute"); return {"ok":True}
+        def validate_outputs(self,output): events.append("validate_output"); return {"valid":True}
+        def persist(self,output,callback): events.append("persist"); return callback(output)
+    class Registry:
+        def get(self,_tool_id): return object()
+    result=ToolExecutor(Registry()).execute_adapter(Adapter(),{},lambda output:"saved",before_execute=lambda *_:events.append("fresh_gate"))
+    assert result=="saved"
+    assert events==["validate","prepare","fresh_gate","execute","validate_output","persist"]
 
 def test_reference_and_demo_source_classification_is_not_lab_data():
     from types import SimpleNamespace

@@ -114,22 +114,36 @@ class RuleBasedDecisionPolicy:
 
 class ValidationGate:
     @staticmethod
-    def validate(recommendation: dict) -> dict:
-        allowed=recommendation.get("readiness")=="READY"
-        approval=recommendation.get("execution_policy") not in {"read_only"}
-        return {"allowed":allowed and not approval,"requires_human_approval":allowed and approval,
-            "status":"READY" if allowed and not approval else "REQUIRES_REVIEW" if allowed and approval else recommendation.get("readiness"),
-            "reason":"Read-only tool may proceed." if allowed and not approval else "Approval and/or input validation is required before any tool execution."}
+    def validate(recommendation: dict, *, approval_granted: bool = False) -> dict:
+        readiness=recommendation.get("readiness")
+        needs_approval=recommendation.get("execution_policy") not in {"read_only", ""}
+        eligible=readiness=="READY" or (readiness=="REQUIRES_REVIEW" and approval_granted)
+        allowed=eligible and (not needs_approval or approval_granted)
+        status="READY" if allowed else "REQUIRES_REVIEW" if readiness=="REQUIRES_REVIEW" or (eligible and needs_approval) else readiness
+        return {"allowed":allowed,"requires_human_approval":needs_approval and not approval_granted,
+            "status":status,"reason":"Fresh input validation passed and approval requirements are satisfied." if allowed else "Fresh validation or required human approval is missing."}
 
 
 class ToolExecutor:
-    """Preparation-only interface. Registry recommendations do not execute tools."""
+    """Shared execution contract for registered adapters; adapters never run arbitrary text."""
     def __init__(self, registry: ToolRegistry): self.registry=registry
     def prepare(self, tool_id: str, recommendation: dict) -> dict:
         tool=self.registry.get(tool_id)
         if tool is None: return {"status":"UNAVAILABLE","tool_id":tool_id,"invocation":None}
         if recommendation.get("readiness")!="READY": return {"status":recommendation.get("readiness"),"tool_id":tool_id,"invocation":None}
         return {"status":"PREPARED_FOR_REVIEW","tool_id":tool_id,"invocation":None,"execution_policy":tool.execution_policy}
+
+    def execute_adapter(self, adapter, inputs: dict, persist, *, before_execute=None):
+        """Run validate → prepare → fresh gate → execute → validate output → persist."""
+        checked=adapter.validate_inputs(inputs)
+        prepared=adapter.prepare(checked)
+        if before_execute is not None:
+            before_execute(checked, prepared)
+        output=adapter.execute(prepared)
+        result_validation=adapter.validate_outputs(output)
+        if not result_validation.get("valid"):
+            raise ValueError(f"adapter_output_invalid: {result_validation.get('reason','unknown')}")
+        return adapter.persist(output,persist)
 
 
 class ResultValidator:
@@ -152,14 +166,38 @@ class ResultValidator:
             return {"valid":False,"reason":"phreeqc_model_provenance_missing"}
         if tool.tool_id=="phreeqc.aqueous_equilibrium.v1" and not all(key in result for key in ("input_pH","aqueous_species","saturation_indices")):
             return {"valid":False,"reason":"phreeqc_equilibrium_outputs_missing"}
+        if tool.tool_id.startswith("phreeqc."):
+            for key in ("input_pH", "calculated_pH", "temperature_c"):
+                if key in result and (not isinstance(result[key], (int, float)) or isinstance(result[key], bool)):
+                    return {"valid":False,"reason":f"phreeqc_{key}_must_be_numeric"}
+            if "calculated_pH" in result and not 0 <= float(result["calculated_pH"]) <= 14:
+                return {"valid":False,"reason":"phreeqc_calculated_pH_out_of_range"}
+            species=result.get("aqueous_species", [])
+            if not isinstance(species, list) or any(not isinstance(item, dict) or not item.get("name") or not isinstance(item.get("molality"), (int,float)) or item["molality"] < 0 for item in species):
+                return {"valid":False,"reason":"phreeqc_species_schema_or_molality_invalid"}
+            indices=result.get("saturation_indices", [])
+            if not isinstance(indices, list) or any(not isinstance(item, dict) or not item.get("phase") or (item.get("saturation_index") is not None and not isinstance(item.get("saturation_index"),(int,float))) for item in indices):
+                return {"valid":False,"reason":"phreeqc_saturation_index_schema_invalid"}
         if tool.tool_id=="phreeqc.aqueous_sweep.v1" and not isinstance(result.get("points"),list):
             return {"valid":False,"reason":"phreeqc_sweep_points_missing"}
         if tool.tool_id.startswith("xrd.") and "peaks" not in result and "observed_peaks" not in result:
             return {"valid":False,"reason":"xrd_peak_output_missing"}
+        if tool.tool_id.startswith("xrd."):
+            peaks=result.get("peaks",result.get("observed_peaks"))
+            if not isinstance(peaks,list) or any(not isinstance(item,dict) or not any(isinstance(item.get(key),(int,float)) for key in ("position","x","two_theta","d_spacing_angstrom")) for item in peaks):
+                return {"valid":False,"reason":"xrd_peak_schema_invalid"}
         if tool.tool_id.startswith("afm.") and not any(key in result for key in ("Sa_nm","Sq_nm","Sz_nm","Sa","Sq","Sz")):
             return {"valid":False,"reason":"afm_roughness_output_missing"}
+        if tool.tool_id.startswith("afm."):
+            for key in ("Sa_nm","Sq_nm","Sz_nm","Sa","Sq","Sz"):
+                if key in result and (not isinstance(result[key],(int,float)) or result[key] < 0):
+                    return {"valid":False,"reason":"afm_roughness_must_be_nonnegative"}
         if tool.tool_id.startswith("microscopy.") and not any(key in result for key in ("component_count","object_count")):
             return {"valid":False,"reason":"microscopy_component_output_missing"}
+        if tool.tool_id.startswith("microscopy."):
+            count=result.get("component_count",result.get("object_count"))
+            if not isinstance(count,int) or isinstance(count,bool) or count < 0:
+                return {"valid":False,"reason":"microscopy_component_count_invalid"}
         return {"valid":True,"tool_id":tool.tool_id,"numeric_values_checked":len(numbers)}
 
 

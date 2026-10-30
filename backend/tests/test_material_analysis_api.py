@@ -35,6 +35,7 @@ def test_analysis_api_persists_original_and_mask_with_provenance(tmp_path, monke
             topic_response = client.post("/api/topics", json={"name": "Analysis test", "description": ""})
             assert topic_response.status_code == 200, topic_response.text
             topic_id = topic_response.json()["id"]
+            reference_experiment=client.post("/api/experiments",json={"topic_id":topic_id,"name":"Published paper image","target":"microscopy","status":"reference","steps":[{"name":"Published measurement"}]}).json()
             observation = ScientificObservation(topic_id=topic_id, parameter_id="test_temperature", original_value="25", original_unit="degC",
                 normalized_value=298.15, normalized_unit="kelvin", value_type="number", source_type="LAB_RECORD", source_id="test:temperature",
                 review_status="PENDING")
@@ -61,6 +62,16 @@ def test_analysis_api_persists_original_and_mask_with_provenance(tmp_path, monke
             assert client.get(run["result"]["mask_url"]).content
             assert client.get(f"/api/analysis/runs/{run['id']}/original").content == buffer.getvalue()
             assert client.get(f"/api/analysis/runs?topic_id={topic_id}").json()[0]["id"] == run["id"]
+            reference_analysis=client.post("/api/analysis/run",data={"modality":"sem","topic_id":str(topic_id),"experiment_id":str(reference_experiment["id"]),"pixel_size_nm":"0.5"},files={"file":("paper-image.png",buffer.getvalue(),"image/png")})
+            assert reference_analysis.status_code==200,reference_analysis.text
+            assert reference_analysis.json()["result"]["analysis_provenance"]["source_type"]=="LITERATURE_ANALYSIS_OUTPUT"
+            test_db=TestSession()
+            try:
+                linked=test_db.query(ScientificObservation).filter_by(analysis_run_id=reference_analysis.json()["id"]).all()
+                assert linked and {item.source_type for item in linked}=={"LITERATURE_ANALYSIS_OUTPUT"}
+                optimized=client.get(f"/api/optimization/observations/approved?topic_id={topic_id}").json()["observations"]
+                assert all(item["source_type"]!="LITERATURE_ANALYSIS_OUTPUT" for item in optimized)
+            finally: test_db.close()
 
             premature = client.post(f"/api/analysis/runs/{run['id']}/review", json={"reviewer":"Researcher","review_status":"ACCEPTED","reason":"looks good"})
             assert premature.status_code == 409

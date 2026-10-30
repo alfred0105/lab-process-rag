@@ -37,6 +37,8 @@ export default function PHREEQCWorkbench({ experiments, onOpenExperiments }: { e
   const selected = candidates.find(experiment => experiment.id === selectedId) ?? candidates[0];
   const inputs = useMemo(() => selected ? deriveInputs(selected) : null, [selected]);
   const [result, setResult] = useState<AqueousEquilibriumResult | null>(null);
+  const [simulationRunId, setSimulationRunId] = useState<number | null>(null);
+  const [approvalConfirmed, setApprovalConfirmed] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const run = async () => {
@@ -44,7 +46,14 @@ export default function PHREEQCWorkbench({ experiments, onOpenExperiments }: { e
     setBusy(true); setError('');
     try {
       const phases = [...new Set(Object.keys(inputs.totals).flatMap(element => PHASES[element] ?? []))].slice(0, 8);
-      setResult(await api.aqueousEquilibrium({ temperature_c: inputs.temperature, pH: inputs.pH, totals_molal: inputs.totals, phases }));
+      const response = await api.executeTool({
+        experiment_id: selected.id,
+        tool_id: 'phreeqc.aqueous_equilibrium.v1',
+        inputs: { temperature_c: inputs.temperature, pH: inputs.pH, totals_molal: inputs.totals, phases },
+        approval_confirmed: approvalConfirmed,
+      });
+      setResult(response.result as AqueousEquilibriumResult);
+      setSimulationRunId(response.simulation_run_id ?? null);
     } catch (cause) { setError(t(cause instanceof Error ? cause.message : String(cause))); }
     finally { setBusy(false); }
   };
@@ -52,15 +61,15 @@ export default function PHREEQCWorkbench({ experiments, onOpenExperiments }: { e
     <div className="card-head"><div><div className="card-title"><Beaker size={16}/>{t('PHREEQC aqueous equilibrium')}</div><div className="card-sub">{t('PHREEQC reads process conditions already saved in the selected experiment.')}</div></div><span className="simulation-state-pill ready">PHREEQC · LOCAL</span></div>
     {selected && inputs ? <>
       <label className="process-simulation-source">{t('Source experiment')}
-        <select value={selected.id} onChange={event => { setSelectedId(Number(event.target.value)); setResult(null); setError(''); }}>
+        <select value={selected.id} onChange={event => { setSelectedId(Number(event.target.value)); setResult(null); setSimulationRunId(null); setError(''); setApprovalConfirmed(false); }}>
           {candidates.map(item => <option key={item.id} value={item.id}>{item.code} · {item.name} · {item.method_name ?? item.target}{item.status === 'reference' ? ` · ${t('Literature reference')}` : ''}</option>)}
         </select>
       </label>
       <div className="process-simulation-values"><div><small>{t('pH')}</small><b>{inputs.missing.includes('pH') ? '—' : inputs.pH}</b></div><div><small>{t('Temperature')}</small><b>{inputs.missing.includes('temperature') ? '—' : `${inputs.temperature} °C`}</b></div><div><small>{t('Dissolved totals')}</small><b>{Object.keys(inputs.totals).length || '—'}</b></div></div>
       {Object.keys(inputs.totals).length > 0 && <div className="process-simulation-values">{Object.entries(inputs.totals).map(([element, value]) => <div key={element}><small>{element}</small><b>{value.toPrecision(4)} mol/kgw</b></div>)}</div>}
       {inputs.notes.map(note => <p className="simulation-caveat" key={note}>{t(note)}</p>)}
-      {inputs.missing.length > 0 ? <div className="simulation-range-note"><b>{t('Not enough chemistry was recorded to run PHREEQC.')}</b><span>{t('Missing process values')}: {inputs.missing.map(value => t(value)).join(', ')}. {t('No default or demo values were inserted.')}</span><button type="button" className="button outline small" onClick={onOpenExperiments}>{t('Edit process record')}</button></div> : <button type="button" className="button primary" disabled={busy} onClick={() => void run()}><Activity size={15}/>{busy ? t('Calculating…') : t('Run from saved process')}</button>}
-      {result && <div className="phreeqc-results"><div className="phreeqc-result-summary"><span><small>{t('Calculated pH')}</small><b>{result.calculated_pH.toFixed(3)}</b></span><span><small>{t('Temperature')}</small><b>{result.temperature_c} °C</b></span><span><small>{t('Engine')}</small><b>{result.model_id}</b></span></div><section><h4>{t('Mineral saturation index')}</h4>{result.saturation_indices.map(item => <div className="phreeqc-si-row" key={item.phase}><b>{item.phase}</b><strong>{item.saturation_index === null ? '—' : item.saturation_index.toFixed(3)}</strong><em>{t(item.interpretation)}</em></div>)}</section><section><h4>{t('Calculated aqueous species')}</h4><div className="table-wrap"><table><thead><tr><th>{t('Aqueous species')}</th><th>{t('Molality (mol/kg water)')}</th></tr></thead><tbody>{result.aqueous_species.slice(0, 12).map(item => <tr key={item.name}><td>{item.name}</td><td>{item.molality.toExponential(3)}</td></tr>)}</tbody></table></div></section><div className="phreeqc-limitations"><b>{t('Interpretation limits')}</b>{result.limitations.map(item => <p key={item}>{t(item)}</p>)}</div></div>}
+      {inputs.missing.length > 0 ? <div className="simulation-range-note"><b>{t('Not enough chemistry was recorded to run PHREEQC.')}</b><span>{t('Missing process values')}: {inputs.missing.map(value => t(value)).join(', ')}. {t('No default or demo values were inserted.')}</span><button type="button" className="button outline small" onClick={onOpenExperiments}>{t('Edit process record')}</button></div> : <div className="phreeqc-run-control"><label><input type="checkbox" checked={approvalConfirmed} onChange={event => setApprovalConfirmed(event.target.checked)}/><span>{t('I reviewed the solution inputs and want to run this calculation. This does not approve its scientific interpretation.')}</span></label><button type="button" className="button primary" disabled={busy || !approvalConfirmed} onClick={() => void run()}><Activity size={15}/>{busy ? t('Calculating…') : t('Run from saved process')}</button></div>}
+      {result && <div className="phreeqc-results"><div className="phreeqc-result-summary"><span><small>{t('Calculated pH')}</small><b>{result.calculated_pH.toFixed(3)}</b></span><span><small>{t('Temperature')}</small><b>{result.temperature_c} °C</b></span><span><small>{t('Engine')}</small><b>{result.model_id}</b></span></div>{simulationRunId !== null && <p className="simulation-caveat">{t('Saved simulation run')}: #{simulationRunId} · {t('Source')}: SIMULATION</p>}<section><h4>{t('Mineral saturation index')}</h4>{result.saturation_indices.map(item => <div className="phreeqc-si-row" key={item.phase}><b>{item.phase}</b><strong>{item.saturation_index === null ? '—' : item.saturation_index.toFixed(3)}</strong><em>{t(item.interpretation)}</em></div>)}</section><section><h4>{t('Calculated aqueous species')}</h4><div className="table-wrap"><table><thead><tr><th>{t('Aqueous species')}</th><th>{t('Molality (mol/kg water)')}</th></tr></thead><tbody>{result.aqueous_species.slice(0, 12).map(item => <tr key={item.name}><td>{item.name}</td><td>{item.molality.toExponential(3)}</td></tr>)}</tbody></table></div></section><div className="phreeqc-limitations"><b>{t('Interpretation limits')}</b>{result.limitations.map(item => <p key={item}>{t(item)}</p>)}</div></div>}
     </> : <div className="empty-hint">{t('No non-demo experiment records are available in this research topic.')}</div>}
     {error && <div className="error" role="alert">{error}</div>}
   </section>;

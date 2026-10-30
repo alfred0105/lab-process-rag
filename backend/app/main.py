@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api.routes import router
 from app.db.database import DB_PATH, ROOT, Base, engine, SessionLocal
 from app.db.models import Experiment, ExperimentMethod, MethodVersion, ResearchTopic, ResearchMaterial, ExperimentMaterial, Paper, MaterialAnalysisRun, SimulationRun, ScientificObservation
-from app.services.scientific_data import make_observation
+from app.services.scientific_data import classify_analysis_source, make_observation
 
 def migrate_legacy_data():
     """Idempotent data backfill retained for pre-Alembic lab databases."""
@@ -168,7 +168,31 @@ def backfill_scientific_observations():
                     process_step_id=None,step_name="experiment result",name=result.key,value=result.value,unit=result.unit,
                     source_type=source_type,source_id=source_id))
                 existing.add(source_id)
+        for analysis_run in db.query(MaterialAnalysisRun).all():
+            experiment=db.get(Experiment,analysis_run.experiment_id) if analysis_run.experiment_id else None
+            expected=classify_analysis_source(experiment,demo_data=bool((analysis_run.result_json or {}).get("demo_data")))
+            for observation in db.query(ScientificObservation).filter_by(analysis_run_id=analysis_run.id).all():
+                if observation.source_type in {"ANALYSIS_OUTPUT","SYNTHETIC_DEMO","LITERATURE_ANALYSIS_OUTPUT"} and observation.source_type!=expected:
+                    observation.source_type=expected
         db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+def recover_interrupted_tool_runs():
+    """Mark synchronous idempotent tool runs interrupted by a server restart."""
+    db=SessionLocal()
+    try:
+        interrupted=db.query(SimulationRun).filter(SimulationRun.idempotency_key.is_not(None),SimulationRun.status=="running").all()
+        now=datetime.now(timezone.utc).replace(tzinfo=None)
+        for run in interrupted:
+            run.status="failed"
+            run.error_text="Server restarted before the scientific tool run completed; retry must be explicit."
+            run.log_text=(run.log_text+"\nRecovered as failed during application startup.").strip()
+            run.finished_at=now
+        if interrupted: db.commit()
     except Exception:
         db.rollback()
         raise
@@ -184,6 +208,7 @@ async def lifespan(app:FastAPI):
     merge_legacy_method_drafts()
     import_used_materials_to_library()
     backfill_scientific_observations()
+    recover_interrupted_tool_runs()
     yield
 
 app=FastAPI(title="Lab Process RAG",version="0.1.0",description="Paper-backed claims are cited; Gemma general knowledge is labeled separately.",lifespan=lifespan)

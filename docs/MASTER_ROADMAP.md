@@ -138,7 +138,22 @@
 | P3-JEV-01 | RuleBasedDecisionPolicy가 향후 JEV와 동일 interface를 사용하고 Safety gate와 설명 생성을 분리 | P1 | IN_PROGRESS | DecisionPolicy Protocol, RuleBasedDecisionPolicy, ValidationGate | JEV head 부재 상태 표시; 규칙 선택과 execution gate 분리 | 기존 + 34439b6 | JEV model/action schema/evaluation data; 현재 학습 head 미구현 |
 | P3-UI-01 | 목표 선택, 추천 근거, 누락 데이터, 실행/검토/결과 이력 UI | P1 | IN_PROGRESS | AnalysisPanel goal picker, data-quality execute button; existing analysis/simulation screens | TypeScript production build 및 API integration tests | 34439b6 | 공통 실행 진행/취소/오류/재시도 이력 화면, OpenFOAM approval flow E2E |
 | P3-PERF-01 | 선택 정확도, abstain, 성공율, 실행/선택 시간, LLM 비율, RAM 측정 | P2 | NOT_STARTED | — | 측정 없음 (임의 성능 주장 없음) | — | 대표 평가셋과 MacBook에서 재현 가능한 profiling harness |
-| P3-CI-01 | Phase 3 회귀/evaluation 테스트를 GitHub Actions에서 실행 | P1 | IMPLEMENTED | `.github/workflows/ci.yml` runs full pytest and npm build; new tests are included automatically | Workflow config reviewed; local 89 pytest and build pass | 34439b6 | GitHub-hosted workflow execution result remains unverified |
+| P3-CI-01 | Phase 3 회귀/evaluation 테스트를 GitHub Actions에서 실행 | P1 | IMPLEMENTED | `.github/workflows/ci.yml` runs full pytest and npm build; new tests are included automatically | Workflow config reviewed; local 91 pytest and build pass | 34439b6 | GitHub-hosted workflow execution result remains unverified |
+
+### Phase 3 최종 보완 기록 (2026-10-30)
+
+| ID | 요구사항 상세 | 우선순위 | 상태 | 관련 소스·구현/대안 | 완료 조건 및 현재 검증 | 커밋 | 남은 작업·의존성 |
+|---|---|---:|---|---|---|---|---|
+| P3-DATA-03 | 문헌 분석 파생 데이터는 `LITERATURE_ANALYSIS_OUTPUT`으로 계보 저장하고 최적화 학습 입력에서 격리 | P0 | VERIFIED | `scientific_data.py`, `routes.py`, backfill audit in `main.py` | reference 실험 SEM 분석 API 테스트에서 파생 관측 출처 검증, 승인 최적화 응답에서 제외 확인 | 이번 보완 | 기존 구형 분석 실행 레코드의 부모 원본 파일 재구성은 기록이 없는 경우 불가; startup backfill은 연결된 observation의 라벨만 교정 |
+| P3-ADAPT-07 | 기존 분석 API 계산을 공통 adapter 계약에 연결하고 실행 직전에 새로 검증된 gate를 통과 | P0 | VERIFIED | `tool_adapters.py`, `tool_registry.py`, `/analysis/run` | validate→prepare→fresh gate→execute→validate output→persist 순서 단위 테스트 및 XRD/AFM/SEM/TEM 기존 API 회귀 테스트 | 이번 보완 | 결과 리뷰 승인은 별도 사람 검토로 유지; 툴 전체를 단일 API로 통일하는 작업은 잔여 |
+| P3-SIM-04 | PHREEQC 실행 입력 승인·실행·결과 검증·저장·중복 재사용을 화면에서 일관되게 제공 | P0 | VERIFIED | `PHREEQCWorkbench.tsx`, `client.ts`, `/tools/execute`, `tool_adapters.py` | 화면 경로가 저장형 실행 API를 사용; 명시 승인 없이는 차단, 실제 설치된 PHREEQC API 계산 및 재사용 테스트 통과 | 이번 보완 | 직접 미리보기용 `/simulations/aqueous-equilibrium`, sweep, stirred-path 엔드포인트는 별도 UX/gate 통일 필요 |
+| P3-VAL-03 | PHREEQC/XRD/AFM/현미경 출력 스키마·finite 값·기초 물리 범위 검증 | P0 | IMPLEMENTED | `tool_registry.py` `ResultValidator` | 잘못된 pH·음수 농도/거칠기·비정형 peak/object 결과 거부 단위 테스트 | 이번 보완 | 독립 검증 기준 사례, 분석별 불확도·장비 조건·적용범위 판정 및 OpenFOAM 잔차 검증 미완료 |
+| P3-ORCH-03 | 실행 중 서버 재시작 시 idempotent 동기 실행의 고아 RUNNING 상태를 실패로 복구하고 명시적 재시도 허용 | P0 | VERIFIED | `main.py`, `SimulationRun`, startup recovery test | 재시작 recovery 테스트에서 RUNNING→FAILED, 오류와 종료시각 기록; PHREEQC retry에는 retry 플래그 필요 | 이번 보완 | PENDING queue, 진행률, 취소·timeout, 자원 한도, 다중 프로세스 lease/worker 미구현 |
+| P3-ORCH-04 | PHREEQC 요청을 DB 고유 키로 claim하여 중복 동시 실행 차단 | P0 | IMPLEMENTED | migration `0004_simulation_idempotency`, `SimulationRun.idempotency_key`, `/tools/execute` | 기존 완료 결과 재사용, 실패 명시 재시도 및 중복 key unique migration 테스트 | 이번 보완 | DB 동시성 경쟁의 실제 다중 worker stress test와 transaction/lease 재설계 미검증 |
+| P3-UI-02 | PHREEQC 실행 전 사용자 입력 확인과 결과 실행 기록 표시 | P1 | IMPLEMENTED | `PHREEQCWorkbench.tsx`, language dictionary, `style.css` | production build 성공; 화면에서 명시 checkbox 승인 후 실행하고 저장 run 번호·SIMULATION 출처 표시 | 이번 보완 | 브라우저 E2E 및 남은 direct preview UI와 동일한 gate/이력 표시 필요 |
+| P3-PERF-02 | Phase 3 도구 선택·실행 지연 및 피크 메모리 실제 측정 | P2 | NOT_STARTED | — | MacBook Air M5 24GB 프로파일 측정 없음 | — | 재현 가능한 대표 데이터셋/프로파일 하네스 필요 |
+
+이번 보완은 Phase 3 전체 완료를 뜻하지 않는다. 분석·시뮬레이션 단일 작업 경로와 데이터 격리의 일부를 검증했으나, 12개 통합 시나리오 전체, 자동 다단계 오케스트레이션, PHREEQC 외부 golden case 대조, OpenFOAM 실제 VM 수렴/취소, 모델별 추가 simulation adapters, 자원 한도, UI 브라우저 E2E, 성능 평가는 남아 있다. Phase 3은 `IN_PROGRESS`; Phase 4 진입 완료 판정은 보류한다.
 
 ## Phase 4 — 사용자 연구 흐름과 UI
 
