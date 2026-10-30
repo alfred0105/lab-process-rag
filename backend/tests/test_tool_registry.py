@@ -16,8 +16,8 @@ def test_tool_selection_does_not_claim_phreeqc_predicts_material_growth():
         "steps":[{"name":"Growth","order_index":1,"variables":[{"name":"pH","value":"9","unit":"pH"},{"name":"temperature","value":"90","unit":"°C"}]}],"materials":[],"results":[]},[])
     phreeqc=next(item for item in result["recommendations"] if item["tool_id"]=="phreeqc.aqueous_equilibrium.v1")
     assert phreeqc["readiness"]=="MISSING_INPUT"
-    assert "dissolved totals" in phreeqc["missing_inputs"]
-    assert result["decision"]["action"]=="GENERATE_EXPLANATION"
+    assert "identified dissolved-element totals with concentration units" in phreeqc["missing_inputs"]
+    assert result["decision"]["action"] in {"REQUEST_DATA","ABSTAIN"}
     assert "not a learned JEV" in result["notice"]
 
 
@@ -25,3 +25,46 @@ def test_validation_gate_never_executes_a_review_required_model():
     result=ValidationGate.validate({"readiness":"READY","execution_policy":"human_approval_and_external_vm_required"})
     assert result["allowed"] is False
     assert result["requires_human_approval"] is True
+
+def test_phreeqc_registry_does_not_trust_variable_names_without_values_and_units():
+    record={"id":1,"demo":False,"steps":[{"name":"Mix","order_index":0,"variables":[
+        {"name":"pH","value":"unknown","unit":"pH"},{"name":"temperature","value":"25","unit":"rpm"},
+        {"name":"Zn concentration","value":"0.1","unit":""}]}],"materials":[],"results":[]}
+    result=recommend_tools(record,[],goal="aqueous equilibrium")
+    phreeqc=next(item for item in result["recommendations"] if item["tool_id"]=="phreeqc.aqueous_equilibrium.v1")
+    assert phreeqc["readiness"]=="MISSING_INPUT"
+    assert len(phreeqc["missing_inputs"])==3
+
+def test_registry_reports_completed_analysis_and_policy_avoids_duplicate():
+    record={"id":1,"demo":False,"steps":[],"materials":[],"results":[]}
+    runs=[{"id":4,"modality":"xrd","tool_id":"xrd.local_peaks.v1","analysis_status":"completed","result":{"observed_peaks":[{"x":30,"intensity":1}]}}]
+    result=recommend_tools(record,runs,goal="xrd peaks")
+    peak=next(item for item in result["recommendations"] if item["tool_id"]=="xrd.local_peaks.v1")
+    assert peak["readiness"]=="ALREADY_ANALYZED"
+    assert result["decision"]["action"]=="ABSTAIN"
+
+def test_data_quality_requires_explicit_goal_and_uses_distinct_action():
+    record={"id":1,"demo":False,"steps":[],"materials":[],"results":[]}
+    automatic=recommend_tools(record,[])
+    requested=recommend_tools(record,[],goal="단위 검증")
+    assert automatic["decision"]["tool_id"] is None
+    assert requested["decision"]["action"]=="RUN_DATA_VALIDATION"
+
+def test_result_validator_rejects_non_finite_and_checks_phreeqc_provenance():
+    from app.services.tool_registry import ResultValidator
+    tool=ToolRegistry().get("phreeqc.aqueous_equilibrium.v1")
+    assert not ResultValidator.validate(tool,{"model_id":"PHREEQC-3","input_pH":7,"aqueous_species":[],"saturation_indices":[],"x":float("nan")})["valid"]
+    assert not ResultValidator.validate(tool,{"saturation_indices":[]})["valid"]
+    assert ResultValidator.validate(tool,{"model_id":"PHREEQC-3 / phreeqc.dat","input_pH":7,"aqueous_species":[],"saturation_indices":[],"limitations":[]})["valid"]
+
+def test_reference_and_demo_source_classification_is_not_lab_data():
+    from types import SimpleNamespace
+    from app.main import classify_observation_source
+    reference=SimpleNamespace(status="reference",demo=False)
+    actual=SimpleNamespace(status="success",demo=False)
+    demo=SimpleNamespace(status="success",demo=True)
+    literature_variable=SimpleNamespace(source_type="literature")
+    assert classify_observation_source(reference,is_result=True)=="LITERATURE"
+    assert classify_observation_source(actual,literature_variable)=="LITERATURE"
+    assert classify_observation_source(actual,is_result=True)=="LAB_RESULT"
+    assert classify_observation_source(demo,is_result=True)=="SYNTHETIC_DEMO"

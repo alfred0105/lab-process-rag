@@ -168,6 +168,12 @@ class AqueousSweepRequest(AqueousEquilibriumRequest):
     pH_max: float = Field(ge=-2, le=16)
     points: int = Field(default=17, ge=3, le=31)
 
+class ToolExecutionRequest(BaseModel):
+    experiment_id: int
+    tool_id: str = Field(min_length=3, max_length=120)
+    inputs: dict = Field(default_factory=dict)
+    analysis_run_id: int | None = None
+
 class StirredReactionPathRequest(AqueousEquilibriumRequest):
     titrant: Literal["HCl", "NaOH"]
     total_titrant_mmol: float = Field(gt=0, le=10000)

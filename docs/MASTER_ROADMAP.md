@@ -2,8 +2,7 @@
 
 **관리 기준일:** 2026-10-30
 **저장소:** [alfred0105/lab-process-rag](https://github.com/alfred0105/lab-process-rag)
-**기준 브랜치/커밋:** main / 0ccad66006c311c30b96af4233377cab0f720d0d
-**원격 확인:** 기준일에 origin/main과 로컬 커밋이 일치함을 확인했다. 이 문서는 아직 커밋되지 않았다.
+**검토 기준:** origin/main / 0ccad66006c311c30b96af4233377cab0f720d0d; 작업 브랜치 main에는 이전 로드맵 커밋 d168cef가 추가로 있음. Phase 3 변경분은 현재 작업 중이며 아직 미커밋.
 
 이 문서는 전체 개선 프롬프트(2026-10-30), 이후의 데이터 신뢰성 개선 프롬프트, 기존 감사·설계·검증 문서와 사용자가 확정한 제품 흐름을 통합 추적한다. 요구를 임의로 삭제하지 않는다. 범위가 바뀌면 원래 ID를 유지하고 변경 이유와 대체 방안을 기록한다.
 
@@ -35,9 +34,9 @@
 | 항목 | 2026-10-30 기준 증거 |
 |---|---|
 | 최신 main | 0ccad66006c311c30b96af4233377cab0f720d0d, 원격과 일치 확인 |
-| 직전 작업 | 81 backend tests passed, 35 warnings; npm run build 성공(Vite 6.4.3, 1756 modules) |
-| 로컬 DB | Alembic 0003_science_compat; SQLite integrity ok; topic 3, experiments 39, papers 4, process_variables 202, experiment_results 63, scientific_observations 265, review_events 0 |
-| 백업 | data/backups/lab_process_pre_next_step_2026-10-30.db; 핵심 원본 행 수가 현재 DB와 같음 |
+| Phase 3 작업 검증 | backend 전체 89 tests passed; npm run build 성공(Vite 6.4.3, 1756 modules). 경고는 SQLAlchemy/Starlette/SWIG deprecation 중심 |
+| 로컬 DB | Alembic 0003_science_compat; Phase 3 전 백업 보관; observations 265 중 LITERATURE 173, SYNTHETIC_DEMO 92, LAB_RECORD/LAB_RESULT 0 (현재 local DB에는 이들 유형의 별도 데이터 없음); reference 실험에서 lab로 잘못 분류된 observation 0 |
+| 백업 | data/backups/lab_process_pre_phase3_2026-10-30.db (이번 출처 분류 수정 전) |
 | API smoke | TestClient startup 및 /api/health, /api/tools/registry, /api/data/observations, /api/optimization/observations/approved 모두 200. 승인 관측값이 없을 때 insufficient 상태를 반환 |
 | 제한 | reviewer 표시이름은 인증되지 않음; 원격 GitHub Actions 결과는 미확인; 실제 OpenFOAM/모델 성능은 이 작업에서 검증하지 않음 |
 
@@ -106,10 +105,40 @@
 | SIM-004 | 성장 길이/형태는 검증된 재료별 kinetics가 없으면 정량 예측 금지; 모델 없는 나노로드 성장은 unsupported로 표시 | P0 | VERIFIED | docs/HYDROTHERMAL_AND_STIRRING_MODELS.md, tool_registry.py | registry unsupported conditions 명시 | 0ccad66 | 재료별 실험/kinetic data가 확보될 때만 재검토 |
 | SIM-005 | 단계별 계산 값을 다음 모델에 typed input/source/version으로 넘기고 실패·누락 시 중단하며 provenance 보존 | P1 | IN_PROGRESS | simulation services, tool_registry.py, docs/SIMULATION_ENGINES.md | 일부 coated substrate context handoff | 기존 | 실제 여러 단계 chaining API/UI·복구·통합 테스트 |
 | SIM-006 | Tool Registry metadata: id/name/version/category, inputs/modality/units, output schema, applicability/unsupported, runtime/memory, uncertainty, validation, execution 및 실패 policy. 등록 대상은 XRD peaks/COD candidates, AFM, SEM/TEM, PHREEQC equilibrium/pH sweep, OpenFOAM Rushton, hydrothermal, spin coating, experiment comparison/data quality다. | P0 | VERIFIED | backend/app/services/tool_registry.py, GET /api/tools/registry | 11개 도구 등록; runtime/memory 미측정은 null; API smoke/81 tests | 0ccad66 | 실측 리소스/각 tool schema adapter와 표준 실패/재시도 contract |
-| SIM-007 | 입력·물리량·단위·적용 범위·자원·검증·승인으로 READY/MISSING_INPUT/UNSUPPORTED/UNAVAILABLE/REQUIRES_REVIEW/ABSTAIN 결정 | P0 | IMPLEMENTED | tool_registry.py, recommend endpoint | readiness tests 및 unsafe CFD gate | 0ccad66 | 이름 토큰 검사를 typed physical input validator로 교체 |
-| SIM-008 | 공통 validate→prepare→execute→verify→persist 계약; 이번 단계에선 준비 기반, 위험한 자동 실행 금지 | P0 | IMPLEMENTED | ToolRegistry, ValidationGate, ToolExecutor, ResultValidator | prepare-only 및 실행 차단 테스트 | 0ccad66 | 실제 tool adapter와 typed output validator는 미연결 |
+| SIM-007 | 입력·물리량·단위·적용 범위·자원·검증·승인으로 READY/MISSING_INPUT/UNSUPPORTED/UNAVAILABLE/REQUIRES_REVIEW/ABSTAIN 결정 | P0 | IMPLEMENTED | tool_registry.py, recommend endpoint | 실제 숫자·단위 검증 및 상태 분기 테스트; 키워드 단독 readiness 제거 | 0ccad66 | 이름 토큰 검사를 typed physical input validator로 교체 |
+| SIM-008 | 공통 validate→prepare→execute→verify→persist 계약; 이번 단계에선 준비 기반, 위험한 자동 실행 금지 | P0 | IN_PROGRESS | tool_registry.py, POST /api/tools/execute, existing analysis API | PHREEQC/Data Quality 실행 경로; 결과 검증·출처 저장·중복 결과 재사용 API tests | 현재 Phase 3 작업 | 공통 adapter protocol 정식 분리, 모든 실행 오류/취소/timeout 상태, retry/cancel, OpenFOAM orchestration |
 | SIM-009 | 후보 simulation library를 문제에 따라 검토: kinetics, reaction-diffusion/FEM, phase-field, DFT, LAMMPS, Cantera/Reaktoro 및 PHREEQC/OpenFOAM. applicability·공개 구현·검증자료 없이는 억지 연결하지 않음 | P1 | IN_PROGRESS | docs/SIMULATION_ENGINES.md, model-specific plans | 여러 기존/후보 엔진이 문서화됨 | prior docs | 각 도구의 논문 근거, 자원, chemistry/geometry fit 및 Mac 실행 가능성 조사 필요 |
 | SIM-010 | 한 단계 도구의 검증된 산출값만 다음 도구 입력으로 넘기며 단위·재료 identity·출처·불확도를 전달; chain 중간 실패·입력 누락은 해당 후속 run을 막음 | P1 | IN_PROGRESS | simulation services, tool_registry.py | 일부 context handoff | existing | chained typed schemas, failure propagation and end-to-end test |
+
+## Phase 3 구현 감사 — 과학 도구 자동 선택·실행·검증 (2026-10-30)
+
+이 표는 첨부 Phase 3 프롬프트의 하위 요건을 누락 없이 추적한다. 구현과 검증은 구분했다. `SIM-*`와 `ORCH-*` 상위 항목과 연결되며 다음 상세 ID를 임의로 축약하지 않는다.
+
+| ID | 요구사항 상세 | 우선순위 | 상태 | 관련 소스·구현/대안 | 완료 조건 및 현재 검증 | 커밋 | 남은 작업·의존성 |
+|---|---|---:|---|---|---|---|---|
+| P3-DATA-01 | 문헌 reference 관측과 실제 실험·합성 demo 출처를 분리하고 재실행 가능한 backfill 유지 | P0 | VERIFIED | main.py `classify_observation_source`, `backfill_scientific_observations`; data/backups/lab_process_pre_phase3_2026-10-30.db | 265개 observation 재분류; LITERATURE 173, SYNTHETIC_DEMO 92, reference→LAB 오분류 0; 분류 단위 테스트 | 이번 Phase 3 작업 | 영속 migration report, 실패/복구 catalog 및 별도 실제 LAB_RECORD 자료의 승인 흐름 |
+| P3-REG-01 | 변수명 키워드만으로 readiness를 READY로 만들지 않고 숫자/단위/물리 차원을 확인 | P0 | IN_PROGRESS | tool_registry.py `_number_with_unit`, PHREEQC validators | PHREEQC pH·온도·원소총량 단위 검사 및 회귀 테스트 | 이번 Phase 3 작업 | 모든 시뮬레이션 입력별 Pydantic 단위/차원 schemas, 범위·누락·미확인 상태 체계 |
+| P3-REG-02 | 원본값·단위와 normalized 값 연결, process step 및 material 문맥 반영 | P0 | IN_PROGRESS | ScientificObservation, ScientificStateBuilder | 기존 값은 읽기만 하며 PHREEQC 사용자 입력은 typed request 검증 | 기존 + 이번 Phase 3 작업 | Registry state에서 ScientificObservation 원본/정규화·material identity·normalization_error 직접 사용 |
+| P3-REG-03 | 연구 목표·도구 적합성·기존 결과를 이용하며 첫 READY 도구를 무조건 선택하지 않음 | P0 | VERIFIED | tool_registry.py `RuleBasedDecisionPolicy`, GET recommend `goal`, AnalysisPanel goal picker | 목표별 도구 제한, 완료 분석은 ALREADY_ANALYZED, 단위 검증은 RUN_DATA_VALIDATION; 단위/API tests | 이번 Phase 3 작업 | 현실 평가셋으로 도구 선택·보류 정확도 측정 |
+| P3-REG-04 | READY/ALREADY_ANALYZED/REANALYSIS_REQUIRED/MISSING_INPUT/UNSUPPORTED/UNAVAILABLE/REQUIRES_REVIEW/ABSTAIN 전 상태를 사용 | P0 | IN_PROGRESS | tool_registry.py readiness literal, measurement readiness | ALREADY_ANALYZED 및 MISSING_INPUT/REQUIRES_REVIEW 등 일부 검증 | 이번 Phase 3 작업 | 각 도구·상태 전이마다 테스트 및 재분석 hash/parameter 판단 |
+| P3-REG-05 | data quality 선택은 독립 RUN_DATA_VALIDATION 행동; 설명 생성 행동과 혼동 금지 | P0 | VERIFIED | RuleBasedDecisionPolicy, POST /tools/execute, AnalysisPanel | goal-driven action·실행 API mock integration tests | 이번 Phase 3 작업 | 모든 사용자 연구 목표와 번역·접근성 세부 검증 |
+| P3-ADAPT-01 | Pydantic 구조 입력·도구별 실행 adapter, LLM 문자열을 명령/코드로 실행하지 않음 | P0 | IN_PROGRESS | ToolExecutionRequest, `/api/tools/execute`, 기존 material analysis API | 명시적 allowlist; PHREEQC equilibrium/sweep의 Pydantic 입력 처리; 데이터 검증 직접 실행 | 이번 Phase 3 작업 | 공통 Adapter protocol의 `validate_inputs/prepare/execute/validate_outputs/persist`로 모든 도구 통일 |
+| P3-ADAPT-02 | XRD/AFM/SEM/TEM 기존 엔진을 실제 파일 분석 및 원본/hash/계산 결과 저장에 연결 | P0 | VERIFIED | material_analysis/service.py, POST /analysis/run, MaterialAnalysisRun | 기존 API 테스트에서 영상처리·원본/hash/artifact 확인; 기기별 수치분석 모듈 테스트 | 기존 기능, 이번 Phase 3 재검토 | 알고리즘/parameter version을 모든 결과에 빠짐없이 기록하고 원본별 reanalysis를 구분 |
+| P3-ADAPT-03 | XRD 축 단위/파장/후보 동정의 한계와 COD 후보를 확정 상동정과 구분 | P0 | IN_PROGRESS | XRD analyzer/phase_match.py, AnalysisPanel | local peak 및 COD 후보 UI/API 기존 검증; 상 후보 일치도는 확률 아님 | 기존 기능 | 파장/장비 메타데이터 typed mandatory 검증, FWHM/격자/불확도 고도화 |
+| P3-ADAPT-04 | SEM/TEM 크기 보정, Otsu 분할/객체 연결, 중첩·스케일 오류 검토 | P0 | IN_PROGRESS | microscopy analyzer, material_analysis API | 이미지 segmentation 및 scale parameter API tests | 기존 기능 | 고급 instance segmentation/중첩 오류 QA 및 원본 overlay 검수 테스트 |
+| P3-ADAPT-05 | AFM 높이맵 단위·plane leveling·Sa/Sq/Sz·artifact review 연결 | P0 | IN_PROGRESS | AFM analyzer | 입력 grid·거칠기 계산 unit tests | 기존 기능 | calibration axis/height units, scan artifact detection and algorithm parameters end-to-end |
+| P3-ADAPT-06 | 승인상태/동일 공정버전/단계별 조건 비교 및 문헌/시뮬/실측 구분 | P0 | IN_PROGRESS | compare.py, scientific_data.py, approved observation APIs | provenance category 및 method comparison 기능 일부 존재 | 기존 기능 | 승인·정규화 관측 상태를 tool selection/comparison 전체에서 통합 시험 |
+| P3-SIM-01 | PHREEQC 입력·단위·종·database 검사, 실행·결과·가정 저장, 평형과 침전/성장을 분리 | P0 | IN_PROGRESS | phreeqc.py, `POST /api/tools/execute`, SimulationRun | 실제 PHREEQC-3 계산: Ca/C(4), pH 8.3, Calcite, 8 species, SI 0.3068; database에 없는 상은 null/unknown; API persist/reuse integration test | 이번 Phase 3 작업 | 전하수지/화학계 적합성을 실행 전 정량검증하고 설치 버전/database hash 기록 |
+| P3-SIM-02 | OpenFOAM 템플릿/geometry/VM 검증 후 명시적 사용자 승인; 잘못된 형상은 차단 | P0 | IN_PROGRESS | existing openfoam plan/run API, validation and approval guards | Registry가 OpenFOAM을 자동 호출하지 않으며 execute API는 거부; 기존 계획/승인 테스트 | 기존 기능 + 이번 Phase 3 작업 | 실제 VM 설치/template run·mesh/convergence/timeout; 승인된 외부 실행만 검증 |
+| P3-SIM-03 | 기타 기존 시뮬레이터의 요구 입력·범위·가정·실행 가능성을 표시하고 미연결 모델을 차단 | P1 | IN_PROGRESS | existing simulation services, ToolRegistry | 등록은 되어 있으나 미구현 typed adapter는 MISSING_INPUT 처리 | 기존 + 이번 Phase 3 작업 | hydrothermal/spin coating/stirring/drying/thermal의 입력검증·실행/persist/통합 평가 |
+| P3-VAL-01 | 결과 schema·finite·범위·단위·필수 출력 검증, tool/model provenance와 가정 연결 | P0 | IN_PROGRESS | `ResultValidator`, SimulationRun/MaterialAnalysisRun | PHREEQC 필수 출력/model ID 및 finite 검사; microscopy/XRD/AFM output guard tests | 이번 Phase 3 작업 | 단위/과학적 범위별 validator registry와 모든 출력 provenance/version |
+| P3-VAL-02 | 원본, 파생 분석, simulation, paper, synthetic, AI reasoning source type 격리 | P0 | VERIFIED | ScientificObservation/source types; corrected backfill | reference 173 / demo 92 분리; simulation scalar는 SIMULATION으로 기록; 실측 범주에 섞인 reference 0 | 이번 Phase 3 작업 | AI reasoning 전용 source taxonomy 및 cross-topic source access tests |
+| P3-ORCH-01 | 상태→목표기반 후보→gate→실행→출력검증→출처 저장→추가/보류 파이프라인 | P0 | IN_PROGRESS | tool_registry.py, routes.py | goal recommendation + data quality/PHREEQC execution; inputs, outputs, saved provenance; test coverage | 이번 Phase 3 작업 | 분석+시뮬 단계 orchestration, typed handoff, retry/cancel/resume queue |
+| P3-ORCH-02 | 중복실행 방지, 상태·실패·재시도·취소·timeout·CPU/RAM 제한 | P0 | IN_PROGRESS | SimulationRun and hash/input based completed-result reuse | 같은 PHREEQC 입력의 재계산을 재사용; 실패/invalid_output은 저장 | 이번 Phase 3 작업 | DB unique idempotency key, concurrency race tests, queue/resource caps, retry/cancel/timeout |
+| P3-JEV-01 | RuleBasedDecisionPolicy가 향후 JEV와 동일 interface를 사용하고 Safety gate와 설명 생성을 분리 | P1 | IN_PROGRESS | DecisionPolicy Protocol, RuleBasedDecisionPolicy, ValidationGate | JEV head 부재 상태 표시; 규칙 선택과 execution gate 분리 | 기존 + 이번 Phase 3 작업 | JEV model/action schema/evaluation data; 현재 학습 head 미구현 |
+| P3-UI-01 | 목표 선택, 추천 근거, 누락 데이터, 실행/검토/결과 이력 UI | P1 | IN_PROGRESS | AnalysisPanel goal picker, data-quality execute button; existing analysis/simulation screens | TypeScript production build 및 API integration tests | 이번 Phase 3 작업 | 공통 실행 진행/취소/오류/재시도 이력 화면, OpenFOAM approval flow E2E |
+| P3-PERF-01 | 선택 정확도, abstain, 성공율, 실행/선택 시간, LLM 비율, RAM 측정 | P2 | NOT_STARTED | — | 측정 없음 (임의 성능 주장 없음) | — | 대표 평가셋과 MacBook에서 재현 가능한 profiling harness |
+| P3-CI-01 | Phase 3 회귀/evaluation 테스트를 GitHub Actions에서 실행 | P1 | IMPLEMENTED | `.github/workflows/ci.yml` runs full pytest and npm build; new tests are included automatically | Workflow config reviewed; local 89 pytest and build pass | 이번 Phase 3 작업 | GitHub-hosted workflow execution result remains unverified |
 
 ## Phase 4 — 사용자 연구 흐름과 UI
 
@@ -127,9 +156,9 @@
 
 | ID | 요구사항 상세 | 우선순위 | 상태 | 관련 소스·구현/대안 | 완료 조건 및 현재 검증 | 커밋 | 남은 작업·의존성 |
 |---|---|---:|---|---|---|---|---|
-| ORCH-001 | ScientificStateBuilder가 topic/method/version/run/steps/materials/results/modalities, 누락/승인/provenance/uncertainty를 읽기 전용 state로 구성 | P0 | IMPLEMENTED | backend/app/services/tool_registry.py | 기초 조건·재료·모달리티 구성 및 tests | 0ccad66 | 승인·source·uncertainty·OOD를 state에 완전 통합 |
-| ORCH-002 | ToolRegistry, DecisionPolicy, ValidationGate, ToolExecutor, ResultValidator, ExplanationProvider 분리; 모델 선택만으로 도구 실행 불가 | P0 | IMPLEMENTED | tool_registry.py | protocol 및 prepare-only gate test | 0ccad66 | 실제 adapters/output validator/설명 provider wiring |
-| ORCH-003 | RUN_ANALYSIS, RUN_SIMULATION, RUN_OPTIMIZATION, REQUEST_DATA, REVIEW_RESULT, GENERATE_EXPLANATION, ABSTAIN 구조화 행동 | P0 | IN_PROGRESS | RuleBasedDecisionPolicy, registry API | 일부 action; API에 learned_jev_head_available=false | 0ccad66 | 실행가능한 action contracts와 기존 Gemma 후보 token 방식 기준선 비교 |
+| ORCH-001 | ScientificStateBuilder가 topic/method/version/run/steps/materials/results/modalities, 누락/승인/provenance/uncertainty를 읽기 전용 state로 구성 | P0 | IN_PROGRESS | backend/app/services/tool_registry.py | 실행 이력 상태·도구 및 분석 결과를 state에 반영; 전체 tests | 현재 Phase 3 작업 | 승인, source type, uncertainty, OOD, observation normalization을 전체 context에 반영 |
+| ORCH-002 | ToolRegistry, DecisionPolicy, ValidationGate, ToolExecutor, ResultValidator, ExplanationProvider 분리; 모델 선택만으로 도구 실행 불가 | P0 | IN_PROGRESS | tool_registry.py, routes.py | PHREEQC와 저장된 분석 결과 adapter 실행/검증, CFD 승인 차단 통합 테스트 | 현재 Phase 3 작업 | 모든 분석/시뮬 도구의 동일한 validate/prepare/execute/persist adapter 계약; explanation wiring |
+| ORCH-003 | RUN_ANALYSIS, RUN_SIMULATION, RUN_OPTIMIZATION, REQUEST_DATA, REVIEW_RESULT, GENERATE_EXPLANATION, ABSTAIN 구조화 행동 | P0 | IN_PROGRESS | RuleBasedDecisionPolicy, registry API/UI | 연구 목표 입력 선택, RUN_DATA_VALIDATION, 중복 분석 보류, 실제 API action 테스트 | 현재 Phase 3 작업 | 모든 action 실행 계약, 정책 평가셋, JEV 인터페이스 통합 (학습 head 없음) |
 | ORCH-004 | Gemma는 필요 입력을 질문하고 결과를 설명하되 측정/계산/근거를 창작하지 않음; 대화 전체를 KV에 오래 쌓지 않고 정제 요약/기록으로 필요한 맥락만 조회 | P1 | IN_PROGRESS | backend/app/services/llm.py, assistant interaction, docs/AI_ARCHITECTURE.md | local provider/evidence boundary 일부 구현 | 기존 | 정보 요청·저장·재개, 요약 품질, KV/RAM 실제 벤치마크 |
 | OPT-001 | BO 문제에 입력변수 범위/고정변수, 목표 결과·방향, constraints, 비용, 반복수, 불확도, 승인관측값, 실측/시뮬 분리를 정의 | P0 | IN_PROGRESS | approved observations API | 승인된 input/outcome projection·uncertainty/source 일부 | 0ccad66 | OptimizationProblem API/UI/schema 미구현 |
 | OPT-002 | Ridge 등 단순 대리모델을 baseline으로 하고 논문·실험 누수 없는 split/OOD를 사용; 문헌 backtest를 앱 추천 성능이라 하지 않음 | P1 | IMPLEMENTED | scripts/evaluate_benchmark_backtest.py, docs/BENCHMARK_BACKTEST_REPORT.md | 논문별 holdout 결과와 한계 설명 | report existing | 앱 campaign 데이터로 independent validation |
@@ -196,7 +225,7 @@
 
 ## 다음 Phase 및 우선순위
 
-현재는 **Phase 1 미완료 항목**을 우선한다.
+Phase 3는 핵심 조각을 연결했지만 전체 orchestration 완료는 아니다. 다음은 typed adapters/실패관리/통합 UI를 보완하고 Phase 1 데이터 검토·권한·migration report 작업을 계속한다.
 
 1. standard observations의 원본값/normalized 값/단위/오류/출처를 비교하고 검토하는 화면.
 2. analysis와 observation의 REVIEWED→ACCEPTED/REJECTED→재검토를 한 계약으로 정리하고 인증된 reviewer 권한 경계 설계.
@@ -204,7 +233,7 @@
 4. SQLite foreign_key_check/orphan audit, migration 전용 복구본 restore, 기존 데이터 보존 테스트 자동화.
 5. migration/backfill 건수와 오류를 기록할 영속 report 추가.
 
-그 뒤 RAG transaction/citation 및 검색평가, typed tool readiness와 실제 검증 adapter, 모델/BO용 문제 정의, JEV 평가 데이터, 실기기 자원 벤치마크, 제한된 폐루프 순으로 진행한다. JEV/BO 미구현 상태를 완료라고 표시하지 않는다.
+그 뒤 PHREEQC 전하/종 검증, 모든 도구의 typed adapter 및 공통 실행상태 UI, durable queue와 CI, RAG transaction/citation 및 검색평가, BO 문제 정의, JEV 평가 데이터, 실기기 자원 벤치마크, 제한된 폐루프 순으로 진행한다. JEV/BO 미구현 상태를 완료라고 표시하지 않는다.
 
 ## 다음 작업 실행 체크리스트
 
@@ -221,4 +250,4 @@
 
 | 날짜 | 변경 | 검증 근거 |
 |---|---|---|
-| 2026-10-30 | 전체 개선 프롬프트, 다음 단계 데이터 신뢰성 프롬프트, 기존 제품 흐름과 감사/설계자료를 단일 ID 로드맵으로 통합. VERIFIED/IMPLEMENTED를 분리하고 미구현 JEV·BO·Early Exit을 명시. | 0ccad66; 81 backend tests; npm build; Alembic 0003 및 로컬 API/DB 확인. 문서 변경 자체는 미커밋. |
+| 2026-10-30 | 전체 개선 프롬프트, Phase 3 요구사항, 이전 제품 흐름과 감사자료를 ID 로드맵으로 통합. 문헌 출처 오분류 수정, goal 기반 tool policy, PHREEQC 실행/검증/persist 및 일부 UI를 추가. | 89 backend tests; npm build; real PHREEQC calculation; 265 local observations source audit. Phase 3 변경은 이번 작업 커밋에 연결할 예정. |

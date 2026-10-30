@@ -3,11 +3,13 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from typing import Any, Literal, Protocol
+import math
+import re
 
 from app.services.simulation.openfoam import plan_simple_rushton_case
 from app.services.simulation.readiness import assess_simulation_inputs
 
-Readiness = Literal["READY", "MISSING_INPUT", "UNSUPPORTED", "UNAVAILABLE", "REQUIRES_REVIEW", "ABSTAIN"]
+Readiness = Literal["READY", "ALREADY_ANALYZED", "REANALYSIS_REQUIRED", "MISSING_INPUT", "UNSUPPORTED", "UNAVAILABLE", "REQUIRES_REVIEW", "ABSTAIN"]
 
 
 @dataclass(frozen=True)
@@ -65,10 +67,11 @@ class ScientificStateBuilder:
             for variable in step.get("variables", []):
                 conditions.append({"step_name":step.get("name"),"step_order":step.get("order_index"),
                     "name":variable.get("name"),"value":variable.get("value"),"unit":variable.get("unit"),"material":variable.get("material")})
-        modalities=sorted({str(item.get("modality", "")).lower() for item in analysis_runs or [] if item.get("analysis_status")=="completed"})
+        modalities=sorted({str(item.get("modality", "")).lower() for item in analysis_runs or []})
         return {"experiment_id":record.get("id"),"topic_id":record.get("topic_id"),"method_version_id":record.get("method_version_id"),
             "demo":bool(record.get("demo")),"status":record.get("status"),"conditions":conditions,"materials":record.get("materials",[]),
-            "result_keys":[item.get("key") for item in record.get("results",[])],"available_modalities":modalities}
+            "result_keys":[item.get("key") for item in record.get("results",[])],"available_modalities":modalities,
+            "analysis_runs":[{k:item.get(k) for k in ("id","modality","tool_id","analysis_status","review_status","sha256","result") if k in item} for item in analysis_runs or []]}
 
 
 class DecisionPolicy(Protocol):
@@ -82,16 +85,29 @@ class ExplanationProvider(Protocol):
 
 class RuleBasedDecisionPolicy:
     """Safe baseline policy; replaceable by a learned JEV DecisionPolicy later."""
-    def choose(self, state: dict, recommendations: list[dict]) -> dict:
-        ready=[item for item in recommendations if item["readiness"]=="READY"]
+    def choose(self, state: dict, recommendations: list[dict], goal: str = "") -> dict:
+        goal_text=goal.casefold()
+        if any(x in goal_text for x in ("quality","검증","누락","단위")):
+            return {"action":"RUN_DATA_VALIDATION","tool_id":"experiment.data_quality.v1","reason":"The requested goal is record and unit validation.","confidence":"rule_match"}
+        targets=("xrd" if any(x in goal_text for x in ("xrd","diffraction","회절","결정상")) else
+                 "afm" if any(x in goal_text for x in ("afm","roughness","거칠기","표면")) else
+                 "microscopy" if any(x in goal_text for x in ("sem","tem","microscopy","현미경","입자")) else
+                 "phreeqc" if any(x in goal_text for x in ("phreeqc","speciation","equilibrium","수용액","화학종","포화")) else
+                 "data_quality" if any(x in goal_text for x in ("quality","검증","누락","단위")) else None)
+        ready=[item for item in recommendations if item["readiness"]=="READY" and item["category"] != "data_quality"]
+        if targets:
+            ready=[item for item in ready if item["tool_id"].startswith(targets)]
+        relevant=[item for item in recommendations if not targets or item["tool_id"].startswith(targets)]
         if ready:
             selected=ready[0]
-            action={"analysis":"RUN_ANALYSIS","simulation":"RUN_SIMULATION","data_quality":"GENERATE_EXPLANATION"}.get(selected["category"],"ABSTAIN")
+            action={"analysis":"RUN_ANALYSIS","simulation":"RUN_SIMULATION"}.get(selected["category"],"ABSTAIN")
             return {"action":action,
                 "tool_id":selected["tool_id"],"reason":"A registered tool is compatible with the recorded input; execution still requires the validation gate.","confidence":"rule_match"}
-        if any(item["readiness"]=="REQUIRES_REVIEW" for item in recommendations):
+        if targets and any(item["readiness"]=="ALREADY_ANALYZED" for item in recommendations if item["tool_id"].startswith(targets)):
+            return {"action":"ABSTAIN","tool_id":None,"reason":"The requested analysis is already present; no duplicate run was selected.","confidence":"rule_match"}
+        if any(item["readiness"]=="REQUIRES_REVIEW" for item in relevant):
             return {"action":"REVIEW_RESULT","tool_id":None,"reason":"A candidate requires human or model-scope review before use.","confidence":"rule_match"}
-        if any(item["readiness"]=="MISSING_INPUT" for item in recommendations):
+        if any(item["readiness"]=="MISSING_INPUT" for item in relevant):
             return {"action":"REQUEST_DATA","tool_id":None,"reason":"Potentially relevant tools need additional recorded inputs.","confidence":"rule_match"}
         return {"action":"ABSTAIN","tool_id":None,"reason":"No registered tool is currently applicable.","confidence":"rule_match"}
 
@@ -120,37 +136,78 @@ class ResultValidator:
     @staticmethod
     def validate(tool: ToolDefinition, result: object) -> dict:
         if not isinstance(result, dict): return {"valid":False,"reason":"result_must_be_structured_object"}
-        return {"valid":True,"tool_id":tool.tool_id,"notice":"Output schema validation is metadata-only until this tool adapter is connected."}
+        if not result: return {"valid":False,"reason":"result_must_not_be_empty"}
+        numbers=[]
+        def walk(value):
+            if isinstance(value, bool) or value is None: return
+            if isinstance(value, (int,float)):
+                numbers.append(float(value))
+            elif isinstance(value, dict):
+                for child in value.values(): walk(child)
+            elif isinstance(value, (list,tuple)):
+                for child in value: walk(child)
+        walk(result)
+        if any(not math.isfinite(value) for value in numbers): return {"valid":False,"reason":"non_finite_numeric_output"}
+        if tool.tool_id.startswith("phreeqc.") and not result.get("model_id", "").startswith("PHREEQC"):
+            return {"valid":False,"reason":"phreeqc_model_provenance_missing"}
+        if tool.tool_id=="phreeqc.aqueous_equilibrium.v1" and not all(key in result for key in ("input_pH","aqueous_species","saturation_indices")):
+            return {"valid":False,"reason":"phreeqc_equilibrium_outputs_missing"}
+        if tool.tool_id=="phreeqc.aqueous_sweep.v1" and not isinstance(result.get("points"),list):
+            return {"valid":False,"reason":"phreeqc_sweep_points_missing"}
+        if tool.tool_id.startswith("xrd.") and "peaks" not in result and "observed_peaks" not in result:
+            return {"valid":False,"reason":"xrd_peak_output_missing"}
+        if tool.tool_id.startswith("afm.") and not any(key in result for key in ("Sa_nm","Sq_nm","Sz_nm","Sa","Sq","Sz")):
+            return {"valid":False,"reason":"afm_roughness_output_missing"}
+        if tool.tool_id.startswith("microscopy.") and not any(key in result for key in ("component_count","object_count")):
+            return {"valid":False,"reason":"microscopy_component_output_missing"}
+        return {"valid":True,"tool_id":tool.tool_id,"numeric_values_checked":len(numbers)}
 
 
-def recommend_tools(record: dict, analysis_runs: list[dict], *, openfoam_installed: bool = False, openfoam_template_available: bool = False) -> dict:
+def _number_with_unit(value: object, unit: object) -> float | None:
+    match=re.search(r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?",str(value or ""))
+    if not match: return None
+    try:
+        parsed=float(match.group())
+        return parsed if math.isfinite(parsed) else None
+    except ValueError: return None
+
+def recommend_tools(record: dict, analysis_runs: list[dict], *, goal: str = "", openfoam_installed: bool = False, openfoam_template_available: bool = False) -> dict:
     registry=ToolRegistry()
     state=ScientificStateBuilder.build(record,analysis_runs)
     modalities=set(state["available_modalities"])
-    condition_names={str(item.get("name", "")).casefold().replace("_", " ") for item in state["conditions"]}
+    conditions=state["conditions"]
+    condition_names={str(item.get("name", "")).casefold().replace("_", " ") for item in conditions}
     normalized=" ".join(condition_names)
     output=[]
     for tool in registry.list():
         item={**tool,"readiness":"UNAVAILABLE","missing_inputs":[],"reason":"Tool is not available for this record."}
         if tool["tool_id"]=="experiment.data_quality.v1":
-            item.update(readiness="READY",missing_inputs=[],reason="Record fields can be checked without changing data.")
+            item.update(readiness="READY",missing_inputs=[],reason="Record fields can be checked without changing data.",action="RUN_DATA_VALIDATION")
         elif tool["tool_id"]=="experiment.compare.v1":
             item.update(readiness="MISSING_INPUT",missing_inputs=["a second eligible experiment"],reason="Select a compatible record pair to compare.")
         elif tool["tool_id"].startswith("xrd."):
-            if "xrd" in modalities: item.update(readiness="REQUIRES_REVIEW" if "cod" in tool["tool_id"] else "READY",missing_inputs=[],reason="An analyzed XRD measurement is linked to this record.")
-            else: item.update(readiness="MISSING_INPUT",missing_inputs=["XRD measurement"],reason="Link an XRD measurement to this record first.")
+            runs=[run for run in analysis_runs if str(run.get("modality","")).lower()=="xrd"]
+            completed=any(run.get("analysis_status")=="completed" and (tool["tool_id"]!="xrd.cod_phase_candidates.v1" or (run.get("result") or {}).get("observed_peaks")) for run in runs)
+            item.update(readiness="ALREADY_ANALYZED" if completed and tool["tool_id"]=="xrd.local_peaks.v1" else "REQUIRES_REVIEW" if completed else "MISSING_INPUT",missing_inputs=[] if runs else ["XRD measurement"],reason="An XRD analysis is already recorded." if completed else "XRD input requires analysis; upload through the measurement analysis workflow.")
         elif tool["tool_id"].startswith("afm."):
-            item.update(readiness="READY" if "afm" in modalities else "MISSING_INPUT",missing_inputs=[] if "afm" in modalities else ["AFM height map"],reason="AFM measurement is available." if "afm" in modalities else "No AFM measurement is linked.")
+            runs=[run for run in analysis_runs if str(run.get("modality","")).lower()=="afm"]
+            done=any(run.get("analysis_status")=="completed" for run in runs)
+            item.update(readiness="ALREADY_ANALYZED" if done else "MISSING_INPUT",missing_inputs=[] if runs else ["calibrated AFM height map"],reason="AFM analysis is already recorded." if done else "A calibrated height map is required; upload through measurement analysis.")
         elif tool["tool_id"].startswith("microscopy."):
             found=bool(modalities.intersection({"sem","tem"}))
-            item.update(readiness="READY" if found else "MISSING_INPUT",missing_inputs=[] if found else ["SEM/TEM image"],reason="Microscopy measurement is available." if found else "No SEM/TEM image is linked.")
+            runs=[run for run in analysis_runs if str(run.get("modality","")).lower() in {"sem","tem"}]
+            done=any(run.get("analysis_status")=="completed" for run in runs)
+            item.update(readiness="ALREADY_ANALYZED" if done else "MISSING_INPUT",missing_inputs=[] if found else ["SEM/TEM image and calibrated pixel size"],reason="Microscopy analysis is already recorded." if done else "Image analysis runs when a scale-calibrated measurement is uploaded.")
         elif tool["tool_id"].startswith("phreeqc."):
             base_missing=[]
-            if "ph" not in normalized: base_missing.append("pH")
-            if "temperature" not in normalized: base_missing.append("temperature")
-            if not any(token in normalized for token in ("concentration","total","amount","molality")): base_missing.append("dissolved totals")
+            pH=[v for v in conditions if "ph"==str(v.get("name","")).casefold().replace("_"," ") and _number_with_unit(v.get("value"),v.get("unit")) is not None and str(v.get("unit") or "pH").casefold() in {"ph",""}]
+            temp=[v for v in conditions if "temp" in str(v.get("name","")).casefold() and _number_with_unit(v.get("value"),v.get("unit")) is not None and str(v.get("unit") or "").casefold() in {"°c","c","degc","k","°k"}]
+            totals=[v for v in conditions if str(v.get("unit") or "").casefold() in {"mol/kgw","mol/kg","molal","mol/l","mmol/l"} and _number_with_unit(v.get("value"),v.get("unit")) is not None and any(element.casefold() in str(v.get("name","")).casefold() for element in ("zn","ca","mg","na","k","cl","si","al","fe","cu","c","s"))]
+            if not pH: base_missing.append("measured pH with pH unit")
+            if not temp: base_missing.append("temperature with °C or K unit")
+            if not totals: base_missing.append("identified dissolved-element totals with concentration units")
             item.update(readiness="MISSING_INPUT" if base_missing else "REQUIRES_REVIEW",missing_inputs=base_missing,
-                reason="Required solution inputs are not all recorded." if base_missing else "Chemistry database and solution consistency must be reviewed before calculation.")
+                reason="Required solution inputs with valid values and units are not all recorded." if base_missing else "Electroneutrality, species mapping, selected phases, and database compatibility require explicit review.")
         elif tool["tool_id"].startswith("openfoam."):
             plan=plan_simple_rushton_case(record)
             if not openfoam_installed: readiness="UNAVAILABLE"; reason="OpenFOAM is not installed or reachable in the configured VM."
@@ -159,12 +216,12 @@ def recommend_tools(record: dict, analysis_runs: list[dict], *, openfoam_install
             else: readiness="REQUIRES_REVIEW"; reason="Compatible inputs exist; inspect the case and approve its external VM run."
             item.update(readiness=readiness,missing_inputs=plan.get("missing",[]),reason=reason)
         else:
-            related=[name for name in condition_names if any(token in name for token in ("rpm","spin","coating","temperature","time"))]
-            item.update(readiness="MISSING_INPUT" if not related else "REQUIRES_REVIEW",missing_inputs=list(tool["required_inputs"]) if not related else [],reason="Related fields alone do not prove this model's inputs are complete; review its required parameters.")
+            item.update(readiness="MISSING_INPUT",missing_inputs=list(tool["required_inputs"]),
+                reason="This tool does not yet have a typed input validator connected; related variable names are not treated as proof of readiness.")
         item["validation_gate"]=ValidationGate.validate(item)
         output.append(item)
     policy=RuleBasedDecisionPolicy()
-    decision=policy.choose(state,output)
+    decision=policy.choose(state,output,goal)
     selected=next((item for item in output if item["tool_id"]==decision.get("tool_id")),None)
     prepared=ToolExecutor(registry).prepare(selected["tool_id"],selected) if selected else None
     return {"state":state,"recommendations":output,"decision":decision,"prepared_invocation":prepared,

@@ -116,6 +116,13 @@ def backup_before_schema_upgrade():
         source.close()
     return destination
 
+def classify_observation_source(experiment, variable=None, *, is_result=False):
+    if experiment.demo or (variable is not None and variable.source_type=="demo"):
+        return "SYNTHETIC_DEMO"
+    if experiment.status=="reference" or (variable is not None and variable.source_type in {"literature","reference","paper"}):
+        return "LITERATURE"
+    return "LAB_RESULT" if is_result else "LAB_RECORD"
+
 def backfill_scientific_observations():
     """Copy legacy scalar records into an additive view; never edit source rows."""
     db=SessionLocal()
@@ -132,20 +139,31 @@ def backfill_scientific_observations():
                 if observation.method_version_id is None:
                     observation.method_version_id = source_experiment.method_version_id
         existing={row[0] for row in db.query(ScientificObservation.source_id).all()}
+        # Correct legacy reference rows in the normalized view. The original
+        # experiment and its scalar values remain untouched.
+        by_source={row.source_id:row for row in db.query(ScientificObservation).all()}
         for experiment in db.query(Experiment).all():
             for step in experiment.steps:
                 for variable in step.variables:
                     source_id=f"process-variable:{variable.id}"
-                    if source_id in existing: continue
-                    source_type="SYNTHETIC_DEMO" if experiment.demo or variable.source_type=="demo" else "LAB_RECORD"
+                    source_type=classify_observation_source(experiment,variable)
+                    if source_id in existing:
+                        observation=by_source.get(source_id)
+                        if observation and source_type=="LITERATURE" and observation.source_type in {"LAB_RECORD","LAB_RESULT"}:
+                            observation.source_type="LITERATURE"
+                        continue
                     db.add(make_observation(topic_id=experiment.topic_id,experiment_id=experiment.id,method_version_id=experiment.method_version_id,
                         process_step_id=step.id,step_name=step.name,name=variable.name,value=variable.value,unit=variable.unit,
                         material=variable.material,source_type=source_type,source_id=source_id))
                     existing.add(source_id)
             for result in experiment.results:
                 source_id=f"experiment-result:{result.id}"
-                if source_id in existing: continue
-                source_type="SYNTHETIC_DEMO" if experiment.demo else "LAB_RESULT"
+                source_type=classify_observation_source(experiment,is_result=True)
+                if source_id in existing:
+                    observation=by_source.get(source_id)
+                    if observation and source_type=="LITERATURE" and observation.source_type in {"LAB_RECORD","LAB_RESULT"}:
+                        observation.source_type="LITERATURE"
+                    continue
                 db.add(make_observation(topic_id=experiment.topic_id,experiment_id=experiment.id,method_version_id=experiment.method_version_id,
                     process_step_id=None,step_name="experiment result",name=result.key,value=result.value,unit=result.unit,
                     source_type=source_type,source_id=source_id))

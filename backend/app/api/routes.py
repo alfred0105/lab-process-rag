@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, selectinload
 from app.db.database import ROOT, SessionLocal, get_db
 from app.db.models import Experiment, ExperimentMaterial, ExperimentMethod, MethodVersion, ResearchTopic, ResearchMaterial, Paper, EvidenceChunk, PaperSummary, ProcessStep, ProcessVariable, ExperimentResult, FailureObservation, ExperimentEnvironmentRecord, ProcessStepLog, ExperimentAttachment, ProcessStageExperiment, AssistantInteraction, MaterialAnalysisRun, IntegratedAnalysisSession, SimulationRun, ScientificObservation, MeasurementReviewEvent
-from app.schemas.core import AssistantAsk, SimulationInputReviewRequest, ProcessVariableUpdate, ExperimentMaterialIn, AnalysisExplanation, IntegratedAnalysisRequest, IntegratedAnalysisClaim, DecisionBrief, DecisionOption, DecisionChoiceRequest, MeasurementReviewRequest, Claim, EvidenceStatus, ExperimentIn, ResearchTopicIn, ResearchMaterialIn, MethodIn, DesignRequest, ProcessChange, StepLogIn, StageExperimentIn, PHEstimateRequest, AqueousEquilibriumRequest, AqueousSweepRequest, StirredReactionPathRequest
+from app.schemas.core import AssistantAsk, SimulationInputReviewRequest, ProcessVariableUpdate, ExperimentMaterialIn, AnalysisExplanation, IntegratedAnalysisRequest, IntegratedAnalysisClaim, DecisionBrief, DecisionOption, DecisionChoiceRequest, MeasurementReviewRequest, Claim, EvidenceStatus, ExperimentIn, ResearchTopicIn, ResearchMaterialIn, MethodIn, DesignRequest, ProcessChange, StepLogIn, StageExperimentIn, PHEstimateRequest, AqueousEquilibriumRequest, AqueousSweepRequest, StirredReactionPathRequest, ToolExecutionRequest
 from app.services.ingestion.pdf import MAX_PDF_SIZE_BYTES, ingest_pdf
 from app.services.retrieval.provider import SQLiteFTSProvider
 from app.services.experiment.compare import compare
@@ -36,7 +36,7 @@ from app.services.material_analysis.service import AnalysisInputError, analyze a
 from app.services.material_analysis.phase_match import ReferenceDatabaseUnavailable, match_xrd_phases
 from app.services.benchmark_data import BenchmarkDataError, catalog as benchmark_catalog, dataset_records as benchmark_records, summarize as summarize_benchmark
 from app.services.scientific_data import make_observation
-from app.services.tool_registry import ToolRegistry, recommend_tools
+from app.services.tool_registry import ToolRegistry, ResultValidator, recommend_tools
 router=APIRouter(); retrieval=SQLiteFTSProvider()
 
 ANALYSIS_ROOT = ROOT / "data" / "material-analysis"
@@ -306,13 +306,87 @@ def tool_registry():
         "learned_jev_head_available":False,"runtime_and_memory":"Not measured for each tool; null values mean unknown."}
 
 @router.get("/experiments/{experiment_id}/tools/recommend")
-def recommend_experiment_tools(experiment_id:int,db:Session=Depends(get_db)):
+def recommend_experiment_tools(experiment_id:int,goal:str=Query("",max_length=500),db:Session=Depends(get_db)):
     experiment=exp_query(db).filter_by(id=experiment_id).first()
     if not experiment: raise HTTPException(404,"Experiment not found")
     runs=[serialize_analysis(item) for item in db.query(MaterialAnalysisRun).filter_by(experiment_id=experiment_id).all()]
     status=simulation_status()
-    return recommend_tools(serialize_exp(experiment),runs,openfoam_installed=status["openfoam_installed"],
+    return recommend_tools(serialize_exp(experiment),runs,goal=goal,openfoam_installed=status["openfoam_installed"],
         openfoam_template_available=status["openfoam_template_available"])
+
+@router.post("/tools/execute")
+def execute_scientific_tool(payload:ToolExecutionRequest,db:Session=Depends(get_db)):
+    """Execute only explicitly supported deterministic adapters and persist provenance."""
+    experiment=exp_query(db).filter_by(id=payload.experiment_id).first()
+    if not experiment: raise HTTPException(404,"Experiment not found")
+    tool=ToolRegistry().get(payload.tool_id)
+    if not tool: raise HTTPException(404,"Unknown scientific tool")
+    if payload.tool_id.startswith("openfoam."):
+        raise HTTPException(409,"OpenFOAM requires the separate geometry review and explicit VM approval workflow")
+    if payload.tool_id.startswith(("xrd.","afm.","microscopy.")):
+        run=db.get(MaterialAnalysisRun,payload.analysis_run_id) if payload.analysis_run_id else None
+        if not run or run.experiment_id!=experiment.id: raise HTTPException(422,"Select an analysis run linked to this experiment")
+        if run.tool_id!=payload.tool_id: raise HTTPException(422,"Selected tool does not match the saved analysis run")
+        if run.analysis_status!="completed": raise HTTPException(409,"Analysis is not complete; upload the original measurement through the analysis workflow")
+        checked=ResultValidator.validate(tool,run.result_json or {})
+        if not checked["valid"]: raise HTTPException(422,{"reason":"saved_analysis_output_invalid","validation":checked})
+        return {"status":"ALREADY_ANALYZED","tool_id":tool.tool_id,"analysis_run":serialize_analysis(run),"validation":checked,
+            "provenance":{"original_sha256":run.sha256,"algorithm_version":(run.result_json or {}).get("algorithm_version","unknown"),"persisted":True}}
+    if payload.tool_id=="experiment.data_quality.v1":
+        record=serialize_exp(experiment)
+        issues=[]
+        for step in record["steps"]:
+            for variable in step["variables"]:
+                if not str(variable.get("value","")).strip(): issues.append({"step":step["name"],"field":variable["name"],"issue":"missing_value"})
+                if variable.get("value") and not variable.get("unit"): issues.append({"step":step["name"],"field":variable["name"],"issue":"missing_unit"})
+        return {"status":"completed","tool_id":tool.tool_id,"result":{"issue_count":len(issues),"issues":issues,"checked_conditions":sum(len(step["variables"]) for step in record["steps"])},"source":"saved_experiment_record"}
+    if payload.tool_id not in {"phreeqc.aqueous_equilibrium.v1","phreeqc.aqueous_sweep.v1"}:
+        raise HTTPException(501,"This registered tool has no executable adapter yet")
+    try:
+        if payload.tool_id=="phreeqc.aqueous_equilibrium.v1":
+            parameters=AqueousEquilibriumRequest.model_validate(payload.inputs).model_dump()
+            runner=calculate_aqueous_equilibrium
+        else:
+            parameters=AqueousSweepRequest.model_validate(payload.inputs).model_dump()
+            parameters.pop("pH",None)
+            runner=sweep_aqueous_equilibrium
+    except Exception as exc:
+        raise HTTPException(422,f"Tool input validation failed: {exc}")
+    if any(not math.isfinite(float(value)) for value in parameters.get("totals_molal",{}).values()):
+        raise HTTPException(422,"Concentration inputs must be finite numbers")
+    model_id="PHREEQC-3 / phreeqc.dat"
+    existing=db.query(SimulationRun).filter_by(experiment_id=experiment.id,model_id=tool.tool_id,status="completed",input_json=parameters).order_by(SimulationRun.id.desc()).first()
+    if existing:
+        return {"status":"REUSED","tool_id":tool.tool_id,"simulation_run_id":existing.id,"result":existing.result_json,"provenance":{"input":existing.input_json,"model_id":model_id}}
+    started=datetime.utcnow()
+    try: result=runner(**parameters)
+    except Exception as exc:
+        failure=SimulationRun(experiment_id=experiment.id,model_id=tool.tool_id,status="failed",input_json=parameters,
+            log_text="PHREEQC adapter failed before producing a result.",error_text=str(exc)[:4000],started_at=started,finished_at=datetime.utcnow())
+        db.add(failure); db.commit()
+        if isinstance(exc,RuntimeError): raise HTTPException(503,str(exc))
+        if isinstance(exc,ValueError): raise HTTPException(422,str(exc))
+        raise HTTPException(422,f"Scientific tool failed: {exc}")
+    validation=ResultValidator.validate(tool,result)
+    if not validation["valid"]:
+        failure=SimulationRun(experiment_id=experiment.id,model_id=tool.tool_id,status="invalid_output",input_json=parameters,
+            result_json=result,log_text="PHREEQC returned output that failed scientific schema validation.",error_text=str(validation),started_at=started,finished_at=datetime.utcnow())
+        db.add(failure); db.commit()
+        raise HTTPException(422,{"reason":"scientific_output_validation_failed","validation":validation})
+    result={**result,"provenance":{"tool_id":tool.tool_id,"tool_version":tool.version,"model_id":model_id,"input":parameters,
+        "assumptions":result.get("limitations",[]),"validation":validation,"started_at":started.isoformat()+"Z"}}
+    run=SimulationRun(experiment_id=experiment.id,model_id=tool.tool_id,status="completed",input_json=parameters,result_json=result,
+        log_text="PHREEQC adapter completed and passed output validation.",started_at=started,finished_at=datetime.utcnow())
+    db.add(run); db.flush()
+    for key,value in result.items():
+        if isinstance(value,(int,float)) and not isinstance(value,bool) and math.isfinite(float(value)):
+            db.add(make_observation(topic_id=experiment.topic_id,experiment_id=experiment.id,method_version_id=experiment.method_version_id,
+                process_step_id=None,step_name="PHREEQC simulation",name=key,value=value,
+                unit={"temperature_c":"degC","input_pH":"pH","calculated_pH":"pH"}.get(key),source_type="SIMULATION",
+                source_id=f"simulation-run:{run.id}:{key}",review_status="COMPUTED"))
+    db.commit(); db.refresh(run)
+    return {"status":"completed","tool_id":tool.tool_id,"simulation_run_id":run.id,"result":run.result_json,
+        "validation":validation,"provenance":{"input":parameters,"model_id":model_id,"tool_version":tool.version}}
 
 def serialize_analysis(item: MaterialAnalysisRun):
     history=item.review_events or []
