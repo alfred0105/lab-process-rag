@@ -1,8 +1,10 @@
 # Phase 5 Stage 3 — Scientific State V2 and Robust Generalization
 
-**Status:** `IN_PROGRESS` pending pushed GitHub Actions verification (real laboratory decision validity remains unverified)
+**Status:** `PHASE_5_STAGE_3_IMPLEMENTED` (software acceptance; real laboratory decision validity remains unverified)
 **Scope:** P5-S3-001–012 from the Stage 3 implementation directive.
-**Evidence:** `backend/reports/phase5_stage3_generalization.json`, `backend/tests/test_phase5_stage3.py`, full project test/build/CI results recorded below after verification.
+**Implementation commit:** `43a7f7d53285e85f760a295672c12fc35c5e455e`
+**CI:** [GitHub Actions run 41196292332](https://github.com/alfred0105/lab-process-rag/actions/runs/41196292332) — all jobs passed.
+**Evidence:** `backend/reports/phase5_stage3_generalization.json`, `backend/tests/test_phase5_stage3.py`, and full project test/build/CI results below.
 
 ## What changed
 
@@ -48,7 +50,7 @@ The public benchmark endpoint always uses the five fixed seeds; no single-seed m
 | P5-S3-009 | VERIFIED | Separate V1/V2 schema checks and version-aware model loader; V1 regressions retained | Historical V1 state cannot recover fields never recorded |
 | P5-S3-010 | VERIFIED | Stage 2 source/snapshot/feedback gates retained; V2 API prediction regression confirms shadow-only | Reviewer identity remains self-attributed as documented in Stage 2 |
 | P5-S3-011 | VERIFIED | Existing Decision UI includes V2 inspect/build/train/predict/benchmark flow; production build | Browser-level visual acceptance is limited to project E2E coverage |
-| P5-S3-012 | IN_PROGRESS | Benchmark script/report, local backend/frontend/E2E/migration evidence below; remote CI pending push | Actual reviewed research validation remains pending |
+| P5-S3-012 | VERIFIED | Reproducible benchmark report; 213 backend tests, production build, 5 browser E2E, migration regression, and GitHub Actions run 41196292332 all passed | Actual reviewed research validation remains pending |
 
 ## Five-seed synthetic benchmark
 
@@ -65,7 +67,7 @@ The frozen condition-shift family has 48 cases per seed at the 576-sample benchm
 - Alembic migration compatibility: migration regression in the full backend suite passed.
 - Phase 3/4 and Stage 1/2 regression: covered by the same full backend suite and passed.
 - Five-seed benchmark: `backend/.venv/bin/python backend/scripts/benchmark_phase5_stage3.py` — passed; report saved in `backend/reports/phase5_stage3_generalization.json`.
-- GitHub Actions: pending the Stage 3 commit/push; add the run URL after remote verification.
+- GitHub Actions: [run 41196292332](https://github.com/alfred0105/lab-process-rag/actions/runs/41196292332) — backend, frontend build, and browser E2E jobs all passed for implementation commit `43a7f7d53285e85f760a295672c12fc35c5e455e`.
 
 ## Limitations / next phase boundary
 
