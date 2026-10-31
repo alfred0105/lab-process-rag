@@ -64,4 +64,6 @@ test('PHREEQC planner accepts structured analytical inputs only after explicit a
   expect(persisted.nodes.find((node: {tool_id:string}) => node.tool_id === 'phreeqc.aqueous_equilibrium.v1')?.result_id).toBe(phreeqcNode.result_id);
   const afterRefreshRuns = await (await page.request.get(`/api/analysis/simulation-runs?topic_id=${topicId}`)).json();
   expect(afterRefreshRuns.find((row: {id:number}) => row.id === phreeqcNode.result_id)?.results?.provenance?.tool_id).toBe('phreeqc.aqueous_equilibrium.v1');
+  const stopped = await page.request.post('/__e2e/stop-worker');
+  expect(stopped.ok()).toBeTruthy();
 });

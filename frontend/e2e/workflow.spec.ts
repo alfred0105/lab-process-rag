@@ -60,5 +60,13 @@ test('isolated topic can plan, enqueue, reload, and inspect a durable XRD run', 
   const failedCard = page.locator('.workflow-job').filter({ hasText: `Workflow #${failedId}` });
   await expect(failedCard.locator('.workflow-node.failed')).toBeVisible({ timeout: 30_000 });
   await failedCard.getByRole('button', { name: '재시도' }).click();
+  await expect.poll(async () => {
+    const response = await page.request.get(`/api/workflows/${failedId}?topic_id=${failedPayload.workflow.topic_id}`);
+    if (!response.ok()) return 0;
+    const workflow = await response.json();
+    return workflow.nodes.find((node: {tool_id:string}) => node.tool_id === 'xrd.local_peaks.v1')?.attempt ?? 0;
+  }, { timeout: 30_000 }).toBe(2);
   await expect(failedCard.locator('.workflow-node.failed')).toBeVisible({ timeout: 30_000 });
+  const stopped = await page.request.post('/__e2e/stop-worker');
+  expect(stopped.ok()).toBeTruthy();
 });
