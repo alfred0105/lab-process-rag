@@ -59,6 +59,15 @@ def _align_tree_proba(model, x):
     return output
 
 
+def _hash_feature_records(rows, indexes=None):
+    """Hash stable 8-decimal feature vectors to avoid platform float repr drift."""
+    import hashlib
+    selected=range(len(rows)) if indexes is None else indexes
+    payload=[{"group":rows[i]["group_id"],"features":np.round(rows[i]["features_v2"],8).tolist(),"label":rows[i]["action"]} for i in selected]
+    encoded=json.dumps(payload,sort_keys=True,separators=(",",":"),allow_nan=False).encode()
+    return hashlib.sha256(encoded).hexdigest()
+
+
 def _temperature_from_calibration(probabilities, labels):
     """Fit a scalar temperature from calibration probabilities only."""
     y=np.asarray([ACTION_NAMES.index(a) for a in labels]);logits=np.log(np.maximum(probabilities,1e-12));best=(1.0,float("inf"))
@@ -461,7 +470,7 @@ def run_stage4_suite(*,seeds=SEEDS,samples_per_seed=576,final_samples=576):
     for i,label in enumerate(rp):rprob[i,ACTION_NAMES.index(label)]=1.0
     candidates["rule"]=rprob
     final_metrics={name:_metric_report(fytest,prob) for name,prob in candidates.items()}
-    evaluation_hash=__import__('hashlib').sha256(json.dumps([{"group":fresh_groups[i],"features":fx2[i].tolist(),"label":fy[i]} for i in ftest],sort_keys=True,separators=(",",":"),default=str).encode()).hexdigest()
+    evaluation_hash=_hash_feature_records(final_records,ftest)
     development_summary={}
     names=sorted({name for row in development for name in row["models"]})
     for name in names:
@@ -499,7 +508,7 @@ def run_stage4_suite(*,seeds=SEEDS,samples_per_seed=576,final_samples=576):
             "safety_reasoning":"Scientific validity gates, distribution shift, and low classification confidence are reported separately.",
             "limitation":"Constructed synthetic shifts do not cover all deployment OOD states."},
         "final_evaluation":{"report_version":STAGE4_VERSION,"protocol_version":EVALUATION_PROTOCOL,
-            "dataset_hash":__import__('hashlib').sha256(json.dumps([{"group":r["group_id"],"features":r["features_v2"].tolist(),"label":r["action"]} for r in final_records],sort_keys=True,separators=(",",":"),default=str).encode()).hexdigest(),
+            "dataset_hash":_hash_feature_records(final_records),
             "evaluation_hash":evaluation_hash,
             "sample_count":len(ftest),"fit_count":len(ffit),"calibration_count":len(fcal),"fit_groups":len(set(fresh_groups[i] for i in ffit)),
             "calibration_groups":len(set(fresh_groups[i] for i in fcal)),"evaluation_groups":len(set(fresh_groups[i] for i in ftest)),
@@ -508,7 +517,7 @@ def run_stage4_suite(*,seeds=SEEDS,samples_per_seed=576,final_samples=576):
             "candidate_selected_on_development_only":selected,"development_summary":{n:development_summary[n] for n in main_candidates},
             "selected_baseline_contract":{"model_name":selected,"model_version":{"v1":"learned-decision-mlp-v1","v2":"learned-decision-structured-v2","hist_gradient_boosting":"sklearn-hist-gradient-boosting-stage4","rule":"RuleBasedDecisionPolicy","v2_class_weighted":"learned-decision-structured-v2-weighted","v2_group_balanced_sampling":"learned-decision-structured-v2-balanced","v2_core_subset":"learned-decision-structured-v2-core-subset","v2_fusion_32":"learned-decision-structured-v2-fusion32"}[selected],
                 "feature_schema_version":FEATURE_SCHEMA_VERSION_V2 if selected not in {"v1","rule"} else "scientific-decision-features-v1" if selected=="v1" else None,
-                "dataset_hash":__import__('hashlib').sha256(json.dumps([{"group":r["group_id"],"features":r["features_v2"].tolist(),"label":r["action"]} for r in final_records],sort_keys=True,separators=(",",":"),default=str).encode()).hexdigest(),
+            "dataset_hash":_hash_feature_records(final_records),
             "evaluation_hash":evaluation_hash,
                 "calibration_policy":"Temperature scaling fitted on calibration partition only; evaluated once on fresh synthetic holdout.",
                 "ood_policy":"No candidate was activated. OOD detector candidates remain diagnostic; thresholds use ID calibration quantiles only.",

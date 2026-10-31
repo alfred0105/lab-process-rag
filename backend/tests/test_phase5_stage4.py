@@ -3,6 +3,7 @@ import numpy as np
 
 from app.services.phase5_stage4 import (
     _make_fresh_final,
+    _hash_feature_records,
     _metric_report,
     _ood_variant_matrix,
     _risk_coverage,
@@ -61,3 +62,11 @@ def test_stage4_fixture_keeps_explicit_observed_state_encoding():
     vector, metadata = extract_features(row["state"])
     np.testing.assert_allclose(vector, row["features_v2"])
     assert metadata["schema_version"] == FEATURE_SCHEMA["schema_version"]
+
+
+def test_dataset_hash_is_stable_after_sub_precision_float_drift():
+    rows = _make_fresh_final(seed=51, samples=12)
+    first = _hash_feature_records(rows)
+    for row in rows:
+        row["features_v2"] = row["features_v2"] + 1e-10
+    assert _hash_feature_records(rows) == first

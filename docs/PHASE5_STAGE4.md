@@ -16,8 +16,9 @@ HistGradientBoosting scored development mean accuracy **0.864** and macro-F1 **0
 
 - Development uses seeds `11, 29, 47, 71, 101`, 576 independent groups per seed and group-disjoint fit/calibration/evaluation splits.
 - Fresh final data uses protocol `phase5-stage4-fresh-synthetic-protocol-v2`, a different state-generation recipe, 576 unique groups, then a fixed grouped fit/calibration/evaluation split. It is generated after the candidate-selection code and rule are fixed. It is scored once by the checked-in benchmark script.
-- Final dataset SHA-256: `afa8d87512f3f038f48d42f6d5fd1d33804838f679ee354f4669104d829f8a8f`.
+- Final dataset SHA-256: `a518485878f73e57f4a1ee99309906224e87a41f0a99ad46a41e59953e8d813d`.
 - Final evaluation SHA-256 is recorded in `phase5_stage4_final_evaluation.json` and the baseline contract.
+- Hash input rounds encoded features to eight decimal places before canonical JSON hashing, preventing insignificant floating-point serialization differences across local and CI dependency/platform builds. Labels and group IDs remain exact.
 - No generated label is sourced from a paper or lab record. All candidates remain shadow-only; none triggers a workflow.
 
 ## Findings by acceptance item
