@@ -1,6 +1,6 @@
 # Phase 5 Stage 4 — Decision Reliability, OOD Robustness & Generalization
 
-**Status:** implementation and local verification complete; final v3 CI verification pending.
+**Status:** `PHASE_5_STAGE_4_VERIFIED` for software acceptance; reviewed laboratory validity remains open.
 **Scope:** P5-S4-001–012, software-only decision reliability evaluation.
 **Data limitation:** every Stage 4 label, shift and final holdout is synthetic. Results do not measure scientific correctness or real laboratory performance.
 
@@ -36,7 +36,7 @@ HistGradientBoosting scored development mean accuracy **0.864** and macro-F1 **0
 | P5-S4-009 | One fresh, recipe-versioned synthetic evaluation is group-independent from development and is never used for candidate or threshold selection. | Final counts, hashes, group overlap and candidate metrics are frozen in final JSON. | VERIFIED |
 | P5-S4-010 | The development-only rule selects the compact-enough score winner among candidates within 0.05 of best mean accuracy. | The selected diagnostic baseline is HistGradientBoosting. It is not activated; V1/V2 production shadow behavior remains unchanged. | VERIFIED |
 | P5-S4-011 | Phase 6 input/output, versioning, validity, calibration/OOD hooks and safe-action contract are specified without implementing a Transformer, Early Exit or conditional LM. | [`PHASE6_READINESS.md`](PHASE6_READINESS.md) | VERIFIED |
-| P5-S4-012 | Existing source isolation, frozen evaluation, V1/V2, safe action and shadow constraints are protected by full backend, frontend, E2E, migration and CI regressions. | Local full suite passed; final protocol v3 CI run is pending. | IN_PROGRESS |
+| P5-S4-012 | Existing source isolation, frozen evaluation, V1/V2, safe action and shadow constraints are protected by full backend, frontend, E2E, migration and CI regressions. | Full backend, frontend, browser E2E, migration and final v3 benchmark passed locally/CI; v3 hash matches. | VERIFIED |
 
 ## OOD result and limits
 
@@ -82,5 +82,5 @@ The selection is a **benchmark reference**, not a production champion. Tree-base
 - Final dataset SHA-256: `9cf6023aa69cfa69f96648bd399b248d8e06ebcfc735c8804980da35ad5fe2aa`. Feature vectors are rounded to 8 decimal places for cross-platform hash stability; the evaluation SHA-256 is stored in the final report and selected baseline contract.
 - Frontend production build: passed locally and in CI (Vite 6.4.5; 1,760 modules). Browser E2E: **5 passed** locally and in CI. The multi-objective five-seed browser test receives a 240-second ceiling because a shared CI runner exceeded the former 90-second limit; its assertions remain enabled.
 - Migration regression: **1 passed**; no schema migration was required.
-- Previous protocol-v2 integration CI [run 41209545732](https://github.com/alfred0105/lab-process-rag/actions/runs/41209545732) passed backend, frontend, browser E2E and benchmark. The final protocol-v3 CI run is pending. The slow multi-objective E2E now has a 240-second ceiling; its assertions are unchanged.
-- Implementation commits: `9ad141e` (Stage 3 JSON closure and Stage 4), `107d73c` (cross-platform hash stability), `6382c8d` (CI E2E timeout allowance); final v3 evaluation update pending commit.
+- Final protocol-v3 CI [run 41210175232](https://github.com/alfred0105/lab-process-rag/actions/runs/41210175232) passed all three jobs. Backend reported **223 passed, 332 deprecation warnings**; frontend production build passed; browser E2E reported **5 passed**; CI benchmark reproduced dataset SHA-256 `9cf6023aa69cfa69f96648bd399b248d8e06ebcfc735c8804980da35ad5fe2aa`, exactly matching the checked-in report. The multi-objective E2E completed in 1.5 minutes under its 240-second ceiling; assertions remain enabled. The prior protocol-v2 run is historical and superseded.
+- Implementation commits: `9ad141e` (Stage 3 JSON closure and Stage 4), `107d73c` (cross-platform hash stability), `6382c8d` (CI E2E timeout allowance), `c5d6ef2` (frozen final v3 evaluation and reports). Deprecation warnings are non-failing; they include Python `datetime.utcnow()` use in existing code/tests and GitHub Actions' Node 20 transition notice.
