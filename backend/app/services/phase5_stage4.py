@@ -25,7 +25,8 @@ from app.services.scientific_state_v2 import (
 )
 
 STAGE4_VERSION = "phase5-stage4-reliability-v1"
-EVALUATION_PROTOCOL = "phase5-stage4-fresh-synthetic-protocol-v2"
+EVALUATION_PROTOCOL = "phase5-stage4-fresh-synthetic-protocol-v3"
+FINAL_EVALUATION_SEED = 90422
 RISK_TARGET = 0.20
 ID_FPR_TARGET = 0.05
 
@@ -443,7 +444,7 @@ def run_stage4_suite(*,seeds=SEEDS,samples_per_seed=576,final_samples=576):
             "final_actions":dict(Counter(r["action"] for r in safe)),"evaluation_labels":dict(Counter(ytest))}
         development.append(entry)
     # Candidate list/protocol is frozen before new final data generation and run once.
-    final_records=_make_fresh_final(samples=final_samples);fx2=np.vstack([r["features_v2"] for r in final_records]);fy=[r["action"] for r in final_records]
+    final_records=_make_fresh_final(seed=FINAL_EVALUATION_SEED,samples=final_samples);fx2=np.vstack([r["features_v2"] for r in final_records]);fy=[r["action"] for r in final_records]
     fresh_groups=[r["group_id"] for r in final_records];ffit,fcal,ftest=split_groups(fresh_groups,seed=190731)
     # Train a fixed comparison set on the fresh protocol's training/validation rows; never fit on final test.
     # Selection is based on development medians; final evaluation is descriptive and immutable.
@@ -508,6 +509,7 @@ def run_stage4_suite(*,seeds=SEEDS,samples_per_seed=576,final_samples=576):
             "safety_reasoning":"Scientific validity gates, distribution shift, and low classification confidence are reported separately.",
             "limitation":"Constructed synthetic shifts do not cover all deployment OOD states."},
         "final_evaluation":{"report_version":STAGE4_VERSION,"protocol_version":EVALUATION_PROTOCOL,
+            "generation_seed":FINAL_EVALUATION_SEED,
             "dataset_hash":_hash_feature_records(final_records),
             "evaluation_hash":evaluation_hash,
             "sample_count":len(ftest),"fit_count":len(ffit),"calibration_count":len(fcal),"fit_groups":len(set(fresh_groups[i] for i in ffit)),
