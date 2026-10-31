@@ -5,6 +5,8 @@
 **External scientific validation:** `PENDING`  
 **Decision scope:** software implementation and synthetic numerical behavior only. The repository has no approved research training set, so no experimental predictive accuracy or ZnO-process performance is claimed.
 
+**Full regression evidence:** 189 backend tests passed, frontend production build passed, Playwright browser E2E passed 3/3, and GitHub Actions [run 41171379861](https://github.com/alfred0105/lab-process-rag/actions/runs/41171379861) passed all three jobs for `5e52d38`.
+
 This record implements the Phase 4 Stage 2 request while retaining the Stage 1 GP/BO API, model storage and Stage 1 JSON compatibility. It is additive to [`MASTER_ROADMAP.md`](MASTER_ROADMAP.md) and the prior Phase 3 / Stage 1 records.
 
 ## Acceptance ledger
@@ -55,4 +57,4 @@ The benchmark runner writes deterministic settings and measurements to `backend/
 
 ## Phase decision
 
-The 12 Stage 2 software acceptance items are implemented and verified by local unit/integration tests, production build, browser E2E, and the latest pushed CI run recorded in `MASTER_ROADMAP.md`. This closes Stage 2 only. Phase 4 remains `IN_PROGRESS`; approved real research data, external scientific validation, posterior-region visualization, richer validation folds, nonlinear constraints and later multi-objective/batch optimization remain outside this stage.
+The 12 Stage 2 software acceptance items are implemented and verified by local unit/integration tests, production build, browser E2E, and GitHub Actions [run 41171379861](https://github.com/alfred0105/lab-process-rag/actions/runs/41171379861). This closes Stage 2 only. Phase 4 remains `IN_PROGRESS`; approved real research data, external scientific validation, posterior-region visualization, richer validation folds, nonlinear constraints and later multi-objective/batch optimization remain outside this stage.
