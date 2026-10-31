@@ -1,0 +1,601 @@
+{
+  "benchmark_version": "gpbo-moo-stage3-1",
+  "mode": "sandbox",
+  "benchmarks": {
+    "ZDT1": {
+      "policies": {
+        "random_feasible_search": {
+          "runs": [
+            {
+              "seed": 7,
+              "hypervolume": 7.286115718470896,
+              "pareto_front_size": 4,
+              "dominated_candidate_ratio": 0.6,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.38793757590308725,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.00026045800041174516
+            },
+            {
+              "seed": 8,
+              "hypervolume": 7.617141309509232,
+              "pareto_front_size": 2,
+              "dominated_candidate_ratio": 0.8,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.5810466140809691,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.00017479099915362895
+            },
+            {
+              "seed": 9,
+              "hypervolume": 8.309152506885678,
+              "pareto_front_size": 2,
+              "dominated_candidate_ratio": 0.8,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.3774251585044797,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.00017850000585895032
+            },
+            {
+              "seed": 10,
+              "hypervolume": 7.839753526841821,
+              "pareto_front_size": 5,
+              "dominated_candidate_ratio": 0.5,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.45891666726203145,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.00018887500482378528
+            },
+            {
+              "seed": 11,
+              "hypervolume": 9.261355657489318,
+              "pareto_front_size": 2,
+              "dominated_candidate_ratio": 0.8,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.4296499003794556,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.00016116700135171413
+            }
+          ],
+          "median_hypervolume": 7.839753526841821,
+          "mean_hypervolume": 8.06270374383939,
+          "mean_hypervolume_regret_to_reference": 2.693414607595855,
+          "median_pareto_front_size": 2.0,
+          "feasible_recommendation_rate": 1.0,
+          "duplicate_candidate_rate": 0.0,
+          "batch_diversity_mean_distance": 0.44699518322600457,
+          "median_runtime_seconds": 0.00017850000585895032
+        },
+        "scalarized_gp": {
+          "runs": [
+            {
+              "seed": 7,
+              "hypervolume": 9.553658633503254,
+              "pareto_front_size": 3,
+              "dominated_candidate_ratio": 0.7,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.5093367280259153,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.05571283400058746
+            },
+            {
+              "seed": 8,
+              "hypervolume": 10.262824549191697,
+              "pareto_front_size": 2,
+              "dominated_candidate_ratio": 0.8,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.2044259587221823,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.08111691699741641
+            },
+            {
+              "seed": 9,
+              "hypervolume": 9.969204844296113,
+              "pareto_front_size": 4,
+              "dominated_candidate_ratio": 0.6,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.787222225263153,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.056057249996229075
+            },
+            {
+              "seed": 10,
+              "hypervolume": 9.685762560801328,
+              "pareto_front_size": 5,
+              "dominated_candidate_ratio": 0.5,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.3071468249416915,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.07225237500097137
+            },
+            {
+              "seed": 11,
+              "hypervolume": 10.10114647243828,
+              "pareto_front_size": 3,
+              "dominated_candidate_ratio": 0.7,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.43617417050620144,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.06603283299773466
+            }
+          ],
+          "median_hypervolume": 9.969204844296113,
+          "mean_hypervolume": 9.914519412046136,
+          "mean_hypervolume_regret_to_reference": 0.8415989393891099,
+          "median_pareto_front_size": 3.0,
+          "feasible_recommendation_rate": 1.0,
+          "duplicate_candidate_rate": 0.0,
+          "batch_diversity_mean_distance": 0.44886118149182874,
+          "median_runtime_seconds": 0.06603283299773466
+        },
+        "single_mc_ehvi": {
+          "runs": [
+            {
+              "seed": 7,
+              "hypervolume": 9.735663098779227,
+              "pareto_front_size": 4,
+              "dominated_candidate_ratio": 0.6,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.43673822875043444,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.2852464589959709
+            },
+            {
+              "seed": 8,
+              "hypervolume": 9.87915756460591,
+              "pareto_front_size": 2,
+              "dominated_candidate_ratio": 0.8,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.2210216588581555,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.25161279200256104
+            },
+            {
+              "seed": 9,
+              "hypervolume": 10.127177498885315,
+              "pareto_front_size": 4,
+              "dominated_candidate_ratio": 0.6,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.259091373522073,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.23875587500515394
+            },
+            {
+              "seed": 10,
+              "hypervolume": 10.126720133659976,
+              "pareto_front_size": 3,
+              "dominated_candidate_ratio": 0.7,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.45591325549454864,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.24010608299431624
+            },
+            {
+              "seed": 11,
+              "hypervolume": 10.206611353196047,
+              "pareto_front_size": 4,
+              "dominated_candidate_ratio": 0.6,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.141070408810106,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.24593429200467654
+            }
+          ],
+          "median_hypervolume": 10.126720133659976,
+          "mean_hypervolume": 10.015065929825296,
+          "mean_hypervolume_regret_to_reference": 0.7410524216099492,
+          "median_pareto_front_size": 4.0,
+          "feasible_recommendation_rate": 1.0,
+          "duplicate_candidate_rate": 0.0,
+          "batch_diversity_mean_distance": 0.3027669850870635,
+          "median_runtime_seconds": 0.24593429200467654
+        },
+        "greedy_batch_mc_hvi": {
+          "runs": [
+            {
+              "seed": 7,
+              "hypervolume": 9.80684369892538,
+              "pareto_front_size": 4,
+              "dominated_candidate_ratio": 0.6,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.19614995633017693,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.5279203749960288
+            },
+            {
+              "seed": 8,
+              "hypervolume": 9.641360006554732,
+              "pareto_front_size": 3,
+              "dominated_candidate_ratio": 0.7,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.2131512458756157,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.3984247500047786
+            },
+            {
+              "seed": 9,
+              "hypervolume": 10.231642499263538,
+              "pareto_front_size": 4,
+              "dominated_candidate_ratio": 0.6,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.4632992970898851,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.4115287079985137
+            },
+            {
+              "seed": 10,
+              "hypervolume": 10.111775051565306,
+              "pareto_front_size": 4,
+              "dominated_candidate_ratio": 0.6,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.28727033551721953,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.39601854200009257
+            },
+            {
+              "seed": 11,
+              "hypervolume": 9.895623010977728,
+              "pareto_front_size": 4,
+              "dominated_candidate_ratio": 0.6,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.8082112615168242,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.44847520800249185
+            }
+          ],
+          "median_hypervolume": 9.895623010977728,
+          "mean_hypervolume": 9.937448853457337,
+          "mean_hypervolume_regret_to_reference": 0.8186694979779073,
+          "median_pareto_front_size": 4.0,
+          "feasible_recommendation_rate": 1.0,
+          "duplicate_candidate_rate": 0.0,
+          "batch_diversity_mean_distance": 0.39361641926594426,
+          "median_runtime_seconds": 0.4115287079985137
+        }
+      },
+      "reference_point": [
+        1.1,
+        10.1
+      ],
+      "reference_hypervolume": 10.756118351435244,
+      "reference_front_source": "analytical ZDT1 front",
+      "seeds": [
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "evaluation_budget_per_policy_per_seed": 10,
+      "initial_design_size": 6,
+      "objective_directions": [
+        "minimize",
+        "minimize"
+      ]
+    },
+    "Branin-Currin": {
+      "policies": {
+        "random_feasible_search": {
+          "runs": [
+            {
+              "seed": 7,
+              "hypervolume": 2.0369384446348144,
+              "pareto_front_size": 3,
+              "dominated_candidate_ratio": 0.7,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.38793757590308725,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.00026529199385549873
+            },
+            {
+              "seed": 8,
+              "hypervolume": 2.130155164423317,
+              "pareto_front_size": 2,
+              "dominated_candidate_ratio": 0.8,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.5810466140809691,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.00019375000556465238
+            },
+            {
+              "seed": 9,
+              "hypervolume": 2.1646161363315497,
+              "pareto_front_size": 1,
+              "dominated_candidate_ratio": 0.9,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.3774251585044797,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.00022420899767894298
+            },
+            {
+              "seed": 10,
+              "hypervolume": 2.4156773662406295,
+              "pareto_front_size": 3,
+              "dominated_candidate_ratio": 0.7,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.45891666726203145,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.00019225000141886994
+            },
+            {
+              "seed": 11,
+              "hypervolume": 2.0727828767891814,
+              "pareto_front_size": 1,
+              "dominated_candidate_ratio": 0.9,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.4296499003794556,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.00017695900169201195
+            }
+          ],
+          "median_hypervolume": 2.130155164423317,
+          "mean_hypervolume": 2.1640339976838985,
+          "mean_hypervolume_regret_to_reference": 0.30707572735344535,
+          "median_pareto_front_size": 2.0,
+          "feasible_recommendation_rate": 1.0,
+          "duplicate_candidate_rate": 0.0,
+          "batch_diversity_mean_distance": 0.44699518322600457,
+          "median_runtime_seconds": 0.00019375000556465238
+        },
+        "scalarized_gp": {
+          "runs": [
+            {
+              "seed": 7,
+              "hypervolume": 2.3156150916160563,
+              "pareto_front_size": 2,
+              "dominated_candidate_ratio": 0.8,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.2593165051073788,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.021517249995667953
+            },
+            {
+              "seed": 8,
+              "hypervolume": 2.400492786089053,
+              "pareto_front_size": 3,
+              "dominated_candidate_ratio": 0.7,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.3241099317851851,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.025268958001106512
+            },
+            {
+              "seed": 9,
+              "hypervolume": 2.3730121561027535,
+              "pareto_front_size": 3,
+              "dominated_candidate_ratio": 0.7,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.4553207984778942,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.02456499999971129
+            },
+            {
+              "seed": 10,
+              "hypervolume": 2.211662367372906,
+              "pareto_front_size": 4,
+              "dominated_candidate_ratio": 0.6,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.3148612259538878,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.023723874997813255
+            },
+            {
+              "seed": 11,
+              "hypervolume": 2.1797213835113607,
+              "pareto_front_size": 3,
+              "dominated_candidate_ratio": 0.7,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.3510817465965718,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.02285649999976158
+            }
+          ],
+          "median_hypervolume": 2.3156150916160563,
+          "mean_hypervolume": 2.2961007569384257,
+          "mean_hypervolume_regret_to_reference": 0.1750089680989179,
+          "median_pareto_front_size": 3.0,
+          "feasible_recommendation_rate": 1.0,
+          "duplicate_candidate_rate": 0.0,
+          "batch_diversity_mean_distance": 0.34093804158418356,
+          "median_runtime_seconds": 0.023723874997813255
+        },
+        "single_mc_ehvi": {
+          "runs": [
+            {
+              "seed": 7,
+              "hypervolume": 2.069738630373112,
+              "pareto_front_size": 3,
+              "dominated_candidate_ratio": 0.7,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.3781386749249472,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.18292891699820757
+            },
+            {
+              "seed": 8,
+              "hypervolume": 2.395284408617682,
+              "pareto_front_size": 5,
+              "dominated_candidate_ratio": 0.5,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.2695758647907873,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.28241500000149244
+            },
+            {
+              "seed": 9,
+              "hypervolume": 2.4106946328194065,
+              "pareto_front_size": 3,
+              "dominated_candidate_ratio": 0.7,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.39157723794488764,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.19441104200086556
+            },
+            {
+              "seed": 10,
+              "hypervolume": 2.2117178461182894,
+              "pareto_front_size": 4,
+              "dominated_candidate_ratio": 0.6,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.31079193942943767,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.1918782079956145
+            },
+            {
+              "seed": 11,
+              "hypervolume": 2.0727828767891814,
+              "pareto_front_size": 1,
+              "dominated_candidate_ratio": 0.9,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.4851947835336365,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.15251933300169185
+            }
+          ],
+          "median_hypervolume": 2.2117178461182894,
+          "mean_hypervolume": 2.2320436789435343,
+          "mean_hypervolume_regret_to_reference": 0.23906604609380944,
+          "median_pareto_front_size": 3.0,
+          "feasible_recommendation_rate": 1.0,
+          "duplicate_candidate_rate": 0.0,
+          "batch_diversity_mean_distance": 0.36705570012473926,
+          "median_runtime_seconds": 0.1918782079956145
+        },
+        "greedy_batch_mc_hvi": {
+          "runs": [
+            {
+              "seed": 7,
+              "hypervolume": 2.4156625163894283,
+              "pareto_front_size": 4,
+              "dominated_candidate_ratio": 0.6,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.4175595318229695,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.3806895839952631
+            },
+            {
+              "seed": 8,
+              "hypervolume": 2.392410203742902,
+              "pareto_front_size": 5,
+              "dominated_candidate_ratio": 0.5,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.16627451772633814,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.3791042919983738
+            },
+            {
+              "seed": 9,
+              "hypervolume": 2.4358713141380752,
+              "pareto_front_size": 3,
+              "dominated_candidate_ratio": 0.7,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.2723874909820756,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.3328710839996347
+            },
+            {
+              "seed": 10,
+              "hypervolume": 2.3900217087459916,
+              "pareto_front_size": 3,
+              "dominated_candidate_ratio": 0.7,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.35706543416470016,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.37242466699535726
+            },
+            {
+              "seed": 11,
+              "hypervolume": 2.073941810058175,
+              "pareto_front_size": 2,
+              "dominated_candidate_ratio": 0.8,
+              "feasible_recommendation_rate": 1.0,
+              "duplicate_candidate_rate": 0.0,
+              "batch_diversity_mean_distance": 0.4726366030924587,
+              "evaluation_budget": 10,
+              "runtime_seconds": 0.25413620899780653
+            }
+          ],
+          "median_hypervolume": 2.392410203742902,
+          "mean_hypervolume": 2.3415815106149145,
+          "mean_hypervolume_regret_to_reference": 0.12952821442242932,
+          "median_pareto_front_size": 3.0,
+          "feasible_recommendation_rate": 1.0,
+          "duplicate_candidate_rate": 0.0,
+          "batch_diversity_mean_distance": 0.33718471555770846,
+          "median_runtime_seconds": 0.37242466699535726
+        }
+      },
+      "reference_point": [
+        2.1,
+        0.2
+      ],
+      "reference_hypervolume": 2.4711097250373437,
+      "reference_front_source": "dense deterministic Branin-Currin grid approximation",
+      "seeds": [
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "evaluation_budget_per_policy_per_seed": 10,
+      "initial_design_size": 6,
+      "objective_directions": [
+        "minimize",
+        "minimize"
+      ]
+    }
+  },
+  "environment": {
+    "os": "Darwin",
+    "architecture": "arm64",
+    "python": "3.12.14"
+  },
+  "seed": 7,
+  "seeds": 5,
+  "evaluation_budget": 10,
+  "mc_samples": 32,
+  "candidate_pool_size": 48,
+  "runtime_seconds": 19.342352457999368,
+  "peak_rss_bytes_process_high_water": 75710464,
+  "notice": "Synthetic algorithm comparison for software validation only. No experimental evidence, scientific validity, causal claim, or recommendation success probability is established. Equal total objective-pair evaluation budgets are used within each seed."
+}

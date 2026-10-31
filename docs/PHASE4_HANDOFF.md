@@ -8,7 +8,7 @@ At the time of that snapshot Phase 4 had **not** started, while Phase 3 was stil
 
 ## Current phase transition — 2026-10-31
 
-Current official status: Phase 3 `PHASE_3_CORE_COMPLETE`; Phase 4 overall `IN_PROGRESS` with `PHASE_4_MVP_IMPLEMENTED`; Phase 5–7 `NOT_STARTED`. The phase distinction does not upgrade individual detailed audit rows. See [`PHASE3_TECHNICAL_BACKLOG.md`](PHASE3_TECHNICAL_BACKLOG.md) and [`PHASE3_EXTERNAL_VALIDATION.md`](PHASE3_EXTERNAL_VALIDATION.md). The Phase 4 MVP implementation and verification evidence are in the P4-MVP ledger in [`MASTER_ROADMAP.md`](MASTER_ROADMAP.md).
+Current official status before the Stage 3 remote CI gate: Phase 3 `PHASE_3_CORE_COMPLETE`; Phase 4 overall `IN_PROGRESS`, Stage 1 `PHASE_4_MVP_IMPLEMENTED`, Stage 2 `PHASE_4_STAGE_2_IMPLEMENTED`, Stage 3 `IN_PROGRESS`; Phase 5–7 `NOT_STARTED`. Stage 3's local implementation/tests and pending GitHub CI are tracked in [`PHASE4_STAGE3.md`](PHASE4_STAGE3.md). The phase distinction does not upgrade earlier detailed rows or assert real experimental performance. Approved-research validation remains `PENDING`.
 
 ## Phase 4 MVP implementation snapshot — 2026-10-31
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { optimizationApi, type OptimizationCandidate, type OptimizationDatasetOptions, type OptimizationModel } from '../api/client';
 import type { ResearchTopic } from '../types';
 import { useLanguage } from '../language';
+import MultiObjectivePanel from './MultiObjectivePanel';
 
 type Bound={min:string;max:string;unit:string};
 type ConstraintDraft={id:string;kind:'linear_inequality'|'linear_equality'|'variable_relation';parameterId:string;otherParameterId:string;sense:'le'|'ge';threshold:string;tolerance:string;unit:string};
@@ -187,6 +188,7 @@ export default function OptimizationPanel({topic}:{topic:ResearchTopic}){
     </section>}
     {benchmark&&<section className="card optimization-results"><div className="card-title">{t('Sandbox optimization comparison')} · {benchmark.function}</div><div className="optimization-metrics"><Metric label={t('Random Search median best')} value={benchmark.policies.random_search.median_best}/><Metric label={t('Latin Hypercube median best')} value={benchmark.policies.latin_hypercube.median_best}/><Metric label={t('GP + EI median best')} value={benchmark.policies.gp_ei.median_best}/><Metric label={t('GP + UCB median best')} value={benchmark.policies.gp_ucb.median_best}/></div><div className="card-sub">{benchmark.seeds} {t('seeds')} · {benchmark.initial_points} {t('shared initial points')} · {benchmark.additional_evaluations} {t('additional evaluations')} · {t('Lower objective is better')} · {t('Known optimum')}: {benchmark.known_global_minimum_approx}</div><p className="optimization-safety">{benchmark.notice}</p></section>}
     {stage2Benchmark&&<Stage2Benchmark result={stage2Benchmark} t={t}/>}
+    <MultiObjectivePanel topic={topic}/>
   </div>;
 }
 

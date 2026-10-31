@@ -32,3 +32,35 @@ test('isolated sandbox trains a GP, ranks candidates, and compares Branin baseli
   await expect(page.getByText('Phase 4 · Stage 2 합성 벤치마크')).toBeVisible();
   await expect(page.getByRole('heading',{name:/노이즈 최적화/})).toBeVisible();
 });
+
+test('multiobjective sandbox trains two GPs, shows Pareto hypervolume and persists a reviewed batch', async ({page})=>{
+  await page.goto('/');
+  await page.getByRole('button',{name:/Playwright isolated synthetic topic/}).click();
+  await page.getByRole('button',{name:'기타',exact:true}).click();
+  await page.getByRole('menuitem',{name:'Optimization'}).click();
+  await expect(page.getByText('다목적 최적화 · Pareto 추천')).toBeVisible();
+  const trained=page.waitForResponse(response=>response.url().includes('/optimization/multiobjective/models/train')&&response.request().method()==='POST');
+  const recommendationResponse=page.waitForResponse(response=>response.url().includes('/optimization/multiobjective/models/')&&response.url().endsWith('/recommend'));
+  await page.getByRole('button',{name:'두 목적 GP 학습 후 후보 묶음 추천'}).click();
+  const trainResponse=await trained;
+  expect(trainResponse.ok()).toBeTruthy();
+  const trainPayload=await trainResponse.json();
+  expect(trainPayload.model_type).toBe('gpbo-moo-stage3-1');
+  const recommendResponse=await recommendationResponse;
+  expect(recommendResponse.ok()).toBeTruthy();
+  const recommendation=await recommendResponse.json();
+  expect(recommendation.candidates).toHaveLength(2);
+  expect(recommendation.approval_status).toBe('PENDING_RESEARCHER_REVIEW');
+  await expect(page.getByText('2차원 Pareto 지도')).toBeVisible();
+  await expect(page.getByText(/연구자 검토 대기/).first()).toBeVisible();
+  await expect(page.getByText(new RegExp(`추천 ID: ${recommendation.recommendation_id}`))).toBeVisible();
+  const comparisonResponse=page.waitForResponse(response=>response.url().includes('/optimization/multiobjective/sandbox/benchmark/compare')&&response.request().method()==='POST');
+  await page.getByRole('button',{name:'다목적 알고리즘 비교 실행 · 5개 시드'}).click();
+  const comparison=await comparisonResponse;
+  expect(comparison.ok()).toBeTruthy();
+  const benchmark=await comparison.json();
+  expect(Object.keys(benchmark.benchmarks)).toEqual(['ZDT1','Branin-Currin']);
+  expect(benchmark.benchmarks.ZDT1.policies.greedy_batch_mc_hvi.runs).toHaveLength(5);
+  await expect(page.getByText('샌드박스 알고리즘 비교')).toBeVisible();
+  await expect(page.getByText(/Branin-Currin/).last()).toBeVisible();
+});
