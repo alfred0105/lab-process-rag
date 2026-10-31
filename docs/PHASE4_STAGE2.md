@@ -5,7 +5,7 @@
 **External scientific validation:** `PENDING`  
 **Decision scope:** software implementation and synthetic numerical behavior only. The repository has no approved research training set, so no experimental predictive accuracy or ZnO-process performance is claimed.
 
-**Full regression evidence:** 189 backend tests passed, frontend production build passed, Playwright browser E2E passed 3/3, and GitHub Actions [run 41171379861](https://github.com/alfred0105/lab-process-rag/actions/runs/41171379861) passed all three jobs for `5e52d38`.
+**Full regression evidence:** 189 backend tests passed, frontend production build passed, Playwright browser E2E passed 3/3, and GitHub Actions [run 41171942181](https://github.com/alfred0105/lab-process-rag/actions/runs/41171942181) passed all three jobs for `8376a8c`.
 
 This record implements the Phase 4 Stage 2 request while retaining the Stage 1 GP/BO API, model storage and Stage 1 JSON compatibility. It is additive to [`MASTER_ROADMAP.md`](MASTER_ROADMAP.md) and the prior Phase 3 / Stage 1 records.
 
@@ -57,4 +57,8 @@ The benchmark runner writes deterministic settings and measurements to `backend/
 
 ## Phase decision
 
-The 12 Stage 2 software acceptance items are implemented and verified by local unit/integration tests, production build, browser E2E, and GitHub Actions [run 41171379861](https://github.com/alfred0105/lab-process-rag/actions/runs/41171379861). This closes Stage 2 only. Phase 4 remains `IN_PROGRESS`; approved real research data, external scientific validation, posterior-region visualization, richer validation folds, nonlinear constraints and later multi-objective/batch optimization remain outside this stage.
+The 12 Stage 2 software acceptance items are implemented and verified by local unit/integration tests, production build, browser E2E, and GitHub Actions [run 41171942181](https://github.com/alfred0105/lab-process-rag/actions/runs/41171942181). This closes Stage 2 only. Phase 4 remains `IN_PROGRESS`; approved real research data, external scientific validation, posterior-region visualization, richer validation folds, nonlinear constraints and later multi-objective/batch optimization remain outside this stage.
+
+## Verification follow-up — browser worker isolation
+
+The first full CI run after the Stage 2 ledger commit exposed an existing E2E fixture-isolation race: the long-lived Worker started by the PHREEQC spec could claim the next spec's pending XRD workflow before that test exercised cancellation. The application calculation was correct; the E2E harness shared Worker lifetime across specs. `frontend/vite.config.js` now provides an isolated test-only stop endpoint, and the PHREEQC/XRD specs stop their Worker after exercising the workflow. This retains the real independent Worker process during each spec and prevents one spec from consuming another's fixture. The full browser suite passes locally and in run 41171942181. Related fix: `8376a8c`.
