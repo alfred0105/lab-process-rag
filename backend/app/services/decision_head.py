@@ -236,17 +236,37 @@ class LearnedDecisionHead:
 
 
 def split_by_group(labels: list[str], groups: list[str], *, seed: int=7, fraction: float=.25) -> tuple[np.ndarray,np.ndarray]:
-    if len(labels)!=len(groups) or len(set(groups))<2:
-        raise DecisionInputError("At least two independent decision groups are required")
-    rng=np.random.default_rng(seed); train=[]; valid=[]
-    for action in sorted(set(labels)):
-        indices=np.asarray([i for i,label in enumerate(labels) if label==action])
-        rng.shuffle(indices)
-        if len(indices)<2: raise DecisionInputError("Each action class needs two independent cases for grouped evaluation")
-        count=max(1,min(len(indices)-1,int(round(len(indices)*fraction))))
-        valid.extend(indices[:count].tolist()); train.extend(indices[count:].tolist())
-    train_groups={groups[i] for i in train}; valid_groups={groups[i] for i in valid}
-    if train_groups & valid_groups: raise DecisionInputError("Decision group leakage detected")
+    """Deterministic stratified holdout that assigns whole groups, never rows."""
+    if len(labels)!=len(groups) or len(set(groups))<2 or not 0 < fraction < 1:
+        raise DecisionInputError("At least two independent decision groups and a valid holdout fraction are required")
+    rng=np.random.default_rng(seed)
+    group_rows: dict[str,list[int]]={}; group_classes: dict[str,set[str]]={}
+    for i,(label,group) in enumerate(zip(labels,groups)):
+        if label not in ACTIONS: raise DecisionInputError("Unknown action in grouped split")
+        group_rows.setdefault(group,[]).append(i); group_classes.setdefault(group,set()).add(label)
+    class_groups={action:{g for g,classes in group_classes.items() if action in classes} for action in set(labels)}
+    if any(len(items)<2 for items in class_groups.values()):
+        raise DecisionInputError("Each action class needs at least two independent groups for grouped evaluation")
+    group_order=list(group_rows); rng.shuffle(group_order)
+    group_order.sort(key=lambda g:(min(len(class_groups[label]) for label in group_classes[g]),-len(group_rows[g])))
+    target_rows=max(1,int(round(len(labels)*fraction))); valid_groups:set[str]=set()
+    valid_class_groups={label:0 for label in class_groups}
+    remaining_class_groups={label:len(items) for label,items in class_groups.items()}
+    for group in group_order:
+        classes=group_classes[group]
+        for label in classes: remaining_class_groups[label]-=1
+        rows_now=sum(len(group_rows[g]) for g in valid_groups)
+        class_deficit=any(valid_class_groups[label]==0 for label in classes)
+        can_add=all(remaining_class_groups[label]>=1 for label in classes)
+        if can_add and (rows_now<target_rows or class_deficit):
+            valid_groups.add(group)
+            for label in classes: valid_class_groups[label]+=1
+    if not valid_groups or len(valid_groups)==len(group_rows):
+        raise DecisionInputError("Independent groups are insufficient for a leakage-free holdout")
+    train=[i for group,rows in group_rows.items() if group not in valid_groups for i in rows]
+    valid=[i for group,rows in group_rows.items() if group in valid_groups for i in rows]
+    if {groups[i] for i in train} & {groups[i] for i in valid}:
+        raise DecisionInputError("Decision group leakage detected")
     return np.asarray(train,dtype=int),np.asarray(valid,dtype=int)
 
 
@@ -274,12 +294,16 @@ def calibration_metrics(y_true: list[str], probabilities: np.ndarray) -> dict:
         "reliability_bins":bins,"risk_coverage":risk_coverage}
 
 
-def majority_metrics(y_true: list[str]) -> dict:
-    if not y_true:return {"sample_count":0}
-    majority=max(ACTIONS,key=lambda action:sum(label==action for label in y_true))
-    pred=[majority]*len(y_true)
-    return {"sample_count":len(y_true),"predicted_action":majority,"accuracy":sum(a==b for a,b in zip(y_true,pred))/len(y_true),
-            "macro_f1":float(np.mean([2*sum(a==c and b==c for a,b in zip(y_true,pred))/max(1,sum(a==c for a in pred)+sum(b==c for b in y_true)) for c in ACTIONS]))}
+def majority_metrics(training_labels: list[str], evaluation_labels: list[str]) -> dict:
+    """Select the baseline class from training data only; never inspect evaluation prevalence."""
+    if not training_labels or not evaluation_labels:
+        return {"sample_count":len(evaluation_labels),"status":"INSUFFICIENT_DATA"}
+    majority=max(ACTIONS,key=lambda action:(sum(label==action for label in training_labels),-ACTIONS.index(action)))
+    pred=[majority]*len(evaluation_labels)
+    return {"sample_count":len(evaluation_labels),"predicted_action":majority,"selected_from":"TRAINING_LABELS_ONLY",
+            "training_class_counts":{action:sum(label==action for label in training_labels) for action in ACTIONS},
+            "accuracy":sum(a==b for a,b in zip(evaluation_labels,pred))/len(evaluation_labels),
+            "macro_f1":float(np.mean([2*sum(a==c and b==c for a,b in zip(evaluation_labels,pred))/max(1,sum(a==c for a in pred)+sum(b==c for b in evaluation_labels)) for c in ACTIONS]))}
 
 
 def rule_metrics(states: list[dict], y_true: list[str]) -> dict:

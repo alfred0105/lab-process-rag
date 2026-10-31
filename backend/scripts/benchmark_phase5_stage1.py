@@ -34,7 +34,7 @@ def run(seed: int = 7) -> dict:
     ood_state=dict(states[0],accepted_observation_count=1000000)
     ood_state_status=model.is_ood(encode_state(ood_state))[0]
     unsupported_state=model.is_ood(encode_state({"accepted_observation_count":1}))[0]
-    metrics.update({"majority_baseline":majority_metrics([labels[i] for i in test]),
+    metrics.update({"majority_baseline":majority_metrics([labels[i] for i in fit],[labels[i] for i in test]),
         "rule_baseline":rule_metrics([states[i] for i in test],[labels[i] for i in test]),
         "training_loss_start":loss[0],"training_loss_end":loss[-1],"training_loss_decreased":loss[-1]<loss[0],
         "calibration_status":"TEMPERATURE_SCALED_ON_SEPARATE_GROUP_HOLDOUT" if calibrated else "INSUFFICIENT_CALIBRATION_DATA",

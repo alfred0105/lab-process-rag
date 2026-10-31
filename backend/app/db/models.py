@@ -425,6 +425,8 @@ class DecisionCase(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     topic_id: Mapped[int] = mapped_column(ForeignKey("research_topics.id", ondelete="CASCADE"), index=True)
     experiment_id: Mapped[int | None] = mapped_column(ForeignKey("experiments.id", ondelete="SET NULL"), nullable=True, index=True)
+    snapshot_id: Mapped[str | None] = mapped_column(ForeignKey("decision_snapshots.id", ondelete="SET NULL"), nullable=True, index=True)
+    feedback_id: Mapped[int | None] = mapped_column(ForeignKey("decision_feedback.id", ondelete="SET NULL"), nullable=True, index=True)
     case_group_id: Mapped[str] = mapped_column(String(200), index=True)
     state_json: Mapped[dict] = mapped_column(JSON, default=dict)
     features_json: Mapped[dict] = mapped_column(JSON, default=dict)
@@ -452,4 +454,111 @@ class DecisionModelRun(Base):
     model_json: Mapped[dict] = mapped_column(JSON, default=dict)
     metrics_json: Mapped[dict] = mapped_column(JSON, default=dict)
     provenance_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+class DecisionSnapshot(Base):
+    """Immutable state/features exactly as presented for one decision."""
+    __tablename__ = "decision_snapshots"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    topic_id: Mapped[int] = mapped_column(ForeignKey("research_topics.id", ondelete="CASCADE"), index=True)
+    experiment_id: Mapped[int | None] = mapped_column(ForeignKey("experiments.id", ondelete="SET NULL"), nullable=True, index=True)
+    method_version_id: Mapped[int | None] = mapped_column(ForeignKey("method_versions.id", ondelete="SET NULL"), nullable=True, index=True)
+    model_run_id: Mapped[int | None] = mapped_column(ForeignKey("decision_model_runs.id", ondelete="SET NULL"), nullable=True, index=True)
+    mode: Mapped[str] = mapped_column(String(20), index=True)
+    decision_timestamp: Mapped[datetime] = mapped_column(DateTime, index=True)
+    snapshot_timestamp: Mapped[datetime] = mapped_column(DateTime)
+    data_availability_timestamp: Mapped[datetime] = mapped_column(DateTime)
+    state_json: Mapped[dict] = mapped_column(JSON)
+    feature_vector_json: Mapped[list] = mapped_column(JSON)
+    suggested_action: Mapped[str] = mapped_column(String(40))
+    probabilities_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    ood_status: Mapped[str] = mapped_column(String(30), default="UNKNOWN")
+    feature_schema_version: Mapped[str] = mapped_column(String(40))
+    source_observation_ids_json: Mapped[list] = mapped_column(JSON, default=list)
+    source_analysis_ids_json: Mapped[list] = mapped_column(JSON, default=list)
+    source_simulation_ids_json: Mapped[list] = mapped_column(JSON, default=list)
+    source_optimization_model_ids_json: Mapped[list] = mapped_column(JSON, default=list)
+    provenance_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    snapshot_hash: Mapped[str] = mapped_column(String(64), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+class DecisionFeedback(Base):
+    """Append-only researcher response to one model recommendation."""
+    __tablename__ = "decision_feedback"
+    __table_args__ = (UniqueConstraint("snapshot_id", "model_run_id", "revision", name="uq_decision_feedback_revision"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    topic_id: Mapped[int] = mapped_column(ForeignKey("research_topics.id", ondelete="CASCADE"), index=True)
+    snapshot_id: Mapped[str] = mapped_column(ForeignKey("decision_snapshots.id", ondelete="CASCADE"), index=True)
+    model_run_id: Mapped[int] = mapped_column(ForeignKey("decision_model_runs.id", ondelete="CASCADE"), index=True)
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+    feedback_type: Mapped[str] = mapped_column(String(20), index=True)
+    suggested_action: Mapped[str] = mapped_column(String(40))
+    final_reviewed_action: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    reviewer: Mapped[str] = mapped_column(String(200))
+    reviewer_identity_status: Mapped[str] = mapped_column(String(40), default="SELF_REPORTED_NOT_AUTHENTICATED")
+    review_reason: Mapped[str] = mapped_column(Text, default="")
+    review_status: Mapped[str] = mapped_column(String(30), default="RESEARCHER_REVIEWED", index=True)
+    label_source: Mapped[str] = mapped_column(String(50))
+    model_version: Mapped[str] = mapped_column(String(80))
+    original_probabilities_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    ood_status: Mapped[str] = mapped_column(String(30), default="UNKNOWN")
+    dataset_version: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    supersedes_feedback_id: Mapped[int | None] = mapped_column(ForeignKey("decision_feedback.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+class DecisionDatasetVersion(Base):
+    """Immutable, provenance-carrying training/evaluation dataset snapshot."""
+    __tablename__ = "decision_dataset_versions"
+    __table_args__ = (UniqueConstraint("topic_id", "mode", "dataset_version", name="uq_decision_dataset_topic_mode_version"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    topic_id: Mapped[int] = mapped_column(ForeignKey("research_topics.id", ondelete="CASCADE"), index=True)
+    mode: Mapped[str] = mapped_column(String(20), index=True)
+    dataset_version: Mapped[str] = mapped_column(String(80))
+    dataset_hash: Mapped[str] = mapped_column(String(64), index=True)
+    feature_schema_version: Mapped[str] = mapped_column(String(40))
+    label_mapping_version: Mapped[str] = mapped_column(String(40), default="decision-actions-v1")
+    case_count: Mapped[int] = mapped_column(Integer)
+    group_count: Mapped[int] = mapped_column(Integer)
+    action_distribution_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    missingness_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    source_summary_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    manifest_json: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+class DecisionModelComparison(Base):
+    """Evaluation report comparing two frozen models on the same held-out cases."""
+    __tablename__ = "decision_model_comparisons"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    topic_id: Mapped[int] = mapped_column(ForeignKey("research_topics.id", ondelete="CASCADE"), index=True)
+    mode: Mapped[str] = mapped_column(String(20), index=True)
+    champion_model_id: Mapped[int] = mapped_column(ForeignKey("decision_model_runs.id", ondelete="CASCADE"), index=True)
+    challenger_model_id: Mapped[int] = mapped_column(ForeignKey("decision_model_runs.id", ondelete="CASCADE"), index=True)
+    evaluation_hash: Mapped[str] = mapped_column(String(64), index=True)
+    comparison_status: Mapped[str] = mapped_column(String(30), index=True)
+    report_json: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+class DecisionActiveShadowModel(Base):
+    """One explicitly selected shadow model per topic and data mode."""
+    __tablename__ = "decision_active_shadow_models"
+    __table_args__ = (UniqueConstraint("topic_id", "mode", name="uq_decision_active_shadow_topic_mode"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    topic_id: Mapped[int] = mapped_column(ForeignKey("research_topics.id", ondelete="CASCADE"), index=True)
+    mode: Mapped[str] = mapped_column(String(20), index=True)
+    model_run_id: Mapped[int] = mapped_column(ForeignKey("decision_model_runs.id", ondelete="RESTRICT"), index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+class DecisionModelActivationEvent(Base):
+    """Append-only shadow activation and rollback audit trail."""
+    __tablename__ = "decision_model_activation_events"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    topic_id: Mapped[int] = mapped_column(ForeignKey("research_topics.id", ondelete="CASCADE"), index=True)
+    mode: Mapped[str] = mapped_column(String(20), index=True)
+    previous_model_id: Mapped[int | None] = mapped_column(ForeignKey("decision_model_runs.id", ondelete="SET NULL"), nullable=True)
+    new_model_id: Mapped[int] = mapped_column(ForeignKey("decision_model_runs.id", ondelete="RESTRICT"), index=True)
+    comparison_id: Mapped[int | None] = mapped_column(ForeignKey("decision_model_comparisons.id", ondelete="SET NULL"), nullable=True)
+    reviewer: Mapped[str] = mapped_column(String(200))
+    reviewer_identity_status: Mapped[str] = mapped_column(String(40), default="SELF_REPORTED_NOT_AUTHENTICATED")
+    action: Mapped[str] = mapped_column(String(20))
+    reason: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)

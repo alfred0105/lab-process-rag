@@ -1,8 +1,8 @@
 # Lab Process RAG — Master Roadmap
 
-**관리 기준일:** 2026-10-30
+**관리 기준일:** 2026-10-31
 **저장소:** [alfred0105/lab-process-rag](https://github.com/alfred0105/lab-process-rag)
-**검토 기준:** `main` at `06768b83e377e34ee11c86c86d7fa750f459949d` before this closure pass. Earlier entries preserve their historical commit references; the current Phase 4/5 state is recorded in the closure sections below.
+**검토 기준:** `main` at `86b8d84df7fbc748dffbfc2570ee7d6d068038f8` before Phase 5 Stage 2. Earlier entries preserve their historical commit references; the current Phase 4/5 state is recorded in the closure sections below.
 
 이 문서는 전체 개선 프롬프트(2026-10-30), 이후의 데이터 신뢰성 개선 프롬프트, 기존 감사·설계·검증 문서와 사용자가 확정한 제품 흐름을 통합 추적한다. 요구를 임의로 삭제하지 않는다. 범위가 바뀌면 원래 ID를 유지하고 변경 이유와 대체 방안을 기록한다.
 
@@ -29,11 +29,15 @@
 - 목표 하드웨어는 MacBook Air M5, 통합 메모리 24GB. AI 피크 약 12GB 목표는 전체 RAM 한도와 구분하고 실제 기기에서 측정한다.
 - 사용자가 선택한 Gemma 계열은 교체 가능한 백본 후보로 둔다. JEV는 실험에서 다음 행동/도구를 선택하는 별도 Decision Head이며 분석 도구를 대체하지 않는다. 모델 가중치는 저장소에 포함하지 않는다.
 
-## 최신 공식 상태 — 2026-10-31 Phase 4 core closure / Phase 5 Stage 1 kickoff
+## 최신 공식 상태 — 2026-10-31 Phase 4 core closure / Phase 5 Stage 2
 
 최신 개발 단계 결정: **Phase 3 `PHASE_3_CORE_COMPLETE`; Phase 4 `PHASE_4_CORE_COMPLETE`; Phase 5 `IN_PROGRESS`; Phase 6–8 `NOT_STARTED`**. Phase 3의 구체적 구현·테스트 근거는 [`PHASE3_CORE_COMPLETION.md`](PHASE3_CORE_COMPLETION.md), 비차단 검증 잔여분은 [`PHASE3_TECHNICAL_BACKLOG.md`](PHASE3_TECHNICAL_BACKLOG.md), 실제 연구실 및 CFD 검증은 [`PHASE3_EXTERNAL_VALIDATION.md`](PHASE3_EXTERNAL_VALIDATION.md)에서 관리한다. 과거 요구 ID와 감사 결과를 삭제하거나 일괄 `VERIFIED`로 승격하지 않는다. 핵심 완료 상태는 이 상세 상태 원장을 대신하지 않는다. 치명적인 데이터 무결성·승인 우회·잘못된 과학 handoff·보안 결함이 발견되면 단계 구분 없이 즉시 수정한다.
 
 Phase 4 Stage 1~3의 합의된 핵심 소프트웨어 범위는 완료되어 상위 상태를 `PHASE_4_CORE_COMPLETE`로 판정한다. 각 Stage 상태 및 합성 benchmark는 하단의 이력과 [`PHASE4_CORE_COMPLETION.md`](PHASE4_CORE_COMPLETION.md)에 기록한다. 실제 연구 성능은 [`PHASE4_EXTERNAL_VALIDATION.md`](PHASE4_EXTERNAL_VALIDATION.md)에서 `EXTERNAL_VALIDATION_PENDING`으로, 확장 기능은 [`PHASE4_TECHNICAL_BACKLOG.md`](PHASE4_TECHNICAL_BACKLOG.md)에서 비차단으로 관리한다.
+
+### 최신 Stage 진행 원장 — 2026-10-31 Phase 5 Stage 2
+
+Phase 3 remains `CORE_COMPLETE`, Phase 4 remains `CORE_COMPLETE`, Phase 5 remains `IN_PROGRESS`, and Phases 6–8 remain `NOT_STARTED`. Phase 5 Stage 1 remains `PHASE_5_STAGE_1_MVP_IMPLEMENTED`. Stage 2 is under implementation and verification; the fixed P5-S2-001–012 ledger is in [`PHASE5_STAGE2.md`](PHASE5_STAGE2.md). Current work adds mode isolation, a training-only majority baseline, immutable decision snapshots and feedback, versioned datasets, frozen group evaluation, manual retraining, Champion–Challenger evaluation, explicit Shadow activation/rollback, a unified learning-management panel, and a synthetic learning-cycle benchmark. Stage 2 must not be called complete until backend regression, frontend build, browser E2E, migration and remote GitHub Actions pass. Synthetic results verify software only; reviewed real research decision accuracy remains unvalidated. Optional follow-ups are listed in [`PHASE5_TECHNICAL_BACKLOG.md`](PHASE5_TECHNICAL_BACKLOG.md).
 
 ## 과거 공식 상태 — 2026-10-30 Phase 3 software audit
 
@@ -52,7 +56,7 @@ Phase 4 Stage 1~3의 합의된 핵심 소프트웨어 범위는 완료되어 상
 | Phase 2 — Scientific Knowledge & RAG | PDF ingestion, RAG, evidence retrieval, citation/provenance, scientific claims, 문헌/실험 분리, 분석 도구 기초 | 인용·주제 격리·근거 누락 보류 검증 |
 | Phase 3 — Scientific Tool Execution & Orchestration | Tool Registry, DecisionPolicy interface, ValidationGate, adapters/ResultValidator, ScientificStateBuilder, durable queue/worker/lease/fencing, DAG/Planner, XRD·AFM·SEM·TEM·PHREEQC, 승인 기반 OpenFOAM, 데이터 검증·typed handoff·테스트/성능 | `PHASE_3_CORE_COMPLETE`; 세부 미검증은 technical backlog, 실제 장비 정확도 및 CFD는 외부 검증 |
 | Phase 4 — Gaussian Process & Bayesian Optimization | 승인된 실험 관측 계약, 단일·다목적 GP/BO 핵심, 노이즈·제약·Pareto 및 후보 검토 | `PHASE_4_CORE_COMPLETE`; 확장 backlog와 실제 연구 외부 검증은 별도 문서. 실제 성능 주장 금지 |
-| Phase 5 — Learned JEV Decision Head | 버전된 ScientificState→Feature Contract, 검토 라벨, 학습 head, calibration/OOD/abstention, rule baseline, shadow mode | `IN_PROGRESS`; Stage 1 MVP 근거는 [`PHASE5_STAGE1.md`](PHASE5_STAGE1.md) |
+| Phase 5 — Learned JEV Decision Head | 버전된 ScientificState→Feature Contract, 검토 라벨, 학습 head, calibration/OOD/abstention, rule baseline, shadow mode, 피드백·데이터·모델 버전관리 | `IN_PROGRESS`; Stage 1 [`PHASE5_STAGE1.md`](PHASE5_STAGE1.md), Stage 2 [`PHASE5_STAGE2.md`](PHASE5_STAGE2.md) |
 | Phase 6 — Shared Transformer / Early Exit / Conditional LM | 공유 백본 및 decision/LM head, hidden state reuse, confidence gating, conditional generation, layerwise early exit, KV·quantization·memory, MLX/Ollama 비교, M5 24GB latency/열·전력 측정 | Transformer 계산량 감소와 판단/언어 품질을 실제 비교 측정 |
 | Phase 7 — Autonomous Experiment Optimization Loop | 데이터→ScientificState→JEV→tool/simulation→검증→BO→후보→사람 검토→실험 결과·학습 갱신 | 실제 장비 실행은 안전 제어와 연구자 승인 필요; `NOT_STARTED` |
 | Phase 8 — Unified Laboratory UX & Productization | 하나의 연구자 인터페이스에서 실험→측정→분석→추천 흐름, progressive disclosure, 접근성·성능·복구 | `NOT_STARTED`; 설계 원칙은 [`PHASE8_UX_PRINCIPLES.md`](PHASE8_UX_PRINCIPLES.md)
