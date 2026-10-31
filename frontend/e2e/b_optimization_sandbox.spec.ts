@@ -64,3 +64,30 @@ test('multiobjective sandbox trains two GPs, shows Pareto hypervolume and persis
   await expect(page.getByText('샌드박스 알고리즘 비교')).toBeVisible();
   await expect(page.getByText(/Branin-Currin/).last()).toBeVisible();
 });
+
+test('learned decision head trains on isolated synthetic fixtures and compares in shadow mode', async ({page})=>{
+  await page.goto('/');
+  await page.getByRole('button',{name:/Playwright isolated synthetic topic/}).click();
+  await page.getByRole('button',{name:'기타',exact:true}).click();
+  await page.getByRole('menuitem',{name:'Decision'}).click();
+  const seedResponse=page.waitForResponse(response=>response.url().includes('/decisions/learned/sandbox/seed')&&response.request().method()==='POST');
+  await page.getByRole('button',{name:'합성 테스트 데이터 만들기'}).click();
+  expect((await seedResponse).ok()).toBeTruthy();
+  const trainResponse=page.waitForResponse(response=>response.url().includes('/decisions/learned/train')&&response.request().method()==='POST');
+  await page.getByRole('button',{name:'학습 실행'}).click();
+  const trained=await trainResponse;
+  expect(trained.ok()).toBeTruthy();
+  const model=await trained.json();
+  expect(model.mode).toBe('sandbox');
+  expect(model.metrics.training_loss_decreased).toBeTruthy();
+  await expect(page.getByText('모델 검증 결과')).toBeVisible();
+  const compare=page.waitForResponse(response=>response.url().includes('/decisions/learned/compare')&&response.request().method()==='POST');
+  await page.getByRole('button',{name:'규칙과 학습 결과 비교'}).click();
+  const comparison=await compare;
+  expect(comparison.ok()).toBeTruthy();
+  const result=await comparison.json();
+  expect(result.mode).toBe('SHADOW_ONLY');
+  expect(result.workflow_triggered).toBe(false);
+  await expect(page.getByText('학습형 추천')).toBeVisible();
+  await expect(page.getByText(/워크플로 실행 안 함/)).toBeVisible();
+});

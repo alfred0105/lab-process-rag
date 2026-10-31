@@ -418,3 +418,38 @@ class OptimizationRecommendationRun(Base):
     candidates_json: Mapped[list] = mapped_column(JSON, default=list)
     approval_status: Mapped[str] = mapped_column(String(30), default="PENDING_RESEARCHER_REVIEW")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+class DecisionCase(Base):
+    """Versioned decision example; synthetic labels are never represented as lab truth."""
+    __tablename__ = "decision_cases"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    topic_id: Mapped[int] = mapped_column(ForeignKey("research_topics.id", ondelete="CASCADE"), index=True)
+    experiment_id: Mapped[int | None] = mapped_column(ForeignKey("experiments.id", ondelete="SET NULL"), nullable=True, index=True)
+    case_group_id: Mapped[str] = mapped_column(String(200), index=True)
+    state_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    features_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    feature_schema_version: Mapped[str] = mapped_column(String(40))
+    candidate_actions_json: Mapped[list] = mapped_column(JSON, default=list)
+    selected_action: Mapped[str] = mapped_column(String(40), index=True)
+    label_source: Mapped[str] = mapped_column(String(40), index=True)
+    reviewer: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    review_status: Mapped[str] = mapped_column(String(30), default="PENDING", index=True)
+    provenance_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    dataset_version: Mapped[str] = mapped_column(String(40), default="decision-dataset-v1")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+class DecisionModelRun(Base):
+    """Serializable learned decision head and evaluation record."""
+    __tablename__ = "decision_model_runs"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    topic_id: Mapped[int] = mapped_column(ForeignKey("research_topics.id", ondelete="CASCADE"), index=True)
+    mode: Mapped[str] = mapped_column(String(20), index=True)
+    status: Mapped[str] = mapped_column(String(30), default="COMPLETED", index=True)
+    dataset_hash: Mapped[str] = mapped_column(String(64), index=True)
+    model_version: Mapped[str] = mapped_column(String(80))
+    feature_schema_version: Mapped[str] = mapped_column(String(40))
+    dataset_version: Mapped[str] = mapped_column(String(40))
+    model_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    metrics_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    provenance_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)

@@ -2,7 +2,7 @@
 
 **범위:** 두 개 목적, 연속 입력 변수 최대 6개, 결정론적 Stage 2 제약, 후보 batch 1~4개
 **Stage 상태:** `PHASE_4_STAGE_3_IMPLEMENTED` (로컬 검증 및 원격 CI 통과)
-**Phase 4 전체:** `IN_PROGRESS`
+**Phase 4 상위 상태:** `PHASE_4_CORE_COMPLETE`
 **실제 연구 성능 검증:** `PENDING` — 승인된 실측 다목적 데이터가 준비되지 않음
 
 ## 구현 내용
@@ -71,4 +71,4 @@ Hypervolume은 문제별 고정 기준점에 대한 값이므로 서로 다른 b
 
 ## 판정
 
-P4-S3-001~011은 기능 구현 및 로컬 검증 완료, P4-S3-012는 로컬 검증과 원격 CI를 통과했다. Stage 3 상태는 `PHASE_4_STAGE_3_IMPLEMENTED`다. 코드 commit `a3bc55ae9702548e138e365328dc404eb5d6a217`의 GitHub Actions [run 41185807419](https://github.com/alfred0105/lab-process-rag/actions/runs/41185807419)에서 backend, frontend, browser-e2e가 모두 성공했다. Phase 3은 `PHASE_3_CORE_COMPLETE`, Stage 1 `PHASE_4_MVP_IMPLEMENTED`, Stage 2 `PHASE_4_STAGE_2_IMPLEMENTED`, Phase 4 전체 `IN_PROGRESS`, External Scientific Validation `PENDING`, Phase 5–7 `NOT_STARTED`로 유지한다. 승인된 실제 다목적 연구 데이터가 없어 모델 예측 정확도·재료별 효율성·실험 성공률은 검증되지 않았다.
+P4-S3-001~011은 기능 구현 및 로컬 검증 완료, P4-S3-012는 로컬 검증과 원격 CI를 통과했다. Stage 3 상태는 `PHASE_4_STAGE_3_IMPLEMENTED`다. 코드 commit `a3bc55ae9702548e138e365328dc404eb5d6a217`의 GitHub Actions [run 41185807419](https://github.com/alfred0105/lab-process-rag/actions/runs/41185807419)에서 backend, frontend, browser-e2e가 모두 성공했다. Phase 3은 `PHASE_3_CORE_COMPLETE`, Stage 1 `PHASE_4_MVP_IMPLEMENTED`, Stage 2 `PHASE_4_STAGE_2_IMPLEMENTED`, Phase 4 상위 상태 `PHASE_4_CORE_COMPLETE`, External Scientific Validation `PENDING`, Phase 5–7 `NOT_STARTED`로 유지한다. 승인된 실제 다목적 연구 데이터가 없어 모델 예측 정확도·재료별 효율성·실험 성공률은 검증되지 않았다.

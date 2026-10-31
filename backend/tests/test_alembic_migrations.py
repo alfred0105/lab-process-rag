@@ -60,7 +60,7 @@ def test_legacy_sqlite_schema_upgrades_twice_without_duplicate_columns(tmp_path)
     assert review_columns["analysis_run_id"]["nullable"] is True
     assert review_columns["observation_id"]["nullable"] is True
     with engine.connect() as connection:
-        assert connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one()=="0008_gpbo_mvp"
+        assert connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one()=="0009_learned_decision_head"
         assert connection.exec_driver_sql("SELECT parameter_id FROM scientific_observations WHERE id=7").scalar_one()=="temperature"
         assert connection.exec_driver_sql("SELECT reviewer FROM measurement_review_events WHERE id=9").scalar_one()=="old reviewer"
     assert any(index["name"]=="uq_simulation_run_idempotency_key" and index["unique"] for index in inspector.get_indexes("simulation_runs"))

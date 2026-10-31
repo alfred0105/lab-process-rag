@@ -2,7 +2,7 @@
 
 **관리 기준일:** 2026-10-30
 **저장소:** [alfred0105/lab-process-rag](https://github.com/alfred0105/lab-process-rag)
-**검토 기준:** `main` at `284d829` (the fetched `origin/main` before this closure pass). Earlier entries below preserve their original commit/history references; this closure delta records the new implementation and verification for the current work.
+**검토 기준:** `main` at `06768b83e377e34ee11c86c86d7fa750f459949d` before this closure pass. Earlier entries preserve their historical commit references; the current Phase 4/5 state is recorded in the closure sections below.
 
 이 문서는 전체 개선 프롬프트(2026-10-30), 이후의 데이터 신뢰성 개선 프롬프트, 기존 감사·설계·검증 문서와 사용자가 확정한 제품 흐름을 통합 추적한다. 요구를 임의로 삭제하지 않는다. 범위가 바뀌면 원래 ID를 유지하고 변경 이유와 대체 방안을 기록한다.
 
@@ -29,11 +29,11 @@
 - 목표 하드웨어는 MacBook Air M5, 통합 메모리 24GB. AI 피크 약 12GB 목표는 전체 RAM 한도와 구분하고 실제 기기에서 측정한다.
 - 사용자가 선택한 Gemma 계열은 교체 가능한 백본 후보로 둔다. JEV는 실험에서 다음 행동/도구를 선택하는 별도 Decision Head이며 분석 도구를 대체하지 않는다. 모델 가중치는 저장소에 포함하지 않는다.
 
-## 최신 공식 상태 — 2026-10-31 Phase 3 archive / Phase 4 kickoff
+## 최신 공식 상태 — 2026-10-31 Phase 4 core closure / Phase 5 Stage 1 kickoff
 
-최신 개발 단계 결정: **Phase 3 `PHASE_3_CORE_COMPLETE`; Phase 4 `IN_PROGRESS`; Phase 5–7 `NOT_STARTED`**. Phase 3의 구체적 구현·테스트 근거는 [`PHASE3_CORE_COMPLETION.md`](PHASE3_CORE_COMPLETION.md), 비차단 검증 잔여분은 [`PHASE3_TECHNICAL_BACKLOG.md`](PHASE3_TECHNICAL_BACKLOG.md), 실제 연구실 및 CFD 검증은 [`PHASE3_EXTERNAL_VALIDATION.md`](PHASE3_EXTERNAL_VALIDATION.md)에서 관리한다. 과거 요구 ID와 감사 결과를 삭제하거나 일괄 `VERIFIED`로 승격하지 않는다. 핵심 완료 상태는 이 상세 상태 원장을 대신하지 않는다. 치명적인 데이터 무결성·승인 우회·잘못된 과학 handoff·보안 결함이 발견되면 단계 구분 없이 즉시 수정한다.
+최신 개발 단계 결정: **Phase 3 `PHASE_3_CORE_COMPLETE`; Phase 4 `PHASE_4_CORE_COMPLETE`; Phase 5 `IN_PROGRESS`; Phase 6–8 `NOT_STARTED`**. Phase 3의 구체적 구현·테스트 근거는 [`PHASE3_CORE_COMPLETION.md`](PHASE3_CORE_COMPLETION.md), 비차단 검증 잔여분은 [`PHASE3_TECHNICAL_BACKLOG.md`](PHASE3_TECHNICAL_BACKLOG.md), 실제 연구실 및 CFD 검증은 [`PHASE3_EXTERNAL_VALIDATION.md`](PHASE3_EXTERNAL_VALIDATION.md)에서 관리한다. 과거 요구 ID와 감사 결과를 삭제하거나 일괄 `VERIFIED`로 승격하지 않는다. 핵심 완료 상태는 이 상세 상태 원장을 대신하지 않는다. 치명적인 데이터 무결성·승인 우회·잘못된 과학 handoff·보안 결함이 발견되면 단계 구분 없이 즉시 수정한다.
 
-Phase 4 MVP 구현은 현재 브랜치에서 진행 중이다. 새 GP/BO API, 추가 저장 테이블, synthetic sandbox 및 기본 UI는 코드에 추가됐지만 전체 회귀 테스트·frontend build·브라우저 통합·원격 CI 검증 전이므로 이 문서 시점에는 `IMPLEMENTED` 또는 `IN_PROGRESS`로만 관리한다. Research 모드는 승인된 비데모 관측값만 읽으며, 데이터가 부족하면 `INSUFFICIENT_APPROVED_DATA`를 반환한다. 합성 Branin 비교는 연구 데이터와 분리된다.
+Phase 4 Stage 1~3의 합의된 핵심 소프트웨어 범위는 완료되어 상위 상태를 `PHASE_4_CORE_COMPLETE`로 판정한다. 각 Stage 상태 및 합성 benchmark는 하단의 이력과 [`PHASE4_CORE_COMPLETION.md`](PHASE4_CORE_COMPLETION.md)에 기록한다. 실제 연구 성능은 [`PHASE4_EXTERNAL_VALIDATION.md`](PHASE4_EXTERNAL_VALIDATION.md)에서 `EXTERNAL_VALIDATION_PENDING`으로, 확장 기능은 [`PHASE4_TECHNICAL_BACKLOG.md`](PHASE4_TECHNICAL_BACKLOG.md)에서 비차단으로 관리한다.
 
 ## 과거 공식 상태 — 2026-10-30 Phase 3 software audit
 
@@ -41,7 +41,7 @@ Phase 4 MVP 구현은 현재 브랜치에서 진행 중이다. 새 GP/BO API, �
 
 당시 상태는 **`PHASE_3_SOFTWARE_IN_PROGRESS`** 였다. 이 판정은 2026-10-30 audit snapshot의 역사적 기록이며, 2026-10-31의 core-completion 구분으로 대체됐다. 실제 실측 장비 정확도, 승인된 VM의 실제 CFD, 장비 제어는 계속 **`EXTERNAL_VALIDATION_PENDING`** 으로 별도 관리한다.
 
-## 공식 Phase 0~7 개발 구조 (2026-10-30 확정)
+## 공식 Phase 0~8 개발 구조 (2026-10-31 갱신; 아래 과거 상태 기록은 보존)
 
 아래가 현재 기준 개발 순서다. 기존 상세 ID·요구 설명·상태·검증 기록은 문서 하단의 **역사적 분류를 포함한 요구사항 원장**에 그대로 보존한다. 재정렬은 ID를 없애거나 구현 상태를 승격하지 않는다.
 
@@ -51,10 +51,11 @@ Phase 4 MVP 구현은 현재 브랜치에서 진행 중이다. 새 GP/BO API, �
 | Phase 1 — Scientific Data Foundation | Topic/Experiment, Materials, Process Steps, Method Versions, ScientificObservation, 출처 분류, 검토·승인·provenance | 승인된 실측·문헌·합성·계산의 분리 및 계보 검증 |
 | Phase 2 — Scientific Knowledge & RAG | PDF ingestion, RAG, evidence retrieval, citation/provenance, scientific claims, 문헌/실험 분리, 분석 도구 기초 | 인용·주제 격리·근거 누락 보류 검증 |
 | Phase 3 — Scientific Tool Execution & Orchestration | Tool Registry, DecisionPolicy interface, ValidationGate, adapters/ResultValidator, ScientificStateBuilder, durable queue/worker/lease/fencing, DAG/Planner, XRD·AFM·SEM·TEM·PHREEQC, 승인 기반 OpenFOAM, 데이터 검증·typed handoff·테스트/성능 | `PHASE_3_CORE_COMPLETE`; 세부 미검증은 technical backlog, 실제 장비 정확도 및 CFD는 외부 검증 |
-| Phase 4 — Gaussian Process & Bayesian Optimization | 승인된 실험 관측 계약, feature/정규화/물리 경계, GP·kernel·hyperparameter, uncertainty, acquisition (EI/PI/UCB), 제약·noise·replicate·multi-objective/Pareto, CV·leakage 방지·surrogate 검증·candidate ranking·abstention | `IN_PROGRESS`; 첫 MVP 구현 및 검증 상태는 아래 P4-MVP 작업 원장. 비데모 승인 실측 없이 실제 연구 최적화 성능 VERIFIED 금지. JEV 선행조건 아님 |
-| Phase 5 — Learned JEV Decision Head | 상태 표현, 행동/도구 선택 레이블, 요청·검토·분석·시뮬·최적화·보류 데이터셋, 학습 head, OOD·calibration, rule baseline, accuracy/F1/Brier/ECE/risk-coverage/latency | Phase 4 optimizer 상태·결과와 action 학습을 통합해 평가 |
+| Phase 4 — Gaussian Process & Bayesian Optimization | 승인된 실험 관측 계약, 단일·다목적 GP/BO 핵심, 노이즈·제약·Pareto 및 후보 검토 | `PHASE_4_CORE_COMPLETE`; 확장 backlog와 실제 연구 외부 검증은 별도 문서. 실제 성능 주장 금지 |
+| Phase 5 — Learned JEV Decision Head | 버전된 ScientificState→Feature Contract, 검토 라벨, 학습 head, calibration/OOD/abstention, rule baseline, shadow mode | `IN_PROGRESS`; Stage 1 MVP 근거는 [`PHASE5_STAGE1.md`](PHASE5_STAGE1.md) |
 | Phase 6 — Shared Transformer / Early Exit / Conditional LM | 공유 백본 및 decision/LM head, hidden state reuse, confidence gating, conditional generation, layerwise early exit, KV·quantization·memory, MLX/Ollama 비교, M5 24GB latency/열·전력 측정 | Transformer 계산량 감소와 판단/언어 품질을 실제 비교 측정 |
-| Phase 7 — Autonomous Experiment Optimization Loop | 데이터→ScientificState→JEV→tool/simulation→검증→BO→다음 후보→사람 승인→실험 기록→결과·학습 갱신, active learning·drift·재현성·안전 감사 | 실제 장비 실행은 별도 안전 제어 및 연구자 승인 없이는 자동화하지 않음 |
+| Phase 7 — Autonomous Experiment Optimization Loop | 데이터→ScientificState→JEV→tool/simulation→검증→BO→후보→사람 검토→실험 결과·학습 갱신 | 실제 장비 실행은 안전 제어와 연구자 승인 필요; `NOT_STARTED` |
+| Phase 8 — Unified Laboratory UX & Productization | 하나의 연구자 인터페이스에서 실험→측정→분석→추천 흐름, progressive disclosure, 접근성·성능·복구 | `NOT_STARTED`; 설계 원칙은 [`PHASE8_UX_PRINCIPLES.md`](PHASE8_UX_PRINCIPLES.md)
 
 ### 이전 Phase 표기의 이관
 
@@ -68,6 +69,14 @@ Phase 4 MVP 구현은 현재 브랜치에서 진행 중이다. 새 GP/BO API, �
 | Phase 6 Shared Transformer/Early Exit | Phase 6 |
 | Phase 7 Security/UI/Testing/CI/Performance | 공통 Cross-cutting 및 해당 Phase 통과 조건 |
 | Phase 7 Closed Loop | Phase 7 |
+
+## Phase 4 closure / Phase 5 Stage 1 current register — 2026-10-31
+
+Phase 4 is `PHASE_4_CORE_COMPLETE`; Stage 1 remains `PHASE_4_MVP_IMPLEMENTED`, Stage 2 `PHASE_4_STAGE_2_IMPLEMENTED`, Stage 3 `PHASE_4_STAGE_3_IMPLEMENTED`. No detailed requirement was bulk-promoted to VERIFIED. Optional software work is `NON_BLOCKING`; empirical lab validity is `EXTERNAL_VALIDATION_PENDING`.
+
+Phase 8 — Unified Laboratory UX & Productization is officially registered as `NOT_STARTED`; one shared interface is required, with progressive disclosure and no separate beginner/expert modes. See [`PHASE8_UX_PRINCIPLES.md`](PHASE8_UX_PRINCIPLES.md).
+
+Phase 5 — Learned JEV Decision Head is `IN_PROGRESS`. The first executable MVP and acceptance ledger are in [`PHASE5_STAGE1.md`](PHASE5_STAGE1.md). The learned classifier is a shadow recommender: RuleBasedDecisionPolicy and ValidationGate remain separate, and no decision-head output starts a workflow.
 
 ## 이전 감사 기준선 (과거 스냅샷; 최신 공식 상태는 위 closure 항목)
 
@@ -521,6 +530,6 @@ The detailed, requirement-by-requirement implementation and limitation record is
 
 ## Current Stage 3 — Multi-objective GP and Pareto recommendations (2026-10-31)
 
-The current work adds the scoped two-objective Stage 3 alongside the preserved Stage 1/2 single-objective APIs. Source, acceptance, experiment/method/replicate/step joins, exact 2D Pareto/HV, posterior-sampled MC-HVI, researcher-pending batch persistence, UI, and synthetic benchmark evidence are tracked requirement-by-requirement in [`PHASE4_STAGE3.md`](PHASE4_STAGE3.md). Implementation and local tests are complete; Stage 3 is `PHASE_4_STAGE_3_IMPLEMENTED`. P4-S3-012 is `VERIFIED`: backend **195 passed**, frontend production build passed, Playwright **4 passed**, and a temporary SQLite migration reached `0008_gpbo_mvp`. Code commit `a3bc55ae9702548e138e365328dc404eb5d6a217` passed all jobs in GitHub Actions [run 41185807419](https://github.com/alfred0105/lab-process-rag/actions/runs/41185807419) (backend, frontend, browser-e2e). Phase 4 remains `IN_PROGRESS`. Research-mode scientific validation is still `PENDING`: no approved real multi-objective research dataset was used.
+The current work adds the scoped two-objective Stage 3 alongside the preserved Stage 1/2 single-objective APIs. Source, acceptance, experiment/method/replicate/step joins, exact 2D Pareto/HV, posterior-sampled MC-HVI, researcher-pending batch persistence, UI, and synthetic benchmark evidence are tracked requirement-by-requirement in [`PHASE4_STAGE3.md`](PHASE4_STAGE3.md). Implementation and local tests are complete; Stage 3 is `PHASE_4_STAGE_3_IMPLEMENTED`. P4-S3-012 is `VERIFIED`: backend **195 passed**, frontend production build passed, Playwright **4 passed**, and a temporary SQLite migration reached `0008_gpbo_mvp`. Code commit `a3bc55ae9702548e138e365328dc404eb5d6a217` passed all jobs in GitHub Actions [run 41185807419](https://github.com/alfred0105/lab-process-rag/actions/runs/41185807419) (backend, frontend, browser-e2e). The parent Phase 4 is now `PHASE_4_CORE_COMPLETE` under the fixed Stage 1–3 core scope. Research-mode scientific validation remains `EXTERNAL_VALIDATION_PENDING`: no approved real multi-objective research dataset was used.
 
 The Stage 3 ledger uses statuses independently: requirements P4-S3-001 through P4-S3-011 are implemented and locally exercised; P4-S3-012 is `VERIFIED` by local regression and the successful latest GitHub Actions run. No previous Stage 1/2 status is upgraded or rewritten. Exact synthetic benchmark results and limitations are in `backend/reports/phase4_stage3_benchmark.json` and `docs/PHASE4_STAGE3.md`.
