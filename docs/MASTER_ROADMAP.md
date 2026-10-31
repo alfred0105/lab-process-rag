@@ -76,7 +76,7 @@ Phase 4 is `PHASE_4_CORE_COMPLETE`; Stage 1 remains `PHASE_4_MVP_IMPLEMENTED`, S
 
 Phase 8 — Unified Laboratory UX & Productization is officially registered as `NOT_STARTED`; one shared interface is required, with progressive disclosure and no separate beginner/expert modes. See [`PHASE8_UX_PRINCIPLES.md`](PHASE8_UX_PRINCIPLES.md).
 
-Phase 5 — Learned JEV Decision Head is `IN_PROGRESS`. The first executable MVP and acceptance ledger are in [`PHASE5_STAGE1.md`](PHASE5_STAGE1.md). The learned classifier is a shadow recommender: RuleBasedDecisionPolicy and ValidationGate remain separate, and no decision-head output starts a workflow.
+Phase 5 — Learned JEV Decision Head is `IN_PROGRESS`; Stage 1 is `PHASE_5_STAGE_1_MVP_IMPLEMENTED` and its ten software acceptance items are verified in [`PHASE5_STAGE1.md`](PHASE5_STAGE1.md). Commit `50f116e08d5d6e2914d2743a3bc9c775ea5b0abe` passed backend (200 tests), frontend build, browser E2E (5 tests), and GitHub Actions [run 41188730922](https://github.com/alfred0105/lab-process-rag/actions/runs/41188730922). The learned classifier is a shadow recommender: RuleBasedDecisionPolicy and ValidationGate remain separate, and no decision-head output starts a workflow. Research decision accuracy remains unvalidated because no reviewed decision dataset was available.
 
 ## 이전 감사 기준선 (과거 스냅샷; 최신 공식 상태는 위 closure 항목)
 

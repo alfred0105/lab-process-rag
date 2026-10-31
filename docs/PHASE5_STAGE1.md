@@ -18,9 +18,9 @@
 | P5-S1-007 | Workflow-safe shadow mode | `VERIFIED` | API marks shadow, sets `workflow_triggered: false`, and never calls a workflow runner; API/E2E assertions |
 | P5-S1-008 | Readiness, label, training, model, prediction and compare API | `VERIFIED` | FastAPI router and API integration tests including insufficient research data and topic isolation |
 | P5-S1-009 | Minimal integrated Decision UI | `VERIFIED` | Existing app tab, API client and UI; production build and Playwright shadow flow |
-| P5-S1-010 | Synthetic benchmark and regression/CI | `IMPLEMENTED` | Benchmark report, full local tests/build/E2E and fresh migration evidence recorded below; latest commit CI must pass before promotion to `VERIFIED` |
+| P5-S1-010 | Synthetic benchmark and regression/CI | `VERIFIED` | Benchmark report, full local tests/build/E2E, fresh migration and GitHub Actions run `41188730922` all passed |
 
-The acceptance gate is software implementation, not research efficacy. P5-S1-010 remains `IMPLEMENTED` until the current commit's full test/build/E2E results and GitHub Actions are recorded. The Stage 1 MVP decision does not close Phase 5.
+The acceptance gate is software implementation, not research efficacy. All ten Stage 1 software acceptance items are now verified; this does not close Phase 5 or establish research efficacy.
 
 ## Implementation map
 
@@ -62,7 +62,7 @@ These values are reproducible software-fixture results, not a claim that the mod
 - Frontend production build: **passed**, Vite transformed 1,760 modules; DecisionPanel emitted as a separate 11.35 kB chunk.
 - Browser E2E: **5 passed** (PHREEQC approval workflow, single-objective GP/BO, multi-objective GP/BO, learned decision shadow flow, durable XRD workflow).
 - Fresh temporary SQLite migration: reached `0009_learned_decision_head`; legacy repeated-upgrade test passes against the new head.
-- Latest GitHub Actions: pending push; do not mark P5-S1-010 `VERIFIED` until this commit's workflow succeeds.
+- Latest GitHub Actions: [run 41188730922](https://github.com/alfred0105/lab-process-rag/actions/runs/41188730922), commit `50f116e08d5d6e2914d2743a3bc9c775ea5b0abe`; backend, frontend and browser E2E jobs all succeeded.
 
 ## Remaining limitations
 
