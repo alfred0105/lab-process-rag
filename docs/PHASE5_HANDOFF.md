@@ -67,3 +67,9 @@ Stage 2 adds decision-time snapshots, append-only ACCEPT/CORRECT/REJECT/UNSURE f
 The stage-2 MLP remains a shadow recommender and cannot trigger tools or workflows. Researcher names remain unauthenticated self-reported labels, and synthetic cases remain explicitly sandbox-only. Until a reviewed, independent research dataset has been evaluated, no real-world or laboratory decision-accuracy claim is supported. Acceptance details and validation evidence are in [`PHASE5_STAGE2.md`](PHASE5_STAGE2.md); optional follow-up work is in [`PHASE5_TECHNICAL_BACKLOG.md`](PHASE5_TECHNICAL_BACKLOG.md).
 
 See [`PHASE5_STAGE1.md`](PHASE5_STAGE1.md) for the acceptance ledger and measured synthetic benchmark.
+
+## Stage 3 handoff — structured scientific state (2026-10-31)
+
+Stage 3 adds a separately versioned 153-feature Scientific State V2 and grouped trainable NumPy encoder while preserving V1 artifacts and routes. The same Decision UI now supports V2 state inspection, manual dataset creation/training, shadow-only inference, and the five-seed software benchmark. See [`PHASE5_STAGE3.md`](PHASE5_STAGE3.md) and [`backend/reports/phase5_stage3_generalization.json`](../backend/reports/phase5_stage3_generalization.json).
+
+Stage 3 is a software implementation milestone only. The five-seed synthetic benchmark reports V1 mean accuracy 0.569 (SD 0.041) and V2 0.591 (SD 0.105); the variability and per-seed regressions mean these results do not establish V2 superiority. On the separate held-out synthetic condition family, V1 scored 0.546 (SD 0.086) and V2 0.225 (SD 0.097), a clear V2 regression. The benchmark invokes the existing RuleBasedDecisionPolicy and labels topic/method validation insufficient. Do not promote V2 based on synthetic results. Phase 5 remains `IN_PROGRESS`; Phase 6–8 remain `NOT_STARTED`.

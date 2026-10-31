@@ -14,6 +14,7 @@ export default function DecisionPanel({topicId,experiments}:{topicId:number;expe
   const [readiness,setReadiness]=useState<any>(null);const [cases,setCases]=useState<any[]>([]);const [datasets,setDatasets]=useState<any[]>([]);const [feedbackHistory,setFeedbackHistory]=useState<any[]>([]);
   const [active,setActive]=useState<any>(null);const [model,setModel]=useState<any>(null);const [comparison,setComparison]=useState<any>(null);
   const [result,setResult]=useState<any>(null);const [experimentId,setExperimentId]=useState<number>(experiments.find(x=>!x.demo)?.id??0);
+  const [stage3Schema,setStage3Schema]=useState<any>(null);const [stage3Features,setStage3Features]=useState<any>(null);const [stage3Benchmark,setStage3Benchmark]=useState<any>(null);const [stage3Dataset,setStage3Dataset]=useState<any>(null);const [stage3Model,setStage3Model]=useState<any>(null);const [stage3Prediction,setStage3Prediction]=useState<any>(null);
   const [caseId,setCaseId]=useState<number>(0);const [datasetId,setDatasetId]=useState<number>(0);const [action,setAction]=useState<string>('');
   const [feedbackType,setFeedbackType]=useState<'ACCEPT'|'CORRECT'|'REJECT'|'UNSURE'>('ACCEPT');const [reviewer,setReviewer]=useState('');
   const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [notice,setNotice]=useState('');
@@ -30,6 +31,7 @@ export default function DecisionPanel({topicId,experiments}:{topicId:number;expe
     }catch(e){setError(e instanceof Error?e.message:String(e))}
   };
   useEffect(()=>{void load()},[topicId,mode]);
+  useEffect(()=>{learnedDecisionApi.stage3Schema().then(setStage3Schema).catch(e=>setError(e instanceof Error?e.message:String(e)))},[]);
   useEffect(()=>{if(!experimentsForTopic.some(x=>x.id===experimentId)&&experimentsForTopic.length)setExperimentId(experimentsForTopic[0].id)},[experimentsForTopic,experimentId]);
   const run=async(task:()=>Promise<any>,message?:string)=>{
     setBusy(true);setError('');setNotice('');
@@ -59,6 +61,11 @@ export default function DecisionPanel({topicId,experiments}:{topicId:number;expe
   const activate=()=>void run(()=>learnedDecisionApi.activate({topic_id:topicId,model_id:model?.model_id,
     comparison_id:comparison?.comparison_id??null,reviewer,reason:t('평가 확인 후 연구자가 Shadow 모델로 선택함','Researcher selected as shadow model after reviewing the evaluation.')}),t('Shadow 모델을 변경했습니다. 실행 권한은 부여되지 않았습니다.','Shadow model changed. No execution permission was granted.'));
   const rollback=()=>void run(()=>learnedDecisionApi.rollback({topic_id:topicId,mode,reviewer,reason:t('이전 Shadow 모델로 복구','Restore previous shadow model.')}),t('이전 Shadow 모델로 복구했습니다.','Previous shadow model restored.'));
+  const inspectV2=()=>void run(async()=>{const v=await learnedDecisionApi.stage3Features({topic_id:topicId,...(mode==='research'?{experiment_id:experimentId}:{case_id:caseId})});setStage3Features(v);return v});
+  const buildV2=()=>void run(async()=>{const v=await learnedDecisionApi.stage3BuildDataset({topic_id:topicId,mode,holdout_strategy:'experiment'});setStage3Dataset(v);return v});
+  const trainV2=()=>void run(async()=>{if(!stage3Dataset?.dataset_version_id)throw new Error(t('먼저 V2 데이터셋을 만드세요.','Build a V2 dataset first.'));const v=await learnedDecisionApi.stage3Retrain({dataset_version_id:stage3Dataset.dataset_version_id,seed:7,parent_model_id:null});setStage3Model(v);return v});
+  const predictV2=()=>void run(async()=>{if(!stage3Model?.model_id)throw new Error(t('먼저 V2 모델을 학습하세요.','Train a V2 model first.'));const v=await learnedDecisionApi.stage3Predict(stage3Model.model_id,{topic_id:topicId,...(mode==='research'?{experiment_id:experimentId}:{case_id:caseId})});setStage3Prediction(v);return v});
+  const benchmarkV2=()=>void run(async()=>{const v=await learnedDecisionApi.stage3Benchmark();setStage3Benchmark(v);return v},t('5개 고정 시드 벤치마크를 완료했습니다. 합성 소프트웨어 검증이며 실제 연구 성능이 아닙니다.','Five-seed benchmark completed. This is synthetic software validation, not real research performance.'));
   const metrics=model?.metrics;
   const selectedDataset=datasets.find(x=>x.dataset_version_id===datasetId);
   return <div className="decision-panel">
@@ -73,6 +80,22 @@ export default function DecisionPanel({topicId,experiments}:{topicId:number;expe
       {mode==='research'&&readiness?.research.status!=='READY'&&<p className="decision-caution">{t('검토된 연구 사례가 부족합니다. 연구 모드 학습은 현재 보류됩니다. Reviewer 이름은 인증된 신원이 아닙니다.','There are not enough reviewed research cases. Research training is blocked. Reviewer names are not authenticated identities.')}</p>}
       {selectedDataset&&<div className="decision-baselines"><b>{selectedDataset.dataset_version} · {selectedDataset.case_count} {t('사례','cases')}</b><span>SHA-256: {selectedDataset.dataset_hash}</span><span>{t('고정 평가 사례','Frozen evaluation cases')}: {selectedDataset.evaluation_case_count} · {selectedDataset.evaluation_hash}</span><span>{t('출처','Sources')}: {selectedDataset.source_summary?.label_sources?.join(', ')}</span><span>{t('행동별 레이블','Action labels')}: {Object.entries(selectedDataset.action_distribution??{}).filter(([,count])=>Number(count)>0).map(([name,count])=>`${ko?ACTION_KO[name]:name} ${count}`).join(' · ')||'—'}</span></div>}
       {error&&<p className="error">{error}</p>}{notice&&<p className="decision-notice">{notice}</p>}
+    </section>
+
+    <section className="card">
+      <div className="card-head"><div><div className="card-title">{t('과학 상태 판단 V2','Scientific state decision V2')}</div><div className="card-sub">{stage3Schema?.schema_version??'scientific-decision-features-v2'} · {stage3Schema?.feature_count??'—'} {t('특징 · Shadow 전용','features · shadow only')}</div></div><span className="history-tag">V2</span></div>
+      <p className="decision-caution">{t('이 모델은 기록된 상태를 구조화해 다음 행동을 제안합니다. 도구·시뮬레이션·실험을 자동 실행하지 않습니다.','This model structures recorded state and suggests a next action. It does not run tools, simulations or experiments.')}</p>
+      <div className="decision-controls">
+        <button className="button secondary" disabled={busy||(!experimentId&&mode==='research')||(!caseId&&mode==='sandbox')} onClick={inspectV2}>{t('현재 상태 확인','Inspect current state')}</button>
+        <button className="button secondary" disabled={busy} onClick={buildV2}>{t('V2 데이터셋 만들기','Build V2 dataset')}</button>
+        <button className="button primary" disabled={busy||!stage3Dataset?.dataset_version_id} onClick={trainV2}>{t('V2 모델 학습','Train V2 model')}</button>
+        <button className="button secondary" disabled={busy||!stage3Model?.model_id||(!experimentId&&mode==='research')||(!caseId&&mode==='sandbox')} onClick={predictV2}>{t('V2 shadow 판단','Run V2 shadow decision')}</button>
+        <button className="button outline" disabled={busy} onClick={benchmarkV2}>{t('5-seed 견고성 평가','Run five-seed robustness benchmark')}</button>
+      </div>
+      {stage3Features&&<div className="decision-baselines"><b>{t('상태 특징 추출 완료','State features extracted')} · {stage3Features.feature_count}</b><span>{t('누락 특징','Missing features')}: {stage3Features.metadata?.missing_feature_count} · {stage3Features.metadata?.unit_normalization?.status??'—'}</span><span>{t('ID는 추적에만 쓰고 모델 특징에는 넣지 않습니다.','IDs are retained for traceability and excluded from model features.')}</span></div>}
+      {stage3Prediction&&<div className="decision-result-summary"><article><small>{t('V2 제안 행동','V2 suggested action')}</small><b>{ko?ACTION_KO[stage3Prediction.action]:stage3Prediction.action}</b><span>{stage3Prediction.ood_status} · {stage3Prediction.mode} · {stage3Prediction.safety_override_reason??t('연구자 검토 필요','Researcher review required')}</span></article><article><small>{t('버전 및 상태','Version & state')}</small><b>{stage3Prediction.model_version}</b><span>{stage3Prediction.feature_schema_version} · {t('실행되지 않음','not executed')}</span></article></div>}
+      {stage3Benchmark&&<div className="decision-baselines"><b>{t('합성 소프트웨어 벤치마크','Synthetic software benchmark')} · {stage3Benchmark.seed_count} seeds</b><span>{t('V1 정확도 평균','V1 mean accuracy')}: {Number(stage3Benchmark.summary?.v1?.accuracy?.mean).toFixed(3)} · Macro F1 {Number(stage3Benchmark.summary?.v1?.macro_f1?.mean).toFixed(3)}</span><span>{t('V2 정확도 평균','V2 mean accuracy')}: {Number(stage3Benchmark.summary?.v2?.accuracy?.mean).toFixed(3)} · Macro F1 {Number(stage3Benchmark.summary?.v2?.macro_f1?.mean).toFixed(3)}</span><span>{t('상태','Status')}: {stage3Benchmark.benchmark_status} · {t('실제 과학 정확도 검증 아님','not a validation of scientific accuracy')}</span></div>}
+      {stage3Model&&<div className="decision-baselines"><b>{stage3Model.model_version} · {stage3Model.status}</b><span>{t('파라미터','Parameters')}: {stage3Model.metrics?.model_parameter_count} · {t('평가 표본','Evaluation cases')}: {stage3Model.metrics?.sample_count}</span></div>}
     </section>
 
     {metrics&&<section className="card"><div className="card-head"><div><div className="card-title">{t('학습 모델 평가','Learned model evaluation')}</div><div className="card-sub">{model.model_version} · {model.mode.toUpperCase()} · {model.dataset_version} · {metrics.sample_count} {t('고정 평가 사례','frozen evaluation cases')}</div></div><span className="history-tag">{model.status}</span></div>

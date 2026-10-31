@@ -2,6 +2,12 @@ import type {AssistantHistory,AssistantResult,AIStatus,AnalysisExplanationResult
 const req=async<T>(path:string,init?:RequestInit):Promise<T>=>{const r=await fetch(`/api${path}`,init);if(!r.ok){const body=await r.text();let message=body;try{const parsed=JSON.parse(body);const detail=parsed?.detail;message=typeof detail==='string'?detail:typeof detail?.message==='string'?detail.message:body}catch{}throw new Error(message||`Request failed (${r.status})`)}return r.json()};
 export type OpenfoamRun={id:number;experiment_id:number;process_step_id:number|null;model_id:string;status:'queued'|'running'|'completed'|'failed';inputs:Record<string,unknown>;results:Record<string,unknown>|null;log:string;error:string;created_at:string;started_at:string|null;finished_at:string|null};
 export const learnedDecisionApi={
+ stage3Schema:()=>req<any>('/decisions/learned/stage3/schema'),
+ stage3Features:(body:{topic_id:number;experiment_id?:number;scientific_state?:Record<string,unknown>})=>req<any>('/decisions/learned/stage3/features',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}),
+ stage3BuildDataset:(body:{topic_id:number;mode:'research'|'sandbox';holdout_strategy:'experiment'|'method'|'topic'|'condition_shift'})=>req<any>('/decisions/learned/stage3/datasets/build',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}),
+ stage3Retrain:(body:{dataset_version_id:number;parent_model_id?:number|null;seed:number})=>req<any>('/decisions/learned/stage3/retrain',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}),
+ stage3Benchmark:()=>req<any>('/decisions/learned/stage3/benchmark',{method:'POST'}),
+ stage3Predict:(modelId:number,body:{topic_id:number;experiment_id?:number;case_id?:number;scientific_state?:Record<string,unknown>})=>req<any>(`/decisions/learned/stage3/models/${modelId}/predict`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}),
  readiness:(topicId:number)=>req<any>(`/decisions/learned/training-readiness?topic_id=${topicId}`),
  cases:(topicId:number,mode:'research'|'sandbox',limit=100)=>req<any[]>(`/decisions/learned/cases?topic_id=${topicId}&mode=${mode}&limit=${limit}`),
  datasets:(topicId:number,mode?:'research'|'sandbox')=>req<any[]>(`/decisions/learned/datasets?topic_id=${topicId}${mode?`&mode=${mode}`:''}`),

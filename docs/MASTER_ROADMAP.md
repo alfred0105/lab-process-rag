@@ -56,7 +56,7 @@ Phase 3 remains `CORE_COMPLETE`, Phase 4 remains `CORE_COMPLETE`, Phase 5 remain
 | Phase 2 — Scientific Knowledge & RAG | PDF ingestion, RAG, evidence retrieval, citation/provenance, scientific claims, 문헌/실험 분리, 분석 도구 기초 | 인용·주제 격리·근거 누락 보류 검증 |
 | Phase 3 — Scientific Tool Execution & Orchestration | Tool Registry, DecisionPolicy interface, ValidationGate, adapters/ResultValidator, ScientificStateBuilder, durable queue/worker/lease/fencing, DAG/Planner, XRD·AFM·SEM·TEM·PHREEQC, 승인 기반 OpenFOAM, 데이터 검증·typed handoff·테스트/성능 | `PHASE_3_CORE_COMPLETE`; 세부 미검증은 technical backlog, 실제 장비 정확도 및 CFD는 외부 검증 |
 | Phase 4 — Gaussian Process & Bayesian Optimization | 승인된 실험 관측 계약, 단일·다목적 GP/BO 핵심, 노이즈·제약·Pareto 및 후보 검토 | `PHASE_4_CORE_COMPLETE`; 확장 backlog와 실제 연구 외부 검증은 별도 문서. 실제 성능 주장 금지 |
-| Phase 5 — Learned JEV Decision Head | 버전된 ScientificState→Feature Contract, 검토 라벨, 학습 head, calibration/OOD/abstention, rule baseline, shadow mode, 피드백·데이터·모델 버전관리 | `IN_PROGRESS`; Stage 1 [`PHASE5_STAGE1.md`](PHASE5_STAGE1.md), Stage 2 [`PHASE5_STAGE2.md`](PHASE5_STAGE2.md) |
+| Phase 5 — Learned JEV Decision Head | 버전된 ScientificState→Feature Contract, 검토 라벨, 학습 head, calibration/OOD/abstention, rule baseline, shadow mode, 피드백·데이터·모델 버전관리 | `IN_PROGRESS`; Stage 1 [`PHASE5_STAGE1.md`](PHASE5_STAGE1.md), Stage 2 [`PHASE5_STAGE2.md`](PHASE5_STAGE2.md), Stage 3 [`PHASE5_STAGE3.md`](PHASE5_STAGE3.md) |
 | Phase 6 — Shared Transformer / Early Exit / Conditional LM | 공유 백본 및 decision/LM head, hidden state reuse, confidence gating, conditional generation, layerwise early exit, KV·quantization·memory, MLX/Ollama 비교, M5 24GB latency/열·전력 측정 | Transformer 계산량 감소와 판단/언어 품질을 실제 비교 측정 |
 | Phase 7 — Autonomous Experiment Optimization Loop | 데이터→ScientificState→JEV→tool/simulation→검증→BO→후보→사람 검토→실험 결과·학습 갱신 | 실제 장비 실행은 안전 제어와 연구자 승인 필요; `NOT_STARTED` |
 | Phase 8 — Unified Laboratory UX & Productization | 하나의 연구자 인터페이스에서 실험→측정→분석→추천 흐름, progressive disclosure, 접근성·성능·복구 | `NOT_STARTED`; 설계 원칙은 [`PHASE8_UX_PRINCIPLES.md`](PHASE8_UX_PRINCIPLES.md)
@@ -74,7 +74,11 @@ Phase 3 remains `CORE_COMPLETE`, Phase 4 remains `CORE_COMPLETE`, Phase 5 remain
 | Phase 7 Security/UI/Testing/CI/Performance | 공통 Cross-cutting 및 해당 Phase 통과 조건 |
 | Phase 7 Closed Loop | Phase 7 |
 
-## Phase 4 closure / Phase 5 Stage 1 current register — 2026-10-31
+## Phase 4 closure / Phase 5 current register — 2026-10-31
+
+### Phase 5 Stage 3 — Scientific State V2 (2026-10-31)
+
+`P5-S3-001` through `P5-S3-011` are implemented and locally verified; `P5-S3-012` awaits pushed GitHub Actions verification. See the tracked ledger in [`PHASE5_STAGE3.md`](PHASE5_STAGE3.md). V1 remains intact; V2 is a separate 153-feature schema, grouped NumPy decision encoder, V2 dataset/model APIs and the existing Decision UI. Benchmark software uses five fixed seeds, group-disjoint fit/calibration/test, actual majority and RuleBasedDecisionPolicy baselines, a separate condition-family holdout, calibration/OOD/ablation metrics, and synthetic-only provenance. See [`backend/reports/phase5_stage3_generalization.json`](../backend/reports/phase5_stage3_generalization.json). Synthetic results are not real laboratory accuracy and do not establish V2 superiority; V2's held-out synthetic condition result regressed against V1. Research validation, cross-topic/method validation, and deployment OOD performance remain open backlog items. Stage 3's exact acceptance evidence, tests and commit/CI references are maintained in its report.
 
 Phase 4 is `PHASE_4_CORE_COMPLETE`; Stage 1 remains `PHASE_4_MVP_IMPLEMENTED`, Stage 2 `PHASE_4_STAGE_2_IMPLEMENTED`, Stage 3 `PHASE_4_STAGE_3_IMPLEMENTED`. No detailed requirement was bulk-promoted to VERIFIED. Optional software work is `NON_BLOCKING`; empirical lab validity is `EXTERNAL_VALIDATION_PENDING`.
 

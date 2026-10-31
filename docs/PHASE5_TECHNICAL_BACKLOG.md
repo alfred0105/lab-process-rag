@@ -16,3 +16,19 @@ This is a non-blocking backlog outside the fixed Stage 2 acceptance criteria. It
 | P5-BL-008 | Design a separate authenticated reviewer identity and role/permission integration. | P0 | NOT_STARTED | User/account architecture; historical free-text reviewer names remain unauthenticated. |
 | P5-BL-009 | Evaluate Shared Transformer representations and an independent Decision Head. | P2 | NOT_STARTED | Phase 6 kickoff; measure quality, latency and memory on the target M5 24 GB machine. |
 | P5-BL-010 | Evaluate any future automated Shadow promotion policy, only as an offline proposal with explicit human authorization. | P3 | NOT_STARTED | External real-data evidence, safety case and rollback drills; no autonomous promotion in Stage 2. |
+# Phase 5 Stage 3 follow-up backlog
+
+The Stage 3 software acceptance gate is tracked separately in [`PHASE5_STAGE3.md`](PHASE5_STAGE3.md). These are external validation or optional future capabilities and do not change its fixed 12-item acceptance scope.
+
+| ID | Follow-up | State | Dependency / exit evidence |
+|---|---|---|---|
+| P5-EXT-001 | Evaluate on independently reviewed, non-demo laboratory decisions | NOT_STARTED | Researcher-approved labels across independent experiments; frozen evaluation protocol |
+| P5-EXT-002 | Cross-topic and cross-method generalization | NOT_STARTED | Current benchmark correctly returns `INSUFFICIENT_DATA`; needs multiple independent, source-verified topics and method versions |
+| P5-EXT-003 | Validate calibration, selective risk and thresholds on reviewed real decisions | NOT_STARTED | Adequate held-out reviewed examples per action and class |
+| P5-EXT-004 | Validate OOD false positives / detection under naturally occurring lab distribution shifts | NOT_STARTED | Prospective or external shift corpus with adjudicated OOD status |
+| P5-EXT-005 | Dataset/model drift monitoring and update policy | NOT_STARTED | Deployment data governance and researcher review lifecycle |
+| P5-EXT-006 | Advanced domain adaptation / active / continual learning | NOT_STARTED | Evidence that a specific adaptation method improves the fixed research holdout without leakage |
+| P5-EXT-007 | Cross-laboratory validation | NOT_STARTED | Independent laboratory data and review protocol |
+| P5-EXT-008 | Phase 6 shared Transformer adapter | NOT_STARTED | Separate Phase 6 kickoff; embedding compatibility and retraining must be evaluated, not presumed |
+
+Stage 3's synthetic benchmark is implementation evidence only. It must not be used as a substitute for these external validation datasets.

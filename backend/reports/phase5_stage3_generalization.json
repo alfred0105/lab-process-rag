@@ -1,0 +1,4316 @@
+{
+  "benchmark_version": "phase5-stage3-generalization-v1",
+  "benchmark_status": "COMPLETED_SYNTHETIC_SOFTWARE_EVALUATION",
+  "scientific_state_schema_version": "scientific-state-v2",
+  "feature_schema_version": "scientific-decision-features-v2",
+  "feature_count": 153,
+  "feature_groups": {
+    "experiment": 6,
+    "process_conditions": 7,
+    "measurements": 11,
+    "analysis": 6,
+    "simulation": 7,
+    "optimization": 7,
+    "tool_readiness": 4,
+    "pending_reviews": 4,
+    "provenance": 7
+  },
+  "scenario_families": [
+    "measurement_data_scarce",
+    "analysis_needed",
+    "simulation_ready",
+    "optimization_ready",
+    "researcher_review",
+    "incomplete_provenance",
+    "unit_mismatch",
+    "high_uncertainty",
+    "multiple_tools_available",
+    "contradictory_readiness",
+    "partial_missingness",
+    "unseen_condition_combination"
+  ],
+  "scenario_source": "independent synthetic scenario contract; not expert labels or research data",
+  "seeds": [
+    11,
+    29,
+    47,
+    71,
+    101
+  ],
+  "seed_count": 5,
+  "samples_per_seed": 576,
+  "split": {
+    "strategy": "group-disjoint fit/calibration/test 60/20/20",
+    "same_group_in_multiple_partitions": false,
+    "fit_validation_test_counts_per_seed": {
+      "total": 576,
+      "fit": 346,
+      "calibration": 115,
+      "test": 115,
+      "fit_groups": 346,
+      "calibration_groups": 115,
+      "test_groups": 115
+    },
+    "cross_method_holdout": "INSUFFICIENT_DATA: single-topic benchmark generator is not an independent method validation set",
+    "cross_topic_holdout": "INSUFFICIENT_DATA: no independently reviewed multi-topic corpus",
+    "condition_shift": "unseen_condition_combination fully withheld from fit/calibration and evaluated separately per seed"
+  },
+  "dataset_hash": "25b2826a8e5b88c1b0c93da49d6d35f22b9bb39c3f6220f930fc1e34c70e5c67",
+  "frozen_evaluation_hash": "6cdaacf7efccc403ea87761bc6287a324038098b4d9b6441bf3e73b80813b91c",
+  "independent_groups_per_seed": 115,
+  "results_by_seed": [
+    {
+      "seed": 11,
+      "counts": {
+        "total": 576,
+        "fit": 346,
+        "calibration": 115,
+        "test": 115,
+        "fit_groups": 346,
+        "calibration_groups": 115,
+        "test_groups": 115
+      },
+      "group_leakage": false,
+      "label_distribution": {
+        "REQUEST_REVIEW": 238,
+        "ANALYZE": 79,
+        "ABSTAIN": 62,
+        "REQUEST_INFORMATION": 82,
+        "SIMULATE": 95,
+        "OPTIMIZE": 20
+      },
+      "majority_baseline": {
+        "sample_count": 115,
+        "predicted_action": "REQUEST_REVIEW",
+        "selected_from": "TRAINING_LABELS_ONLY",
+        "training_class_counts": {
+          "REQUEST_INFORMATION": 50,
+          "ANALYZE": 45,
+          "SIMULATE": 60,
+          "OPTIMIZE": 11,
+          "REQUEST_REVIEW": 143,
+          "ABSTAIN": 37
+        },
+        "accuracy": 0.40869565217391307,
+        "macro_f1": 0.09670781893004116
+      },
+      "rule_baseline": {
+        "sample_count": 115,
+        "accuracy": 0.28695652173913044,
+        "predictions": [
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ANALYZE",
+          "ABSTAIN",
+          "ABSTAIN",
+          "SIMULATE",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ANALYZE",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "SIMULATE",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ANALYZE",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ANALYZE",
+          "ANALYZE",
+          "SIMULATE",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "SIMULATE",
+          "SIMULATE",
+          "ABSTAIN",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "SIMULATE",
+          "ABSTAIN",
+          "ABSTAIN",
+          "SIMULATE",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "SIMULATE",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ANALYZE",
+          "ABSTAIN",
+          "SIMULATE",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "REQUEST_REVIEW",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ABSTAIN",
+          "SIMULATE",
+          "REQUEST_REVIEW",
+          "SIMULATE",
+          "ABSTAIN",
+          "ANALYZE",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ABSTAIN",
+          "SIMULATE",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ANALYZE",
+          "ABSTAIN",
+          "ANALYZE",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ANALYZE",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ANALYZE",
+          "ABSTAIN",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "REQUEST_REVIEW",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "SIMULATE"
+        ],
+        "macro_f1": 0.18281002867741755
+      },
+      "v1": {
+        "accuracy": 0.5652173913043478,
+        "balanced_accuracy": 0.44658687943262415,
+        "macro_f1": 0.3988845593073817,
+        "per_class": {
+          "REQUEST_INFORMATION": {
+            "precision": 0.45,
+            "recall": 0.5625,
+            "support": 16
+          },
+          "ANALYZE": {
+            "precision": 0.5625,
+            "recall": 0.5,
+            "support": 18
+          },
+          "SIMULATE": {
+            "precision": 0.6206896551724138,
+            "recall": 1.0,
+            "support": 18
+          },
+          "OPTIMIZE": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "support": 4
+          },
+          "REQUEST_REVIEW": {
+            "precision": 0.58,
+            "recall": 0.6170212765957447,
+            "support": 47
+          },
+          "ABSTAIN": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "support": 12
+          }
+        },
+        "confusion_matrix": {
+          "labels": [
+            "REQUEST_INFORMATION",
+            "ANALYZE",
+            "SIMULATE",
+            "OPTIMIZE",
+            "REQUEST_REVIEW",
+            "ABSTAIN"
+          ],
+          "counts": [
+            [
+              9,
+              2,
+              0,
+              0,
+              5,
+              0
+            ],
+            [
+              0,
+              9,
+              1,
+              0,
+              8,
+              0
+            ],
+            [
+              0,
+              0,
+              18,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              1,
+              0,
+              0,
+              3,
+              0
+            ],
+            [
+              9,
+              3,
+              6,
+              0,
+              29,
+              0
+            ],
+            [
+              2,
+              1,
+              4,
+              0,
+              5,
+              0
+            ]
+          ]
+        },
+        "negative_log_likelihood": 1.1512611660817045,
+        "brier_score": 0.5924928818017101,
+        "expected_calibration_error_10_bins": 0.073836853293167,
+        "risk_coverage": [
+          {
+            "coverage": 0.25,
+            "risk": 0.3793103448275862,
+            "count": 29
+          },
+          {
+            "coverage": 0.5,
+            "risk": 0.3620689655172413,
+            "count": 58
+          },
+          {
+            "coverage": 0.75,
+            "risk": 0.3908045977011494,
+            "count": 87
+          },
+          {
+            "coverage": 1.0,
+            "risk": 0.4347826086956522,
+            "count": 115
+          }
+        ],
+        "fit_runtime_ms": 84.42012500017881,
+        "inference_latency_ms_per_case": 0.026828330010175705,
+        "parameter_count": 342,
+        "model_size_bytes": 7294
+      },
+      "v2": {
+        "accuracy": 0.7043478260869566,
+        "balanced_accuracy": 0.5101950354609929,
+        "macro_f1": 0.4784470930076139,
+        "per_class": {
+          "REQUEST_INFORMATION": {
+            "precision": 0.6666666666666666,
+            "recall": 0.625,
+            "support": 16
+          },
+          "ANALYZE": {
+            "precision": 0.75,
+            "recall": 0.5,
+            "support": 18
+          },
+          "SIMULATE": {
+            "precision": 0.6923076923076923,
+            "recall": 1.0,
+            "support": 18
+          },
+          "OPTIMIZE": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "support": 4
+          },
+          "REQUEST_REVIEW": {
+            "precision": 0.7096774193548387,
+            "recall": 0.9361702127659575,
+            "support": 47
+          },
+          "ABSTAIN": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "support": 12
+          }
+        },
+        "confusion_matrix": {
+          "labels": [
+            "REQUEST_INFORMATION",
+            "ANALYZE",
+            "SIMULATE",
+            "OPTIMIZE",
+            "REQUEST_REVIEW",
+            "ABSTAIN"
+          ],
+          "counts": [
+            [
+              10,
+              2,
+              2,
+              0,
+              2,
+              0
+            ],
+            [
+              3,
+              9,
+              1,
+              0,
+              5,
+              0
+            ],
+            [
+              0,
+              0,
+              18,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              1,
+              0,
+              3,
+              0
+            ],
+            [
+              0,
+              1,
+              2,
+              0,
+              44,
+              0
+            ],
+            [
+              2,
+              0,
+              2,
+              0,
+              8,
+              0
+            ]
+          ]
+        },
+        "negative_log_likelihood": 1.1556688957107903,
+        "brier_score": 0.47698296875777796,
+        "expected_calibration_error_10_bins": 0.16883853602093568,
+        "reliability_bins": [
+          {
+            "lower": 0.2,
+            "upper": 0.30000000000000004,
+            "count": 10,
+            "accuracy": 0.3,
+            "mean_confidence": 0.26737744783340645
+          },
+          {
+            "lower": 0.30000000000000004,
+            "upper": 0.4,
+            "count": 28,
+            "accuracy": 0.5357142857142857,
+            "mean_confidence": 0.35694565963213926
+          },
+          {
+            "lower": 0.4,
+            "upper": 0.5,
+            "count": 20,
+            "accuracy": 0.65,
+            "mean_confidence": 0.4350926560633816
+          },
+          {
+            "lower": 0.5,
+            "upper": 0.6,
+            "count": 9,
+            "accuracy": 0.7777777777777778,
+            "mean_confidence": 0.547006460940892
+          },
+          {
+            "lower": 0.6000000000000001,
+            "upper": 0.7000000000000001,
+            "count": 8,
+            "accuracy": 1.0,
+            "mean_confidence": 0.6222247968717919
+          },
+          {
+            "lower": 0.9,
+            "upper": 1.0,
+            "count": 40,
+            "accuracy": 0.875,
+            "mean_confidence": 0.9921848558787891
+          }
+        ],
+        "risk_coverage": [
+          {
+            "coverage": 0.25,
+            "risk": 0.13793103448275867,
+            "count": 29
+          },
+          {
+            "coverage": 0.5,
+            "risk": 0.12068965517241381,
+            "count": 58
+          },
+          {
+            "coverage": 0.75,
+            "risk": 0.2068965517241379,
+            "count": 87
+          },
+          {
+            "coverage": 1.0,
+            "risk": 0.29565217391304344,
+            "count": 115
+          }
+        ],
+        "selective_coverage": 0.1391304347826087,
+        "selective_risk": 0.1875,
+        "confidence_threshold": 0.9987,
+        "calibration_status": "CALIBRATED",
+        "fit_runtime_ms": 216.01554099470377,
+        "inference_latency_ms_per_case": 0.12381458000163548,
+        "parameter_count": 1392,
+        "model_size_bytes": 26335,
+        "scenario_family_accuracy": {
+          "measurement_data_scarce": {
+            "sample_count": 8,
+            "accuracy": 0.875
+          },
+          "analysis_needed": {
+            "sample_count": 11,
+            "accuracy": 0.8181818181818182
+          },
+          "simulation_ready": {
+            "sample_count": 8,
+            "accuracy": 0.875
+          },
+          "optimization_ready": {
+            "sample_count": 10,
+            "accuracy": 0.3
+          },
+          "researcher_review": {
+            "sample_count": 15,
+            "accuracy": 0.9333333333333333
+          },
+          "incomplete_provenance": {
+            "sample_count": 8,
+            "accuracy": 0.875
+          },
+          "unit_mismatch": {
+            "sample_count": 9,
+            "accuracy": 0.7777777777777778
+          },
+          "high_uncertainty": {
+            "sample_count": 8,
+            "accuracy": 0.875
+          },
+          "multiple_tools_available": {
+            "sample_count": 8,
+            "accuracy": 0.625
+          },
+          "contradictory_readiness": {
+            "sample_count": 11,
+            "accuracy": 0.5454545454545454
+          },
+          "partial_missingness": {
+            "sample_count": 8,
+            "accuracy": 0.375
+          },
+          "unseen_condition_combination": {
+            "sample_count": 11,
+            "accuracy": 0.5454545454545454
+          }
+        },
+        "ablation": {
+          "baseline_macro_f1": 0.4784470930076139,
+          "groups": {
+            "experiment": {
+              "ablated_feature_count": 16,
+              "macro_f1": 0.4816468253968254,
+              "delta_from_baseline": 0.003199732389211507,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "process_conditions": {
+              "ablated_feature_count": 14,
+              "macro_f1": 0.4784470930076139,
+              "delta_from_baseline": 0.0,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "measurements": {
+              "ablated_feature_count": 31,
+              "macro_f1": 0.09670781893004116,
+              "delta_from_baseline": -0.38173927407757274,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "analysis": {
+              "ablated_feature_count": 16,
+              "macro_f1": 0.3564448836187966,
+              "delta_from_baseline": -0.12200220938881728,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "simulation": {
+              "ablated_feature_count": 17,
+              "macro_f1": 0.4699911510256338,
+              "delta_from_baseline": -0.008455941981980075,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "optimization": {
+              "ablated_feature_count": 17,
+              "macro_f1": 0.46737081296581656,
+              "delta_from_baseline": -0.011076280041797337,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "tool_readiness": {
+              "ablated_feature_count": 8,
+              "macro_f1": 0.4429775774252092,
+              "delta_from_baseline": -0.03546951558240469,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "pending_reviews": {
+              "ablated_feature_count": 8,
+              "macro_f1": 0.4004463831023719,
+              "delta_from_baseline": -0.078000709905242,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "provenance": {
+              "ablated_feature_count": 26,
+              "macro_f1": 0.36526779261287995,
+              "delta_from_baseline": -0.11317930039473395,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            }
+          }
+        },
+        "ood_probe": {
+          "status": "SYNTHETIC_PROBE_ONLY",
+          "in_distribution_count": 115,
+          "shifted_probe_count": 115,
+          "in_distribution_false_positive_rate": 0.0,
+          "shift_detection_rate": 0.0,
+          "ood_abstention_rate": 0.8956521739130435,
+          "method": "standardized training distribution distance and missing/context safety gates"
+        },
+        "condition_shift_holdout": {
+          "held_out_family": "unseen_condition_combination",
+          "train_families": [
+            "measurement_data_scarce",
+            "analysis_needed",
+            "simulation_ready",
+            "optimization_ready",
+            "researcher_review",
+            "incomplete_provenance",
+            "unit_mismatch",
+            "high_uncertainty",
+            "multiple_tools_available",
+            "contradictory_readiness",
+            "partial_missingness"
+          ],
+          "train_count": 422,
+          "calibration_count": 106,
+          "test_count": 48,
+          "group_overlap": false,
+          "v1": {
+            "accuracy": 0.6666666666666666,
+            "balanced_accuracy": 0.4176587301587302,
+            "macro_f1": 0.2750924140147863,
+            "per_class": {
+              "REQUEST_INFORMATION": {
+                "precision": 0.75,
+                "recall": 0.6666666666666666,
+                "support": 9
+              },
+              "ANALYZE": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "support": 0
+              },
+              "SIMULATE": {
+                "precision": 0.7575757575757576,
+                "recall": 0.8928571428571429,
+                "support": 28
+              },
+              "OPTIMIZE": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "support": 0
+              },
+              "REQUEST_REVIEW": {
+                "precision": 0.14285714285714285,
+                "recall": 0.1111111111111111,
+                "support": 9
+              },
+              "ABSTAIN": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "support": 2
+              }
+            },
+            "confusion_matrix": {
+              "labels": [
+                "REQUEST_INFORMATION",
+                "ANALYZE",
+                "SIMULATE",
+                "OPTIMIZE",
+                "REQUEST_REVIEW",
+                "ABSTAIN"
+              ],
+              "counts": [
+                [
+                  6,
+                  0,
+                  0,
+                  0,
+                  3,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  25,
+                  0,
+                  3,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  1,
+                  0,
+                  7,
+                  0,
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  0,
+                  1,
+                  0,
+                  0,
+                  0
+                ]
+              ]
+            }
+          },
+          "v2": {
+            "accuracy": 0.2916666666666667,
+            "balanced_accuracy": 0.2946428571428571,
+            "macro_f1": 0.1528801528801529,
+            "per_class": {
+              "REQUEST_INFORMATION": {
+                "precision": 0.5,
+                "recall": 0.1111111111111111,
+                "support": 9
+              },
+              "ANALYZE": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "support": 0
+              },
+              "SIMULATE": {
+                "precision": 1.0,
+                "recall": 0.17857142857142858,
+                "support": 28
+              },
+              "OPTIMIZE": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "support": 0
+              },
+              "REQUEST_REVIEW": {
+                "precision": 0.2857142857142857,
+                "recall": 0.8888888888888888,
+                "support": 9
+              },
+              "ABSTAIN": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "support": 2
+              }
+            },
+            "confusion_matrix": {
+              "labels": [
+                "REQUEST_INFORMATION",
+                "ANALYZE",
+                "SIMULATE",
+                "OPTIMIZE",
+                "REQUEST_REVIEW",
+                "ABSTAIN"
+              ],
+              "counts": [
+                [
+                  1,
+                  5,
+                  0,
+                  0,
+                  3,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  6,
+                  5,
+                  0,
+                  17,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  1,
+                  0,
+                  0,
+                  8,
+                  0
+                ],
+                [
+                  1,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              ]
+            }
+          }
+        }
+      },
+      "training_loss": {
+        "v1_initial": 1.7786156999343814,
+        "v1_final": 0.9674790536774419,
+        "v2_initial": 1.7826785150858664,
+        "v2_final": 1.1524667084829197
+      }
+    },
+    {
+      "seed": 29,
+      "counts": {
+        "total": 576,
+        "fit": 346,
+        "calibration": 115,
+        "test": 115,
+        "fit_groups": 346,
+        "calibration_groups": 115,
+        "test_groups": 115
+      },
+      "group_leakage": false,
+      "label_distribution": {
+        "SIMULATE": 97,
+        "REQUEST_REVIEW": 270,
+        "ABSTAIN": 77,
+        "OPTIMIZE": 17,
+        "ANALYZE": 57,
+        "REQUEST_INFORMATION": 58
+      },
+      "majority_baseline": {
+        "sample_count": 115,
+        "predicted_action": "REQUEST_REVIEW",
+        "selected_from": "TRAINING_LABELS_ONLY",
+        "training_class_counts": {
+          "REQUEST_INFORMATION": 36,
+          "ANALYZE": 34,
+          "SIMULATE": 53,
+          "OPTIMIZE": 11,
+          "REQUEST_REVIEW": 166,
+          "ABSTAIN": 46
+        },
+        "accuracy": 0.391304347826087,
+        "macro_f1": 0.09375
+      },
+      "rule_baseline": {
+        "sample_count": 115,
+        "accuracy": 0.26956521739130435,
+        "predictions": [
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ANALYZE",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ANALYZE",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ANALYZE",
+          "SIMULATE",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "SIMULATE",
+          "ABSTAIN",
+          "ANALYZE",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ANALYZE",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "SIMULATE",
+          "ABSTAIN",
+          "ANALYZE",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "SIMULATE",
+          "SIMULATE",
+          "REQUEST_REVIEW",
+          "ANALYZE",
+          "ANALYZE",
+          "ANALYZE",
+          "ABSTAIN",
+          "SIMULATE",
+          "ANALYZE",
+          "ANALYZE",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "REQUEST_REVIEW",
+          "SIMULATE",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "SIMULATE",
+          "SIMULATE",
+          "SIMULATE",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "SIMULATE",
+          "ABSTAIN",
+          "ABSTAIN",
+          "SIMULATE",
+          "ABSTAIN",
+          "SIMULATE",
+          "ABSTAIN",
+          "SIMULATE",
+          "ABSTAIN",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "SIMULATE",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "REQUEST_REVIEW",
+          "SIMULATE",
+          "ABSTAIN",
+          "ANALYZE",
+          "ANALYZE",
+          "ANALYZE",
+          "SIMULATE",
+          "ANALYZE",
+          "ABSTAIN",
+          "SIMULATE",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "REQUEST_REVIEW",
+          "ANALYZE",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "SIMULATE",
+          "SIMULATE",
+          "SIMULATE",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "SIMULATE",
+          "ABSTAIN",
+          "SIMULATE",
+          "REQUEST_REVIEW",
+          "ANALYZE"
+        ],
+        "macro_f1": 0.18081921327535364
+      },
+      "v1": {
+        "accuracy": 0.5043478260869565,
+        "balanced_accuracy": 0.3403679653679654,
+        "macro_f1": 0.32043439064781337,
+        "per_class": {
+          "REQUEST_INFORMATION": {
+            "precision": 0.6,
+            "recall": 0.25,
+            "support": 12
+          },
+          "ANALYZE": {
+            "precision": 0.5,
+            "recall": 0.1,
+            "support": 10
+          },
+          "SIMULATE": {
+            "precision": 0.5277777777777778,
+            "recall": 0.8636363636363636,
+            "support": 22
+          },
+          "OPTIMIZE": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "support": 5
+          },
+          "REQUEST_REVIEW": {
+            "precision": 0.4714285714285714,
+            "recall": 0.7333333333333333,
+            "support": 45
+          },
+          "ABSTAIN": {
+            "precision": 1.0,
+            "recall": 0.09523809523809523,
+            "support": 21
+          }
+        },
+        "confusion_matrix": {
+          "labels": [
+            "REQUEST_INFORMATION",
+            "ANALYZE",
+            "SIMULATE",
+            "OPTIMIZE",
+            "REQUEST_REVIEW",
+            "ABSTAIN"
+          ],
+          "counts": [
+            [
+              3,
+              0,
+              0,
+              0,
+              9,
+              0
+            ],
+            [
+              0,
+              1,
+              2,
+              0,
+              7,
+              0
+            ],
+            [
+              0,
+              0,
+              19,
+              0,
+              3,
+              0
+            ],
+            [
+              0,
+              1,
+              2,
+              0,
+              2,
+              0
+            ],
+            [
+              2,
+              0,
+              10,
+              0,
+              33,
+              0
+            ],
+            [
+              0,
+              0,
+              3,
+              0,
+              16,
+              2
+            ]
+          ]
+        },
+        "negative_log_likelihood": 1.2918884232810373,
+        "brier_score": 0.66522791913813,
+        "expected_calibration_error_10_bins": 0.14087967317864314,
+        "risk_coverage": [
+          {
+            "coverage": 0.25,
+            "risk": 0.27586206896551724,
+            "count": 29
+          },
+          {
+            "coverage": 0.5,
+            "risk": 0.4137931034482759,
+            "count": 58
+          },
+          {
+            "coverage": 0.75,
+            "risk": 0.47126436781609193,
+            "count": 87
+          },
+          {
+            "coverage": 1.0,
+            "risk": 0.4956521739130435,
+            "count": 115
+          }
+        ],
+        "fit_runtime_ms": 87.50429199426435,
+        "inference_latency_ms_per_case": 0.028476249863160774,
+        "parameter_count": 342,
+        "model_size_bytes": 7273
+      },
+      "v2": {
+        "accuracy": 0.45217391304347826,
+        "balanced_accuracy": 0.2242905242905243,
+        "macro_f1": 0.18382173382173383,
+        "per_class": {
+          "REQUEST_INFORMATION": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "support": 12
+          },
+          "ANALYZE": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "support": 10
+          },
+          "SIMULATE": {
+            "precision": 0.35294117647058826,
+            "recall": 0.2727272727272727,
+            "support": 22
+          },
+          "OPTIMIZE": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "support": 5
+          },
+          "REQUEST_REVIEW": {
+            "precision": 0.4631578947368421,
+            "recall": 0.9777777777777777,
+            "support": 45
+          },
+          "ABSTAIN": {
+            "precision": 0.6666666666666666,
+            "recall": 0.09523809523809523,
+            "support": 21
+          }
+        },
+        "confusion_matrix": {
+          "labels": [
+            "REQUEST_INFORMATION",
+            "ANALYZE",
+            "SIMULATE",
+            "OPTIMIZE",
+            "REQUEST_REVIEW",
+            "ABSTAIN"
+          ],
+          "counts": [
+            [
+              0,
+              0,
+              3,
+              0,
+              8,
+              1
+            ],
+            [
+              0,
+              0,
+              1,
+              0,
+              9,
+              0
+            ],
+            [
+              0,
+              0,
+              6,
+              0,
+              16,
+              0
+            ],
+            [
+              0,
+              0,
+              3,
+              0,
+              2,
+              0
+            ],
+            [
+              0,
+              0,
+              1,
+              0,
+              44,
+              0
+            ],
+            [
+              0,
+              0,
+              3,
+              0,
+              16,
+              2
+            ]
+          ]
+        },
+        "negative_log_likelihood": 1.2836632961603691,
+        "brier_score": 0.6329781794294593,
+        "expected_calibration_error_10_bins": 0.16152107148937458,
+        "reliability_bins": [
+          {
+            "lower": 0.2,
+            "upper": 0.30000000000000004,
+            "count": 10,
+            "accuracy": 0.2,
+            "mean_confidence": 0.2660946040037663
+          },
+          {
+            "lower": 0.30000000000000004,
+            "upper": 0.4,
+            "count": 26,
+            "accuracy": 0.23076923076923078,
+            "mean_confidence": 0.3371497754263897
+          },
+          {
+            "lower": 0.4,
+            "upper": 0.5,
+            "count": 9,
+            "accuracy": 0.3333333333333333,
+            "mean_confidence": 0.4689825049770506
+          },
+          {
+            "lower": 0.5,
+            "upper": 0.6,
+            "count": 24,
+            "accuracy": 0.25,
+            "mean_confidence": 0.5481258468799096
+          },
+          {
+            "lower": 0.6000000000000001,
+            "upper": 0.7000000000000001,
+            "count": 13,
+            "accuracy": 0.3076923076923077,
+            "mean_confidence": 0.639978855347371
+          },
+          {
+            "lower": 0.7000000000000001,
+            "upper": 0.8,
+            "count": 1,
+            "accuracy": 1.0,
+            "mean_confidence": 0.7954813648667857
+          },
+          {
+            "lower": 0.8,
+            "upper": 0.9,
+            "count": 6,
+            "accuracy": 1.0,
+            "mean_confidence": 0.8608108705717971
+          },
+          {
+            "lower": 0.9,
+            "upper": 1.0,
+            "count": 26,
+            "accuracy": 0.9230769230769231,
+            "mean_confidence": 0.9774169853471055
+          }
+        ],
+        "risk_coverage": [
+          {
+            "coverage": 0.25,
+            "risk": 0.06896551724137934,
+            "count": 29
+          },
+          {
+            "coverage": 0.5,
+            "risk": 0.3620689655172413,
+            "count": 58
+          },
+          {
+            "coverage": 0.75,
+            "risk": 0.45977011494252873,
+            "count": 87
+          },
+          {
+            "coverage": 1.0,
+            "risk": 0.5478260869565217,
+            "count": 115
+          }
+        ],
+        "selective_coverage": 0.1565217391304348,
+        "selective_risk": 0.0,
+        "confidence_threshold": 0.9781,
+        "calibration_status": "CALIBRATED",
+        "fit_runtime_ms": 222.4155419971794,
+        "inference_latency_ms_per_case": 0.13438458001473919,
+        "parameter_count": 1392,
+        "model_size_bytes": 26430,
+        "scenario_family_accuracy": {
+          "measurement_data_scarce": {
+            "sample_count": 8,
+            "accuracy": 0.125
+          },
+          "analysis_needed": {
+            "sample_count": 6,
+            "accuracy": 0.16666666666666666
+          },
+          "simulation_ready": {
+            "sample_count": 14,
+            "accuracy": 0.07142857142857142
+          },
+          "optimization_ready": {
+            "sample_count": 9,
+            "accuracy": 0.3333333333333333
+          },
+          "researcher_review": {
+            "sample_count": 9,
+            "accuracy": 1.0
+          },
+          "incomplete_provenance": {
+            "sample_count": 6,
+            "accuracy": 0.8333333333333334
+          },
+          "unit_mismatch": {
+            "sample_count": 11,
+            "accuracy": 0.9090909090909091
+          },
+          "high_uncertainty": {
+            "sample_count": 7,
+            "accuracy": 1.0
+          },
+          "multiple_tools_available": {
+            "sample_count": 10,
+            "accuracy": 0.5
+          },
+          "contradictory_readiness": {
+            "sample_count": 10,
+            "accuracy": 0.4
+          },
+          "partial_missingness": {
+            "sample_count": 14,
+            "accuracy": 0.07142857142857142
+          },
+          "unseen_condition_combination": {
+            "sample_count": 11,
+            "accuracy": 0.45454545454545453
+          }
+        },
+        "ablation": {
+          "baseline_macro_f1": 0.18382173382173383,
+          "groups": {
+            "experiment": {
+              "ablated_feature_count": 16,
+              "macro_f1": 0.18382173382173383,
+              "delta_from_baseline": 0.0,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "process_conditions": {
+              "ablated_feature_count": 14,
+              "macro_f1": 0.18382173382173383,
+              "delta_from_baseline": 0.0,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "measurements": {
+              "ablated_feature_count": 31,
+              "macro_f1": 0.09375,
+              "delta_from_baseline": -0.09007173382173383,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "analysis": {
+              "ablated_feature_count": 16,
+              "macro_f1": 0.15384615384615385,
+              "delta_from_baseline": -0.02997557997557998,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "simulation": {
+              "ablated_feature_count": 17,
+              "macro_f1": 0.18382173382173383,
+              "delta_from_baseline": 0.0,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "optimization": {
+              "ablated_feature_count": 17,
+              "macro_f1": 0.13973332046580453,
+              "delta_from_baseline": -0.04408841335592931,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "tool_readiness": {
+              "ablated_feature_count": 8,
+              "macro_f1": 0.15063450547321514,
+              "delta_from_baseline": -0.0331872283485187,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "pending_reviews": {
+              "ablated_feature_count": 8,
+              "macro_f1": 0.1401409955137791,
+              "delta_from_baseline": -0.04368073830795474,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "provenance": {
+              "ablated_feature_count": 26,
+              "macro_f1": 0.15520347934141035,
+              "delta_from_baseline": -0.028618254480323485,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            }
+          }
+        },
+        "ood_probe": {
+          "status": "SYNTHETIC_PROBE_ONLY",
+          "in_distribution_count": 115,
+          "shifted_probe_count": 115,
+          "in_distribution_false_positive_rate": 0.0,
+          "shift_detection_rate": 0.0,
+          "ood_abstention_rate": 0.8347826086956521,
+          "method": "standardized training distribution distance and missing/context safety gates"
+        },
+        "condition_shift_holdout": {
+          "held_out_family": "unseen_condition_combination",
+          "train_families": [
+            "measurement_data_scarce",
+            "analysis_needed",
+            "simulation_ready",
+            "optimization_ready",
+            "researcher_review",
+            "incomplete_provenance",
+            "unit_mismatch",
+            "high_uncertainty",
+            "multiple_tools_available",
+            "contradictory_readiness",
+            "partial_missingness"
+          ],
+          "train_count": 422,
+          "calibration_count": 106,
+          "test_count": 48,
+          "group_overlap": false,
+          "v1": {
+            "accuracy": 0.5416666666666666,
+            "balanced_accuracy": 0.4039682539682539,
+            "macro_f1": 0.2777376944043611,
+            "per_class": {
+              "REQUEST_INFORMATION": {
+                "precision": 1.0,
+                "recall": 0.5714285714285714,
+                "support": 7
+              },
+              "ANALYZE": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "support": 0
+              },
+              "SIMULATE": {
+                "precision": 0.6923076923076923,
+                "recall": 0.6,
+                "support": 30
+              },
+              "OPTIMIZE": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "support": 0
+              },
+              "REQUEST_REVIEW": {
+                "precision": 0.2222222222222222,
+                "recall": 0.4444444444444444,
+                "support": 9
+              },
+              "ABSTAIN": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "support": 2
+              }
+            },
+            "confusion_matrix": {
+              "labels": [
+                "REQUEST_INFORMATION",
+                "ANALYZE",
+                "SIMULATE",
+                "OPTIMIZE",
+                "REQUEST_REVIEW",
+                "ABSTAIN"
+              ],
+              "counts": [
+                [
+                  4,
+                  0,
+                  1,
+                  0,
+                  2,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  18,
+                  0,
+                  12,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  5,
+                  0,
+                  4,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  2,
+                  0,
+                  0,
+                  0
+                ]
+              ]
+            }
+          },
+          "v2": {
+            "accuracy": 0.20833333333333334,
+            "balanced_accuracy": 0.25833333333333336,
+            "macro_f1": 0.06432411674347159,
+            "per_class": {
+              "REQUEST_INFORMATION": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "support": 7
+              },
+              "ANALYZE": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "support": 0
+              },
+              "SIMULATE": {
+                "precision": 1.0,
+                "recall": 0.03333333333333333,
+                "support": 30
+              },
+              "OPTIMIZE": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "support": 0
+              },
+              "REQUEST_REVIEW": {
+                "precision": 0.19148936170212766,
+                "recall": 1.0,
+                "support": 9
+              },
+              "ABSTAIN": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "support": 2
+              }
+            },
+            "confusion_matrix": {
+              "labels": [
+                "REQUEST_INFORMATION",
+                "ANALYZE",
+                "SIMULATE",
+                "OPTIMIZE",
+                "REQUEST_REVIEW",
+                "ABSTAIN"
+              ],
+              "counts": [
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  7,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  1,
+                  0,
+                  29,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  9,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  2,
+                  0
+                ]
+              ]
+            }
+          }
+        }
+      },
+      "training_loss": {
+        "v1_initial": 1.8080845891240067,
+        "v1_final": 1.0050905982747451,
+        "v2_initial": 1.787222450302208,
+        "v2_final": 1.1720390548617063
+      }
+    },
+    {
+      "seed": 47,
+      "counts": {
+        "total": 576,
+        "fit": 346,
+        "calibration": 115,
+        "test": 115,
+        "fit_groups": 346,
+        "calibration_groups": 115,
+        "test_groups": 115
+      },
+      "group_leakage": false,
+      "label_distribution": {
+        "REQUEST_INFORMATION": 81,
+        "ANALYZE": 75,
+        "REQUEST_REVIEW": 231,
+        "ABSTAIN": 72,
+        "SIMULATE": 94,
+        "OPTIMIZE": 23
+      },
+      "majority_baseline": {
+        "sample_count": 115,
+        "predicted_action": "REQUEST_REVIEW",
+        "selected_from": "TRAINING_LABELS_ONLY",
+        "training_class_counts": {
+          "REQUEST_INFORMATION": 47,
+          "ANALYZE": 44,
+          "SIMULATE": 60,
+          "OPTIMIZE": 19,
+          "REQUEST_REVIEW": 134,
+          "ABSTAIN": 42
+        },
+        "accuracy": 0.40869565217391307,
+        "macro_f1": 0.09670781893004116
+      },
+      "rule_baseline": {
+        "sample_count": 115,
+        "accuracy": 0.2,
+        "predictions": [
+          "SIMULATE",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ANALYZE",
+          "ABSTAIN",
+          "ANALYZE",
+          "ABSTAIN",
+          "SIMULATE",
+          "ANALYZE",
+          "SIMULATE",
+          "SIMULATE",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ANALYZE",
+          "ABSTAIN",
+          "ANALYZE",
+          "ANALYZE",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "REQUEST_REVIEW",
+          "SIMULATE",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ANALYZE",
+          "REQUEST_REVIEW",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ABSTAIN",
+          "SIMULATE",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ANALYZE",
+          "SIMULATE",
+          "ABSTAIN",
+          "ANALYZE",
+          "SIMULATE",
+          "ANALYZE",
+          "ANALYZE",
+          "ABSTAIN",
+          "SIMULATE",
+          "ABSTAIN",
+          "ABSTAIN",
+          "SIMULATE",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "SIMULATE",
+          "ABSTAIN",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ANALYZE",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ANALYZE",
+          "ABSTAIN",
+          "SIMULATE",
+          "SIMULATE",
+          "REQUEST_REVIEW",
+          "ANALYZE",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ANALYZE",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "SIMULATE",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ANALYZE",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "SIMULATE",
+          "ABSTAIN",
+          "SIMULATE",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "SIMULATE",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "SIMULATE",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "REQUEST_REVIEW",
+          "ANALYZE",
+          "SIMULATE",
+          "ANALYZE",
+          "SIMULATE",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "SIMULATE",
+          "ANALYZE",
+          "ANALYZE",
+          "REQUEST_REVIEW"
+        ],
+        "macro_f1": 0.1360490268940973
+      },
+      "v1": {
+        "accuracy": 0.6086956521739131,
+        "balanced_accuracy": 0.42830158067955315,
+        "macro_f1": 0.4009992148937382,
+        "per_class": {
+          "REQUEST_INFORMATION": {
+            "precision": 0.6875,
+            "recall": 0.6111111111111112,
+            "support": 18
+          },
+          "ANALYZE": {
+            "precision": 1.0,
+            "recall": 0.23529411764705882,
+            "support": 17
+          },
+          "SIMULATE": {
+            "precision": 0.5675675675675675,
+            "recall": 1.0,
+            "support": 21
+          },
+          "OPTIMIZE": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "support": 2
+          },
+          "REQUEST_REVIEW": {
+            "precision": 0.5964912280701754,
+            "recall": 0.723404255319149,
+            "support": 47
+          },
+          "ABSTAIN": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "support": 10
+          }
+        },
+        "confusion_matrix": {
+          "labels": [
+            "REQUEST_INFORMATION",
+            "ANALYZE",
+            "SIMULATE",
+            "OPTIMIZE",
+            "REQUEST_REVIEW",
+            "ABSTAIN"
+          ],
+          "counts": [
+            [
+              11,
+              0,
+              4,
+              0,
+              3,
+              0
+            ],
+            [
+              0,
+              4,
+              3,
+              0,
+              10,
+              0
+            ],
+            [
+              0,
+              0,
+              21,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              1,
+              1
+            ],
+            [
+              5,
+              0,
+              8,
+              0,
+              34,
+              0
+            ],
+            [
+              0,
+              0,
+              1,
+              0,
+              9,
+              0
+            ]
+          ]
+        },
+        "negative_log_likelihood": 1.060332579638949,
+        "brier_score": 0.5342734402056947,
+        "expected_calibration_error_10_bins": 0.06966671551147949,
+        "risk_coverage": [
+          {
+            "coverage": 0.25,
+            "risk": 0.1724137931034483,
+            "count": 29
+          },
+          {
+            "coverage": 0.5,
+            "risk": 0.27586206896551724,
+            "count": 58
+          },
+          {
+            "coverage": 0.75,
+            "risk": 0.31034482758620685,
+            "count": 87
+          },
+          {
+            "coverage": 1.0,
+            "risk": 0.3913043478260869,
+            "count": 115
+          }
+        ],
+        "fit_runtime_ms": 85.18174999335315,
+        "inference_latency_ms_per_case": 0.027686660032486543,
+        "parameter_count": 342,
+        "model_size_bytes": 7267
+      },
+      "v2": {
+        "accuracy": 0.6869565217391305,
+        "balanced_accuracy": 0.47149677838038295,
+        "macro_f1": 0.4648824888669145,
+        "per_class": {
+          "REQUEST_INFORMATION": {
+            "precision": 0.8,
+            "recall": 0.2222222222222222,
+            "support": 18
+          },
+          "ANALYZE": {
+            "precision": 1.0,
+            "recall": 0.47058823529411764,
+            "support": 17
+          },
+          "SIMULATE": {
+            "precision": 0.45652173913043476,
+            "recall": 1.0,
+            "support": 21
+          },
+          "OPTIMIZE": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "support": 2
+          },
+          "REQUEST_REVIEW": {
+            "precision": 0.8461538461538461,
+            "recall": 0.9361702127659575,
+            "support": 47
+          },
+          "ABSTAIN": {
+            "precision": 0.5,
+            "recall": 0.2,
+            "support": 10
+          }
+        },
+        "confusion_matrix": {
+          "labels": [
+            "REQUEST_INFORMATION",
+            "ANALYZE",
+            "SIMULATE",
+            "OPTIMIZE",
+            "REQUEST_REVIEW",
+            "ABSTAIN"
+          ],
+          "counts": [
+            [
+              4,
+              0,
+              12,
+              0,
+              1,
+              1
+            ],
+            [
+              0,
+              8,
+              8,
+              0,
+              1,
+              0
+            ],
+            [
+              0,
+              0,
+              21,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              1,
+              1
+            ],
+            [
+              1,
+              0,
+              2,
+              0,
+              44,
+              0
+            ],
+            [
+              0,
+              0,
+              3,
+              0,
+              5,
+              2
+            ]
+          ]
+        },
+        "negative_log_likelihood": 1.0092891422324468,
+        "brier_score": 0.466436789151241,
+        "expected_calibration_error_10_bins": 0.10632744730811378,
+        "reliability_bins": [
+          {
+            "lower": 0.1,
+            "upper": 0.2,
+            "count": 1,
+            "accuracy": 0.0,
+            "mean_confidence": 0.18618148077532298
+          },
+          {
+            "lower": 0.2,
+            "upper": 0.30000000000000004,
+            "count": 13,
+            "accuracy": 0.3076923076923077,
+            "mean_confidence": 0.23763594751841224
+          },
+          {
+            "lower": 0.30000000000000004,
+            "upper": 0.4,
+            "count": 21,
+            "accuracy": 0.6666666666666666,
+            "mean_confidence": 0.3460162406749191
+          },
+          {
+            "lower": 0.4,
+            "upper": 0.5,
+            "count": 14,
+            "accuracy": 0.5714285714285714,
+            "mean_confidence": 0.4489201117707128
+          },
+          {
+            "lower": 0.5,
+            "upper": 0.6,
+            "count": 17,
+            "accuracy": 0.5294117647058824,
+            "mean_confidence": 0.5519124069062112
+          },
+          {
+            "lower": 0.6000000000000001,
+            "upper": 0.7000000000000001,
+            "count": 5,
+            "accuracy": 0.6,
+            "mean_confidence": 0.6686167654757258
+          },
+          {
+            "lower": 0.7000000000000001,
+            "upper": 0.8,
+            "count": 3,
+            "accuracy": 0.6666666666666666,
+            "mean_confidence": 0.7520601204238752
+          },
+          {
+            "lower": 0.8,
+            "upper": 0.9,
+            "count": 1,
+            "accuracy": 1.0,
+            "mean_confidence": 0.8762590549450209
+          },
+          {
+            "lower": 0.9,
+            "upper": 1.0,
+            "count": 40,
+            "accuracy": 0.95,
+            "mean_confidence": 0.9894112211312394
+          }
+        ],
+        "risk_coverage": [
+          {
+            "coverage": 0.25,
+            "risk": 0.06896551724137934,
+            "count": 29
+          },
+          {
+            "coverage": 0.5,
+            "risk": 0.13793103448275867,
+            "count": 58
+          },
+          {
+            "coverage": 0.75,
+            "risk": 0.25287356321839083,
+            "count": 87
+          },
+          {
+            "coverage": 1.0,
+            "risk": 0.31304347826086953,
+            "count": 115
+          }
+        ],
+        "selective_coverage": 0.1391304347826087,
+        "selective_risk": 0.125,
+        "confidence_threshold": 0.9978,
+        "calibration_status": "CALIBRATED",
+        "fit_runtime_ms": 215.89962500729598,
+        "inference_latency_ms_per_case": 0.12641458000871353,
+        "parameter_count": 1392,
+        "model_size_bytes": 26436,
+        "scenario_family_accuracy": {
+          "measurement_data_scarce": {
+            "sample_count": 8,
+            "accuracy": 0.375
+          },
+          "analysis_needed": {
+            "sample_count": 7,
+            "accuracy": 1.0
+          },
+          "simulation_ready": {
+            "sample_count": 12,
+            "accuracy": 0.4166666666666667
+          },
+          "optimization_ready": {
+            "sample_count": 8,
+            "accuracy": 0.375
+          },
+          "researcher_review": {
+            "sample_count": 10,
+            "accuracy": 0.8
+          },
+          "incomplete_provenance": {
+            "sample_count": 15,
+            "accuracy": 1.0
+          },
+          "unit_mismatch": {
+            "sample_count": 7,
+            "accuracy": 1.0
+          },
+          "high_uncertainty": {
+            "sample_count": 9,
+            "accuracy": 1.0
+          },
+          "multiple_tools_available": {
+            "sample_count": 12,
+            "accuracy": 0.6666666666666666
+          },
+          "contradictory_readiness": {
+            "sample_count": 13,
+            "accuracy": 0.46153846153846156
+          },
+          "partial_missingness": {
+            "sample_count": 5,
+            "accuracy": 0.6
+          },
+          "unseen_condition_combination": {
+            "sample_count": 9,
+            "accuracy": 0.5555555555555556
+          }
+        },
+        "ablation": {
+          "baseline_macro_f1": 0.4648824888669145,
+          "groups": {
+            "experiment": {
+              "ablated_feature_count": 16,
+              "macro_f1": 0.4431472137598375,
+              "delta_from_baseline": -0.021735275107077012,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "process_conditions": {
+              "ablated_feature_count": 14,
+              "macro_f1": 0.4648824888669145,
+              "delta_from_baseline": 0.0,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "measurements": {
+              "ablated_feature_count": 31,
+              "macro_f1": 0.12847916204012136,
+              "delta_from_baseline": -0.3364033268267932,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "analysis": {
+              "ablated_feature_count": 16,
+              "macro_f1": 0.3733938012180891,
+              "delta_from_baseline": -0.0914886876488254,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "simulation": {
+              "ablated_feature_count": 17,
+              "macro_f1": 0.4020719027112889,
+              "delta_from_baseline": -0.06281058615562563,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "optimization": {
+              "ablated_feature_count": 17,
+              "macro_f1": 0.41272727272727266,
+              "delta_from_baseline": -0.05215521613964186,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "tool_readiness": {
+              "ablated_feature_count": 8,
+              "macro_f1": 0.442012882447665,
+              "delta_from_baseline": -0.02286960641924951,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "pending_reviews": {
+              "ablated_feature_count": 8,
+              "macro_f1": 0.381176512322388,
+              "delta_from_baseline": -0.08370597654452655,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "provenance": {
+              "ablated_feature_count": 26,
+              "macro_f1": 0.34915929481146873,
+              "delta_from_baseline": -0.11572319405544579,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            }
+          }
+        },
+        "ood_probe": {
+          "status": "SYNTHETIC_PROBE_ONLY",
+          "in_distribution_count": 115,
+          "shifted_probe_count": 115,
+          "in_distribution_false_positive_rate": 0.0,
+          "shift_detection_rate": 0.0,
+          "ood_abstention_rate": 0.8695652173913043,
+          "method": "standardized training distribution distance and missing/context safety gates"
+        },
+        "condition_shift_holdout": {
+          "held_out_family": "unseen_condition_combination",
+          "train_families": [
+            "measurement_data_scarce",
+            "analysis_needed",
+            "simulation_ready",
+            "optimization_ready",
+            "researcher_review",
+            "incomplete_provenance",
+            "unit_mismatch",
+            "high_uncertainty",
+            "multiple_tools_available",
+            "contradictory_readiness",
+            "partial_missingness"
+          ],
+          "train_count": 422,
+          "calibration_count": 106,
+          "test_count": 48,
+          "group_overlap": false,
+          "v1": {
+            "accuracy": 0.4375,
+            "balanced_accuracy": 0.3984126984126984,
+            "macro_f1": 0.20352733686067015,
+            "per_class": {
+              "REQUEST_INFORMATION": {
+                "precision": 0.5,
+                "recall": 0.5714285714285714,
+                "support": 7
+              },
+              "ANALYZE": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "support": 0
+              },
+              "SIMULATE": {
+                "precision": 0.8421052631578947,
+                "recall": 0.45714285714285713,
+                "support": 35
+              },
+              "OPTIMIZE": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "support": 0
+              },
+              "REQUEST_REVIEW": {
+                "precision": 0.06666666666666667,
+                "recall": 0.16666666666666666,
+                "support": 6
+              },
+              "ABSTAIN": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "support": 0
+              }
+            },
+            "confusion_matrix": {
+              "labels": [
+                "REQUEST_INFORMATION",
+                "ANALYZE",
+                "SIMULATE",
+                "OPTIMIZE",
+                "REQUEST_REVIEW",
+                "ABSTAIN"
+              ],
+              "counts": [
+                [
+                  4,
+                  0,
+                  2,
+                  0,
+                  1,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  5,
+                  16,
+                  0,
+                  13,
+                  1
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  4,
+                  0,
+                  1,
+                  0,
+                  1,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              ]
+            }
+          },
+          "v2": {
+            "accuracy": 0.125,
+            "balanced_accuracy": 0.3253968253968254,
+            "macro_f1": 0.0844017094017094,
+            "per_class": {
+              "REQUEST_INFORMATION": {
+                "precision": 1.0,
+                "recall": 0.14285714285714285,
+                "support": 7
+              },
+              "ANALYZE": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "support": 0
+              },
+              "SIMULATE": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "support": 35
+              },
+              "OPTIMIZE": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "support": 0
+              },
+              "REQUEST_REVIEW": {
+                "precision": 0.15151515151515152,
+                "recall": 0.8333333333333334,
+                "support": 6
+              },
+              "ABSTAIN": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "support": 0
+              }
+            },
+            "confusion_matrix": {
+              "labels": [
+                "REQUEST_INFORMATION",
+                "ANALYZE",
+                "SIMULATE",
+                "OPTIMIZE",
+                "REQUEST_REVIEW",
+                "ABSTAIN"
+              ],
+              "counts": [
+                [
+                  1,
+                  0,
+                  0,
+                  0,
+                  6,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  13,
+                  0,
+                  0,
+                  22,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  1,
+                  0,
+                  0,
+                  5,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              ]
+            }
+          }
+        }
+      },
+      "training_loss": {
+        "v1_initial": 1.806591366036268,
+        "v1_final": 0.9799275289085537,
+        "v2_initial": 1.8074151213231928,
+        "v2_final": 1.174537954635751
+      }
+    },
+    {
+      "seed": 71,
+      "counts": {
+        "total": 576,
+        "fit": 346,
+        "calibration": 115,
+        "test": 115,
+        "fit_groups": 346,
+        "calibration_groups": 115,
+        "test_groups": 115
+      },
+      "group_leakage": false,
+      "label_distribution": {
+        "SIMULATE": 110,
+        "ANALYZE": 54,
+        "OPTIMIZE": 25,
+        "REQUEST_REVIEW": 260,
+        "ABSTAIN": 61,
+        "REQUEST_INFORMATION": 66
+      },
+      "majority_baseline": {
+        "sample_count": 115,
+        "predicted_action": "REQUEST_REVIEW",
+        "selected_from": "TRAINING_LABELS_ONLY",
+        "training_class_counts": {
+          "REQUEST_INFORMATION": 41,
+          "ANALYZE": 31,
+          "SIMULATE": 77,
+          "OPTIMIZE": 15,
+          "REQUEST_REVIEW": 147,
+          "ABSTAIN": 35
+        },
+        "accuracy": 0.4782608695652174,
+        "macro_f1": 0.10784313725490197
+      },
+      "rule_baseline": {
+        "sample_count": 115,
+        "accuracy": 0.2608695652173913,
+        "predictions": [
+          "REQUEST_REVIEW",
+          "ANALYZE",
+          "ABSTAIN",
+          "ANALYZE",
+          "REQUEST_REVIEW",
+          "SIMULATE",
+          "ABSTAIN",
+          "ABSTAIN",
+          "SIMULATE",
+          "ABSTAIN",
+          "SIMULATE",
+          "ABSTAIN",
+          "SIMULATE",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "SIMULATE",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "SIMULATE",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "REQUEST_REVIEW",
+          "SIMULATE",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "SIMULATE",
+          "ABSTAIN",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ANALYZE",
+          "SIMULATE",
+          "ABSTAIN",
+          "ANALYZE",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ANALYZE",
+          "ANALYZE",
+          "ANALYZE",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "SIMULATE",
+          "SIMULATE",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ANALYZE",
+          "REQUEST_REVIEW",
+          "SIMULATE",
+          "ANALYZE",
+          "REQUEST_REVIEW",
+          "ANALYZE",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ANALYZE",
+          "REQUEST_REVIEW",
+          "SIMULATE",
+          "ABSTAIN",
+          "SIMULATE",
+          "SIMULATE",
+          "ANALYZE",
+          "ABSTAIN",
+          "ANALYZE",
+          "ANALYZE",
+          "SIMULATE",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ANALYZE",
+          "ABSTAIN",
+          "ANALYZE",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "SIMULATE",
+          "SIMULATE",
+          "ABSTAIN",
+          "ANALYZE",
+          "ANALYZE",
+          "ANALYZE",
+          "ABSTAIN",
+          "ANALYZE",
+          "ANALYZE",
+          "SIMULATE",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "REQUEST_REVIEW",
+          "ANALYZE",
+          "ABSTAIN",
+          "SIMULATE",
+          "ABSTAIN",
+          "SIMULATE",
+          "REQUEST_REVIEW",
+          "REQUEST_REVIEW",
+          "ANALYZE",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "SIMULATE",
+          "ABSTAIN"
+        ],
+        "macro_f1": 0.17083703883364323
+      },
+      "v1": {
+        "accuracy": 0.6,
+        "balanced_accuracy": 0.40852272727272726,
+        "macro_f1": 0.34914015960436107,
+        "per_class": {
+          "REQUEST_INFORMATION": {
+            "precision": 0.631578947368421,
+            "recall": 0.75,
+            "support": 16
+          },
+          "ANALYZE": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "support": 8
+          },
+          "SIMULATE": {
+            "precision": 0.6,
+            "recall": 0.9375,
+            "support": 16
+          },
+          "OPTIMIZE": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "support": 4
+          },
+          "REQUEST_REVIEW": {
+            "precision": 0.6086956521739131,
+            "recall": 0.7636363636363637,
+            "support": 55
+          },
+          "ABSTAIN": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "support": 16
+          }
+        },
+        "confusion_matrix": {
+          "labels": [
+            "REQUEST_INFORMATION",
+            "ANALYZE",
+            "SIMULATE",
+            "OPTIMIZE",
+            "REQUEST_REVIEW",
+            "ABSTAIN"
+          ],
+          "counts": [
+            [
+              12,
+              0,
+              1,
+              0,
+              3,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              8,
+              0
+            ],
+            [
+              0,
+              0,
+              15,
+              0,
+              1,
+              0
+            ],
+            [
+              0,
+              1,
+              0,
+              0,
+              3,
+              0
+            ],
+            [
+              6,
+              0,
+              7,
+              0,
+              42,
+              0
+            ],
+            [
+              1,
+              1,
+              2,
+              0,
+              12,
+              0
+            ]
+          ]
+        },
+        "negative_log_likelihood": 1.0456731648503912,
+        "brier_score": 0.5503637053009864,
+        "expected_calibration_error_10_bins": 0.11606057827873328,
+        "risk_coverage": [
+          {
+            "coverage": 0.25,
+            "risk": 0.2068965517241379,
+            "count": 29
+          },
+          {
+            "coverage": 0.5,
+            "risk": 0.27586206896551724,
+            "count": 58
+          },
+          {
+            "coverage": 0.75,
+            "risk": 0.3793103448275862,
+            "count": 87
+          },
+          {
+            "coverage": 1.0,
+            "risk": 0.4,
+            "count": 115
+          }
+        ],
+        "fit_runtime_ms": 90.79812500567641,
+        "inference_latency_ms_per_case": 0.0283987500006333,
+        "parameter_count": 342,
+        "model_size_bytes": 7286
+      },
+      "v2": {
+        "accuracy": 0.5652173913043478,
+        "balanced_accuracy": 0.278219696969697,
+        "macro_f1": 0.22707910750507102,
+        "per_class": {
+          "REQUEST_INFORMATION": {
+            "precision": 1.0,
+            "recall": 0.0625,
+            "support": 16
+          },
+          "ANALYZE": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "support": 8
+          },
+          "SIMULATE": {
+            "precision": 0.4166666666666667,
+            "recall": 0.625,
+            "support": 16
+          },
+          "OPTIMIZE": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "support": 4
+          },
+          "REQUEST_REVIEW": {
+            "precision": 0.6,
+            "recall": 0.9818181818181818,
+            "support": 55
+          },
+          "ABSTAIN": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "support": 16
+          }
+        },
+        "confusion_matrix": {
+          "labels": [
+            "REQUEST_INFORMATION",
+            "ANALYZE",
+            "SIMULATE",
+            "OPTIMIZE",
+            "REQUEST_REVIEW",
+            "ABSTAIN"
+          ],
+          "counts": [
+            [
+              1,
+              0,
+              8,
+              0,
+              7,
+              0
+            ],
+            [
+              0,
+              0,
+              1,
+              0,
+              7,
+              0
+            ],
+            [
+              0,
+              0,
+              10,
+              0,
+              6,
+              0
+            ],
+            [
+              0,
+              0,
+              2,
+              0,
+              2,
+              0
+            ],
+            [
+              0,
+              0,
+              1,
+              0,
+              54,
+              0
+            ],
+            [
+              0,
+              0,
+              2,
+              0,
+              14,
+              0
+            ]
+          ]
+        },
+        "negative_log_likelihood": 1.0660065488507664,
+        "brier_score": 0.4989949443909713,
+        "expected_calibration_error_10_bins": 0.12477602972219785,
+        "reliability_bins": [
+          {
+            "lower": 0.2,
+            "upper": 0.30000000000000004,
+            "count": 7,
+            "accuracy": 0.0,
+            "mean_confidence": 0.25871087837356915
+          },
+          {
+            "lower": 0.30000000000000004,
+            "upper": 0.4,
+            "count": 15,
+            "accuracy": 0.2,
+            "mean_confidence": 0.3492232281238294
+          },
+          {
+            "lower": 0.4,
+            "upper": 0.5,
+            "count": 29,
+            "accuracy": 0.27586206896551724,
+            "mean_confidence": 0.4533896646673058
+          },
+          {
+            "lower": 0.5,
+            "upper": 0.6,
+            "count": 17,
+            "accuracy": 0.5294117647058824,
+            "mean_confidence": 0.5469414547411738
+          },
+          {
+            "lower": 0.6000000000000001,
+            "upper": 0.7000000000000001,
+            "count": 8,
+            "accuracy": 0.875,
+            "mean_confidence": 0.6462283629385768
+          },
+          {
+            "lower": 0.7000000000000001,
+            "upper": 0.8,
+            "count": 3,
+            "accuracy": 1.0,
+            "mean_confidence": 0.7543350668138812
+          },
+          {
+            "lower": 0.8,
+            "upper": 0.9,
+            "count": 13,
+            "accuracy": 1.0,
+            "mean_confidence": 0.8443829816881296
+          },
+          {
+            "lower": 0.9,
+            "upper": 1.0,
+            "count": 23,
+            "accuracy": 0.9565217391304348,
+            "mean_confidence": 0.9450684909771979
+          }
+        ],
+        "risk_coverage": [
+          {
+            "coverage": 0.25,
+            "risk": 0.03448275862068961,
+            "count": 29
+          },
+          {
+            "coverage": 0.5,
+            "risk": 0.10344827586206895,
+            "count": 58
+          },
+          {
+            "coverage": 0.75,
+            "risk": 0.29885057471264365,
+            "count": 87
+          },
+          {
+            "coverage": 1.0,
+            "risk": 0.4347826086956522,
+            "count": 115
+          }
+        ],
+        "selective_coverage": 0.13043478260869565,
+        "selective_risk": 0.06666666666666667,
+        "confidence_threshold": 0.9327,
+        "calibration_status": "CALIBRATED",
+        "fit_runtime_ms": 219.69579099095426,
+        "inference_latency_ms_per_case": 0.13264334003906697,
+        "parameter_count": 1392,
+        "model_size_bytes": 26448,
+        "scenario_family_accuracy": {
+          "measurement_data_scarce": {
+            "sample_count": 8,
+            "accuracy": 0.375
+          },
+          "analysis_needed": {
+            "sample_count": 10,
+            "accuracy": 0.4
+          },
+          "simulation_ready": {
+            "sample_count": 8,
+            "accuracy": 0.375
+          },
+          "optimization_ready": {
+            "sample_count": 7,
+            "accuracy": 0.2857142857142857
+          },
+          "researcher_review": {
+            "sample_count": 8,
+            "accuracy": 1.0
+          },
+          "incomplete_provenance": {
+            "sample_count": 12,
+            "accuracy": 1.0
+          },
+          "unit_mismatch": {
+            "sample_count": 12,
+            "accuracy": 0.9166666666666666
+          },
+          "high_uncertainty": {
+            "sample_count": 10,
+            "accuracy": 0.9
+          },
+          "multiple_tools_available": {
+            "sample_count": 8,
+            "accuracy": 0.5
+          },
+          "contradictory_readiness": {
+            "sample_count": 8,
+            "accuracy": 0.625
+          },
+          "partial_missingness": {
+            "sample_count": 16,
+            "accuracy": 0.0625
+          },
+          "unseen_condition_combination": {
+            "sample_count": 8,
+            "accuracy": 0.375
+          }
+        },
+        "ablation": {
+          "baseline_macro_f1": 0.22707910750507102,
+          "groups": {
+            "experiment": {
+              "ablated_feature_count": 16,
+              "macro_f1": 0.22707910750507102,
+              "delta_from_baseline": 0.0,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "process_conditions": {
+              "ablated_feature_count": 14,
+              "macro_f1": 0.22707910750507102,
+              "delta_from_baseline": 0.0,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "measurements": {
+              "ablated_feature_count": 31,
+              "macro_f1": 0.22374654559810503,
+              "delta_from_baseline": -0.003332561906965986,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "analysis": {
+              "ablated_feature_count": 16,
+              "macro_f1": 0.234038737446198,
+              "delta_from_baseline": 0.006959629941126977,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "simulation": {
+              "ablated_feature_count": 17,
+              "macro_f1": 0.21330153683094857,
+              "delta_from_baseline": -0.013777570674122441,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "optimization": {
+              "ablated_feature_count": 17,
+              "macro_f1": 0.24811633228404192,
+              "delta_from_baseline": 0.02103722477897091,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "tool_readiness": {
+              "ablated_feature_count": 8,
+              "macro_f1": 0.21672442280417012,
+              "delta_from_baseline": -0.010354684700900896,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "pending_reviews": {
+              "ablated_feature_count": 8,
+              "macro_f1": 0.21175977722467285,
+              "delta_from_baseline": -0.015319330280398169,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "provenance": {
+              "ablated_feature_count": 26,
+              "macro_f1": 0.20665634674922603,
+              "delta_from_baseline": -0.020422760755844982,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            }
+          }
+        },
+        "ood_probe": {
+          "status": "SYNTHETIC_PROBE_ONLY",
+          "in_distribution_count": 115,
+          "shifted_probe_count": 115,
+          "in_distribution_false_positive_rate": 0.0,
+          "shift_detection_rate": 0.0,
+          "ood_abstention_rate": 0.8608695652173913,
+          "method": "standardized training distribution distance and missing/context safety gates"
+        },
+        "condition_shift_holdout": {
+          "held_out_family": "unseen_condition_combination",
+          "train_families": [
+            "measurement_data_scarce",
+            "analysis_needed",
+            "simulation_ready",
+            "optimization_ready",
+            "researcher_review",
+            "incomplete_provenance",
+            "unit_mismatch",
+            "high_uncertainty",
+            "multiple_tools_available",
+            "contradictory_readiness",
+            "partial_missingness"
+          ],
+          "train_count": 422,
+          "calibration_count": 106,
+          "test_count": 48,
+          "group_overlap": false,
+          "v1": {
+            "accuracy": 0.5,
+            "balanced_accuracy": 0.37342436974789917,
+            "macro_f1": 0.24796103972305342,
+            "per_class": {
+              "REQUEST_INFORMATION": {
+                "precision": 0.8333333333333334,
+                "recall": 0.7142857142857143,
+                "support": 7
+              },
+              "ANALYZE": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "support": 0
+              },
+              "SIMULATE": {
+                "precision": 0.782608695652174,
+                "recall": 0.5294117647058824,
+                "support": 34
+              },
+              "OPTIMIZE": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "support": 0
+              },
+              "REQUEST_REVIEW": {
+                "precision": 0.05263157894736842,
+                "recall": 0.25,
+                "support": 4
+              },
+              "ABSTAIN": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "support": 3
+              }
+            },
+            "confusion_matrix": {
+              "labels": [
+                "REQUEST_INFORMATION",
+                "ANALYZE",
+                "SIMULATE",
+                "OPTIMIZE",
+                "REQUEST_REVIEW",
+                "ABSTAIN"
+              ],
+              "counts": [
+                [
+                  5,
+                  0,
+                  1,
+                  0,
+                  1,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  18,
+                  0,
+                  16,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  3,
+                  0,
+                  1,
+                  0
+                ],
+                [
+                  1,
+                  0,
+                  1,
+                  0,
+                  1,
+                  0
+                ]
+              ]
+            }
+          },
+          "v2": {
+            "accuracy": 0.14583333333333334,
+            "balanced_accuracy": 0.27205882352941174,
+            "macro_f1": 0.054237911380768535,
+            "per_class": {
+              "REQUEST_INFORMATION": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "support": 7
+              },
+              "ANALYZE": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "support": 0
+              },
+              "SIMULATE": {
+                "precision": 1.0,
+                "recall": 0.08823529411764706,
+                "support": 34
+              },
+              "OPTIMIZE": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "support": 0
+              },
+              "REQUEST_REVIEW": {
+                "precision": 0.08888888888888889,
+                "recall": 1.0,
+                "support": 4
+              },
+              "ABSTAIN": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "support": 3
+              }
+            },
+            "confusion_matrix": {
+              "labels": [
+                "REQUEST_INFORMATION",
+                "ANALYZE",
+                "SIMULATE",
+                "OPTIMIZE",
+                "REQUEST_REVIEW",
+                "ABSTAIN"
+              ],
+              "counts": [
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  7,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  3,
+                  0,
+                  31,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  4,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  3,
+                  0
+                ]
+              ]
+            }
+          }
+        }
+      },
+      "training_loss": {
+        "v1_initial": 1.7756035707331543,
+        "v1_final": 0.9608837199806631,
+        "v2_initial": 1.7987224012809653,
+        "v2_final": 1.1914574639254696
+      }
+    },
+    {
+      "seed": 101,
+      "counts": {
+        "total": 576,
+        "fit": 346,
+        "calibration": 115,
+        "test": 115,
+        "fit_groups": 346,
+        "calibration_groups": 115,
+        "test_groups": 115
+      },
+      "group_leakage": false,
+      "label_distribution": {
+        "REQUEST_INFORMATION": 77,
+        "ANALYZE": 64,
+        "SIMULATE": 95,
+        "OPTIMIZE": 21,
+        "REQUEST_REVIEW": 252,
+        "ABSTAIN": 67
+      },
+      "majority_baseline": {
+        "sample_count": 115,
+        "predicted_action": "REQUEST_REVIEW",
+        "selected_from": "TRAINING_LABELS_ONLY",
+        "training_class_counts": {
+          "REQUEST_INFORMATION": 46,
+          "ANALYZE": 39,
+          "SIMULATE": 54,
+          "OPTIMIZE": 14,
+          "REQUEST_REVIEW": 155,
+          "ABSTAIN": 38
+        },
+        "accuracy": 0.45217391304347826,
+        "macro_f1": 0.10379241516966069
+      },
+      "rule_baseline": {
+        "sample_count": 115,
+        "accuracy": 0.28695652173913044,
+        "predictions": [
+          "ANALYZE",
+          "ANALYZE",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ANALYZE",
+          "SIMULATE",
+          "REQUEST_REVIEW",
+          "ANALYZE",
+          "ABSTAIN",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ABSTAIN",
+          "SIMULATE",
+          "ABSTAIN",
+          "ANALYZE",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ABSTAIN",
+          "SIMULATE",
+          "REQUEST_REVIEW",
+          "ANALYZE",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "SIMULATE",
+          "ABSTAIN",
+          "ANALYZE",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ANALYZE",
+          "ANALYZE",
+          "REQUEST_REVIEW",
+          "REQUEST_REVIEW",
+          "REQUEST_REVIEW",
+          "SIMULATE",
+          "ABSTAIN",
+          "ANALYZE",
+          "SIMULATE",
+          "ANALYZE",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ANALYZE",
+          "ABSTAIN",
+          "SIMULATE",
+          "ANALYZE",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ANALYZE",
+          "REQUEST_REVIEW",
+          "ANALYZE",
+          "REQUEST_REVIEW",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ABSTAIN",
+          "SIMULATE",
+          "REQUEST_REVIEW",
+          "SIMULATE",
+          "SIMULATE",
+          "REQUEST_REVIEW",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "SIMULATE",
+          "ANALYZE",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ABSTAIN",
+          "SIMULATE",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ANALYZE",
+          "SIMULATE",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ABSTAIN",
+          "SIMULATE",
+          "ABSTAIN",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ABSTAIN",
+          "ABSTAIN",
+          "ANALYZE",
+          "ABSTAIN",
+          "ABSTAIN",
+          "REQUEST_REVIEW",
+          "ANALYZE",
+          "SIMULATE",
+          "ABSTAIN",
+          "SIMULATE"
+        ],
+        "macro_f1": 0.1889676828757154
+      },
+      "v1": {
+        "accuracy": 0.5652173913043478,
+        "balanced_accuracy": 0.3928900620077091,
+        "macro_f1": 0.36034346873472983,
+        "per_class": {
+          "REQUEST_INFORMATION": {
+            "precision": 0.7272727272727273,
+            "recall": 0.47058823529411764,
+            "support": 17
+          },
+          "ANALYZE": {
+            "precision": 0.42857142857142855,
+            "recall": 0.23076923076923078,
+            "support": 13
+          },
+          "SIMULATE": {
+            "precision": 0.4857142857142857,
+            "recall": 0.9444444444444444,
+            "support": 18
+          },
+          "OPTIMIZE": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "support": 2
+          },
+          "REQUEST_REVIEW": {
+            "precision": 0.5967741935483871,
+            "recall": 0.7115384615384616,
+            "support": 52
+          },
+          "ABSTAIN": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "support": 13
+          }
+        },
+        "confusion_matrix": {
+          "labels": [
+            "REQUEST_INFORMATION",
+            "ANALYZE",
+            "SIMULATE",
+            "OPTIMIZE",
+            "REQUEST_REVIEW",
+            "ABSTAIN"
+          ],
+          "counts": [
+            [
+              8,
+              1,
+              2,
+              0,
+              6,
+              0
+            ],
+            [
+              0,
+              3,
+              2,
+              0,
+              8,
+              0
+            ],
+            [
+              0,
+              0,
+              17,
+              0,
+              1,
+              0
+            ],
+            [
+              0,
+              1,
+              1,
+              0,
+              0,
+              0
+            ],
+            [
+              3,
+              2,
+              10,
+              0,
+              37,
+              0
+            ],
+            [
+              0,
+              0,
+              3,
+              0,
+              10,
+              0
+            ]
+          ]
+        },
+        "negative_log_likelihood": 1.0808627308665435,
+        "brier_score": 0.5689838381277037,
+        "expected_calibration_error_10_bins": 0.10132900339635419,
+        "risk_coverage": [
+          {
+            "coverage": 0.25,
+            "risk": 0.24137931034482762,
+            "count": 29
+          },
+          {
+            "coverage": 0.5,
+            "risk": 0.3448275862068966,
+            "count": 58
+          },
+          {
+            "coverage": 0.75,
+            "risk": 0.4022988505747126,
+            "count": 87
+          },
+          {
+            "coverage": 1.0,
+            "risk": 0.4347826086956522,
+            "count": 115
+          }
+        ],
+        "fit_runtime_ms": 91.77941700909287,
+        "inference_latency_ms_per_case": 0.028527920076157898,
+        "parameter_count": 342,
+        "model_size_bytes": 7303
+      },
+      "v2": {
+        "accuracy": 0.5478260869565217,
+        "balanced_accuracy": 0.29541645718116305,
+        "macro_f1": 0.27515891177218404,
+        "per_class": {
+          "REQUEST_INFORMATION": {
+            "precision": 0.5,
+            "recall": 0.058823529411764705,
+            "support": 17
+          },
+          "ANALYZE": {
+            "precision": 0.5714285714285714,
+            "recall": 0.3076923076923077,
+            "support": 13
+          },
+          "SIMULATE": {
+            "precision": 0.4,
+            "recall": 0.4444444444444444,
+            "support": 18
+          },
+          "OPTIMIZE": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "support": 2
+          },
+          "REQUEST_REVIEW": {
+            "precision": 0.5813953488372093,
+            "recall": 0.9615384615384616,
+            "support": 52
+          },
+          "ABSTAIN": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "support": 13
+          }
+        },
+        "confusion_matrix": {
+          "labels": [
+            "REQUEST_INFORMATION",
+            "ANALYZE",
+            "SIMULATE",
+            "OPTIMIZE",
+            "REQUEST_REVIEW",
+            "ABSTAIN"
+          ],
+          "counts": [
+            [
+              1,
+              2,
+              2,
+              0,
+              12,
+              0
+            ],
+            [
+              0,
+              4,
+              2,
+              0,
+              7,
+              0
+            ],
+            [
+              0,
+              0,
+              8,
+              0,
+              10,
+              0
+            ],
+            [
+              0,
+              1,
+              1,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              2,
+              0,
+              50,
+              0
+            ],
+            [
+              1,
+              0,
+              5,
+              0,
+              7,
+              0
+            ]
+          ]
+        },
+        "negative_log_likelihood": 1.1391306121888047,
+        "brier_score": 0.5445212350867903,
+        "expected_calibration_error_10_bins": 0.12487076337458111,
+        "reliability_bins": [
+          {
+            "lower": 0.2,
+            "upper": 0.30000000000000004,
+            "count": 26,
+            "accuracy": 0.4230769230769231,
+            "mean_confidence": 0.26018928563812727
+          },
+          {
+            "lower": 0.30000000000000004,
+            "upper": 0.4,
+            "count": 25,
+            "accuracy": 0.24,
+            "mean_confidence": 0.3354750442990956
+          },
+          {
+            "lower": 0.4,
+            "upper": 0.5,
+            "count": 8,
+            "accuracy": 0.25,
+            "mean_confidence": 0.4461627961191933
+          },
+          {
+            "lower": 0.5,
+            "upper": 0.6,
+            "count": 9,
+            "accuracy": 0.2222222222222222,
+            "mean_confidence": 0.5475703056902874
+          },
+          {
+            "lower": 0.6000000000000001,
+            "upper": 0.7000000000000001,
+            "count": 4,
+            "accuracy": 0.5,
+            "mean_confidence": 0.655497609222196
+          },
+          {
+            "lower": 0.8,
+            "upper": 0.9,
+            "count": 4,
+            "accuracy": 1.0,
+            "mean_confidence": 0.8527370111087682
+          },
+          {
+            "lower": 0.9,
+            "upper": 1.0,
+            "count": 39,
+            "accuracy": 0.9230769230769231,
+            "mean_confidence": 0.9751206562710488
+          }
+        ],
+        "risk_coverage": [
+          {
+            "coverage": 0.25,
+            "risk": 0.06896551724137934,
+            "count": 29
+          },
+          {
+            "coverage": 0.5,
+            "risk": 0.24137931034482762,
+            "count": 58
+          },
+          {
+            "coverage": 0.75,
+            "risk": 0.4022988505747126,
+            "count": 87
+          },
+          {
+            "coverage": 1.0,
+            "risk": 0.4521739130434783,
+            "count": 115
+          }
+        ],
+        "selective_coverage": 0.2,
+        "selective_risk": 0.043478260869565216,
+        "confidence_threshold": 0.9726,
+        "calibration_status": "CALIBRATED",
+        "fit_runtime_ms": 220.92587500810623,
+        "inference_latency_ms_per_case": 0.13415708002867177,
+        "parameter_count": 1392,
+        "model_size_bytes": 26378,
+        "scenario_family_accuracy": {
+          "measurement_data_scarce": {
+            "sample_count": 9,
+            "accuracy": 0.2222222222222222
+          },
+          "analysis_needed": {
+            "sample_count": 10,
+            "accuracy": 0.2
+          },
+          "simulation_ready": {
+            "sample_count": 9,
+            "accuracy": 0.2222222222222222
+          },
+          "optimization_ready": {
+            "sample_count": 5,
+            "accuracy": 0.4
+          },
+          "researcher_review": {
+            "sample_count": 15,
+            "accuracy": 0.8666666666666667
+          },
+          "incomplete_provenance": {
+            "sample_count": 11,
+            "accuracy": 1.0
+          },
+          "unit_mismatch": {
+            "sample_count": 11,
+            "accuracy": 0.9090909090909091
+          },
+          "high_uncertainty": {
+            "sample_count": 9,
+            "accuracy": 1.0
+          },
+          "multiple_tools_available": {
+            "sample_count": 9,
+            "accuracy": 0.5555555555555556
+          },
+          "contradictory_readiness": {
+            "sample_count": 7,
+            "accuracy": 0.2857142857142857
+          },
+          "partial_missingness": {
+            "sample_count": 10,
+            "accuracy": 0.2
+          },
+          "unseen_condition_combination": {
+            "sample_count": 10,
+            "accuracy": 0.3
+          }
+        },
+        "ablation": {
+          "baseline_macro_f1": 0.27515891177218404,
+          "groups": {
+            "experiment": {
+              "ablated_feature_count": 16,
+              "macro_f1": 0.2966564963132469,
+              "delta_from_baseline": 0.021497584541062875,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "process_conditions": {
+              "ablated_feature_count": 14,
+              "macro_f1": 0.27515891177218404,
+              "delta_from_baseline": 0.0,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "measurements": {
+              "ablated_feature_count": 31,
+              "macro_f1": 0.10379241516966069,
+              "delta_from_baseline": -0.17136649660252334,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "analysis": {
+              "ablated_feature_count": 16,
+              "macro_f1": 0.18169537318473492,
+              "delta_from_baseline": -0.09346353858744913,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "simulation": {
+              "ablated_feature_count": 17,
+              "macro_f1": 0.2460475181063416,
+              "delta_from_baseline": -0.02911139366584245,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "optimization": {
+              "ablated_feature_count": 17,
+              "macro_f1": 0.1989738656405323,
+              "delta_from_baseline": -0.07618504613165175,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "tool_readiness": {
+              "ablated_feature_count": 8,
+              "macro_f1": 0.24792340041010671,
+              "delta_from_baseline": -0.02723551136207733,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "pending_reviews": {
+              "ablated_feature_count": 8,
+              "macro_f1": 0.24814814814814815,
+              "delta_from_baseline": -0.0270107636240359,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            },
+            "provenance": {
+              "ablated_feature_count": 26,
+              "macro_f1": 0.21979031924525602,
+              "delta_from_baseline": -0.05536859252692802,
+              "interpretation": "predictive sensitivity only; not causal importance"
+            }
+          }
+        },
+        "ood_probe": {
+          "status": "SYNTHETIC_PROBE_ONLY",
+          "in_distribution_count": 115,
+          "shifted_probe_count": 115,
+          "in_distribution_false_positive_rate": 0.0,
+          "shift_detection_rate": 0.0,
+          "ood_abstention_rate": 0.8869565217391304,
+          "method": "standardized training distribution distance and missing/context safety gates"
+        },
+        "condition_shift_holdout": {
+          "held_out_family": "unseen_condition_combination",
+          "train_families": [
+            "measurement_data_scarce",
+            "analysis_needed",
+            "simulation_ready",
+            "optimization_ready",
+            "researcher_review",
+            "incomplete_provenance",
+            "unit_mismatch",
+            "high_uncertainty",
+            "multiple_tools_available",
+            "contradictory_readiness",
+            "partial_missingness"
+          ],
+          "train_count": 422,
+          "calibration_count": 106,
+          "test_count": 48,
+          "group_overlap": false,
+          "v1": {
+            "accuracy": 0.5833333333333334,
+            "balanced_accuracy": 0.31737012987012986,
+            "macro_f1": 0.20732970732970735,
+            "per_class": {
+              "REQUEST_INFORMATION": {
+                "precision": 0.5,
+                "recall": 0.2857142857142857,
+                "support": 7
+              },
+              "ANALYZE": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "support": 0
+              },
+              "SIMULATE": {
+                "precision": 0.6756756756756757,
+                "recall": 0.8928571428571429,
+                "support": 28
+              },
+              "OPTIMIZE": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "support": 0
+              },
+              "REQUEST_REVIEW": {
+                "precision": 0.14285714285714285,
+                "recall": 0.09090909090909091,
+                "support": 11
+              },
+              "ABSTAIN": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "support": 2
+              }
+            },
+            "confusion_matrix": {
+              "labels": [
+                "REQUEST_INFORMATION",
+                "ANALYZE",
+                "SIMULATE",
+                "OPTIMIZE",
+                "REQUEST_REVIEW",
+                "ABSTAIN"
+              ],
+              "counts": [
+                [
+                  2,
+                  0,
+                  2,
+                  0,
+                  3,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  25,
+                  0,
+                  3,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  2,
+                  0,
+                  8,
+                  0,
+                  1,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  2,
+                  0,
+                  0,
+                  0
+                ]
+              ]
+            }
+          },
+          "v2": {
+            "accuracy": 0.3541666666666667,
+            "balanced_accuracy": 0.30357142857142855,
+            "macro_f1": 0.1368530020703934,
+            "per_class": {
+              "REQUEST_INFORMATION": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "support": 7
+              },
+              "ANALYZE": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "support": 0
+              },
+              "SIMULATE": {
+                "precision": 0.8571428571428571,
+                "recall": 0.21428571428571427,
+                "support": 28
+              },
+              "OPTIMIZE": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "support": 0
+              },
+              "REQUEST_REVIEW": {
+                "precision": 0.3142857142857143,
+                "recall": 1.0,
+                "support": 11
+              },
+              "ABSTAIN": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "support": 2
+              }
+            },
+            "confusion_matrix": {
+              "labels": [
+                "REQUEST_INFORMATION",
+                "ANALYZE",
+                "SIMULATE",
+                "OPTIMIZE",
+                "REQUEST_REVIEW",
+                "ABSTAIN"
+              ],
+              "counts": [
+                [
+                  0,
+                  2,
+                  1,
+                  0,
+                  4,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  3,
+                  6,
+                  0,
+                  19,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  11,
+                  0
+                ],
+                [
+                  0,
+                  1,
+                  0,
+                  0,
+                  1,
+                  0
+                ]
+              ]
+            }
+          }
+        }
+      },
+      "training_loss": {
+        "v1_initial": 1.8019524409169754,
+        "v1_final": 0.9934765220470518,
+        "v2_initial": 1.779893425057494,
+        "v2_final": 1.1956430952475314
+      }
+    }
+  ],
+  "summary": {
+    "majority_baseline": {
+      "accuracy": {
+        "mean": 0.42782608695652175,
+        "std": 0.0360633762666569,
+        "seed_count": 5,
+        "per_seed": [
+          0.40869565217391307,
+          0.391304347826087,
+          0.40869565217391307,
+          0.4782608695652174,
+          0.45217391304347826
+        ]
+      },
+      "macro_f1": {
+        "mean": 0.09976023805692899,
+        "std": 0.005838432971833462,
+        "seed_count": 5,
+        "per_seed": [
+          0.09670781893004116,
+          0.09375,
+          0.09670781893004116,
+          0.10784313725490197,
+          0.10379241516966069
+        ]
+      }
+    },
+    "rule_baseline": {
+      "accuracy": {
+        "mean": 0.2608695652173913,
+        "std": 0.03585309239667531,
+        "seed_count": 5,
+        "per_seed": [
+          0.28695652173913044,
+          0.26956521739130435,
+          0.2,
+          0.2608695652173913,
+          0.28695652173913044
+        ]
+      },
+      "macro_f1": {
+        "mean": 0.1718965981112454,
+        "std": 0.021073140434902025,
+        "seed_count": 5,
+        "per_seed": [
+          0.18281002867741755,
+          0.18081921327535364,
+          0.1360490268940973,
+          0.17083703883364323,
+          0.1889676828757154
+        ]
+      }
+    },
+    "v1": {
+      "accuracy": {
+        "mean": 0.568695652173913,
+        "std": 0.04106337027171339,
+        "seed_count": 5,
+        "per_seed": [
+          0.5652173913043478,
+          0.5043478260869565,
+          0.6086956521739131,
+          0.6,
+          0.5652173913043478
+        ]
+      },
+      "balanced_accuracy": {
+        "mean": 0.4033338429521158,
+        "std": 0.040604531498528405,
+        "seed_count": 5,
+        "per_seed": [
+          0.44658687943262415,
+          0.3403679653679654,
+          0.42830158067955315,
+          0.40852272727272726,
+          0.3928900620077091
+        ]
+      },
+      "macro_f1": {
+        "mean": 0.36596035863760484,
+        "std": 0.034273921378316856,
+        "seed_count": 5,
+        "per_seed": [
+          0.3988845593073817,
+          0.32043439064781337,
+          0.4009992148937382,
+          0.34914015960436107,
+          0.36034346873472983
+        ]
+      },
+      "negative_log_likelihood": {
+        "mean": 1.126003612943725,
+        "std": 0.10119174747980036,
+        "seed_count": 5,
+        "per_seed": [
+          1.1512611660817045,
+          1.2918884232810373,
+          1.060332579638949,
+          1.0456731648503912,
+          1.0808627308665435
+        ]
+      },
+      "brier_score": {
+        "mean": 0.582268356914845,
+        "std": 0.051197478300613324,
+        "seed_count": 5,
+        "per_seed": [
+          0.5924928818017101,
+          0.66522791913813,
+          0.5342734402056947,
+          0.5503637053009864,
+          0.5689838381277037
+        ]
+      },
+      "expected_calibration_error_10_bins": {
+        "mean": 0.10035456473167541,
+        "std": 0.02972728509546222,
+        "seed_count": 5,
+        "per_seed": [
+          0.073836853293167,
+          0.14087967317864314,
+          0.06966671551147949,
+          0.11606057827873328,
+          0.10132900339635419
+        ]
+      }
+    },
+    "v2": {
+      "accuracy": {
+        "mean": 0.5913043478260869,
+        "std": 0.10470951807645477,
+        "seed_count": 5,
+        "per_seed": [
+          0.7043478260869566,
+          0.45217391304347826,
+          0.6869565217391305,
+          0.5652173913043478,
+          0.5478260869565217
+        ]
+      },
+      "balanced_accuracy": {
+        "mean": 0.35592369845655203,
+        "std": 0.12667193144010738,
+        "seed_count": 5,
+        "per_seed": [
+          0.5101950354609929,
+          0.2242905242905243,
+          0.47149677838038295,
+          0.278219696969697,
+          0.29541645718116305
+        ]
+      },
+      "macro_f1": {
+        "mean": 0.32587786699470345,
+        "std": 0.13703394278027028,
+        "seed_count": 5,
+        "per_seed": [
+          0.4784470930076139,
+          0.18382173382173383,
+          0.4648824888669145,
+          0.22707910750507102,
+          0.27515891177218404
+        ]
+      },
+      "negative_log_likelihood": {
+        "mean": 1.1307516990286355,
+        "std": 0.10370404595366883,
+        "seed_count": 5,
+        "per_seed": [
+          1.1556688957107903,
+          1.2836632961603691,
+          1.0092891422324468,
+          1.0660065488507664,
+          1.1391306121888047
+        ]
+      },
+      "brier_score": {
+        "mean": 0.523982823363248,
+        "std": 0.0679093890454845,
+        "seed_count": 5,
+        "per_seed": [
+          0.47698296875777796,
+          0.6329781794294593,
+          0.466436789151241,
+          0.4989949443909713,
+          0.5445212350867903
+        ]
+      },
+      "expected_calibration_error_10_bins": {
+        "mean": 0.1372667695830406,
+        "std": 0.02670191384524614,
+        "seed_count": 5,
+        "per_seed": [
+          0.16883853602093568,
+          0.16152107148937458,
+          0.10632744730811378,
+          0.12477602972219785,
+          0.12487076337458111
+        ]
+      }
+    }
+  },
+  "runtime_seconds": 5.793931457999861,
+  "peak_python_memory_bytes": 14668131,
+  "runtime_environment": {
+    "python": "3.12.14",
+    "numpy": "2.5.4",
+    "platform": "macOS-27.0.1-arm64-arm-64bit"
+  },
+  "limitations": [
+    "All benchmark labels are generated by a declared synthetic scenario contract, not experts.",
+    "Synthetic metrics verify implementation and robustness checks only; they do not measure scientific or laboratory decision accuracy.",
+    "No cross-topic or cross-laboratory generalization claim is possible without independent reviewed data.",
+    "Calibration scores are not probabilities of experiment success.",
+    "Feature ablation is predictive sensitivity, not causal attribution.",
+    "OOD probe measures response to constructed distribution shifts, not deployment OOD performance."
+  ]
+}

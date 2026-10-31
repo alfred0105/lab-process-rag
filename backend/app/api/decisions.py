@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import time
 import uuid
+from collections import Counter
 from datetime import datetime, timezone
 from typing import Any, Literal
 
@@ -16,12 +17,20 @@ from app.db.database import get_db
 from app.db.models import (DecisionActiveShadowModel, DecisionCase, DecisionDatasetVersion,
     DecisionFeedback, DecisionModelActivationEvent, DecisionModelComparison, DecisionModelRun,
     DecisionSnapshot, Experiment, MaterialAnalysisRun, OptimizationModelRun, ResearchTopic,
-    ScientificObservation, SimulationRun)
+    OptimizationRecommendationRun, ScientificObservation, SimulationRun)
 from app.services.decision_head import (ACTIONS, DATASET_VERSION, FEATURES, FEATURE_SCHEMA_VERSION,
     MODEL_VERSION, DecisionInputError, LearnedDecisionHead, calibration_metrics, dataset_digest,
     encode_state, infer_safe, majority_metrics, rule_metrics, split_by_group, state_from_experiment,
     synthetic_cases)
 from app.services.tool_registry import RuleBasedDecisionPolicy, recommend_tools
+from app.services.scientific_state_v2 import (
+    ACTION_NAMES as V2_ACTIONS, DATASET_VERSION_V2, FEATURE_NAMES as FEATURES_V2,
+    FEATURE_SCHEMA as FEATURE_SCHEMA_V2, FEATURE_SCHEMA_VERSION_V2, MODEL_VERSION_V2,
+    ScientificStateError, StructuredDecisionHeadV2, canonical_state as canonical_state_v2,
+    extract_features as extract_features_v2, from_legacy_state as from_legacy_state_v2,
+    scientific_state_from_experiment,
+)
+from app.services.phase5_stage3 import run_robustness_benchmark, split_groups as split_stage3_groups, stable_hash as stage3_hash
 
 router=APIRouter(prefix="/decisions/learned",tags=["learned-decision"])
 DECISION_SNAPSHOT_CONTRACT = "decision-snapshot-v2"
@@ -69,6 +78,25 @@ class FeedbackIn(BaseModel):
 class DatasetBuildIn(BaseModel):
     topic_id:int=Field(gt=0)
     mode:Literal["research","sandbox"]
+
+
+class Stage3DatasetBuildIn(BaseModel):
+    topic_id:int=Field(gt=0)
+    mode:Literal["research","sandbox"]
+    holdout_strategy:Literal["experiment","method","topic","condition_shift"]="experiment"
+
+
+class Stage3RetrainIn(BaseModel):
+    dataset_version_id:int=Field(gt=0)
+    parent_model_id:int|None=Field(default=None,gt=0)
+    seed:int=7
+
+
+class Stage3PredictIn(BaseModel):
+    topic_id:int=Field(gt=0)
+    case_id:int|None=Field(default=None,gt=0)
+    experiment_id:int|None=Field(default=None,gt=0)
+    scientific_state:dict[str,Any]|None=None
 
 
 class RetrainIn(BaseModel):
@@ -149,7 +177,7 @@ def _research_case_issue(db, case, *, verify_feedback=True):
         return "UNVERIFIED_RESEARCH_PROVENANCE"
     if snapshot.experiment_id != experiment.id or snapshot.decision_contract_version != DECISION_SNAPSHOT_CONTRACT:
         return "UNVERIFIED_RESEARCH_PROVENANCE"
-    if snapshot.feature_schema_version != case.feature_schema_version or case.feature_schema_version != FEATURE_SCHEMA_VERSION:
+    if snapshot.feature_schema_version != case.feature_schema_version or case.feature_schema_version not in {FEATURE_SCHEMA_VERSION, FEATURE_SCHEMA_VERSION_V2}:
         return "UNVERIFIED_RESEARCH_PROVENANCE"
     if (snapshot.model_run_id and not snapshot.raw_predicted_action) or not snapshot.suggested_action or not snapshot.snapshot_hash:
         return "UNVERIFIED_RESEARCH_PROVENANCE"
@@ -202,11 +230,20 @@ def _research_snapshot_issue(db, snapshot):
         return "RESEARCH_EXPERIMENT_REQUIRED"
     if experiment.demo or experiment.topic_id!=snapshot.topic_id:
         return "UNVERIFIED_RESEARCH_PROVENANCE"
-    if snapshot.feature_schema_version!=FEATURE_SCHEMA_VERSION:
+    if snapshot.feature_schema_version not in {FEATURE_SCHEMA_VERSION, FEATURE_SCHEMA_VERSION_V2}:
         return "UNVERIFIED_RESEARCH_PROVENANCE"
     if (snapshot.model_run_id and not snapshot.raw_predicted_action) or not snapshot.suggested_action:
         return "UNVERIFIED_RESEARCH_PROVENANCE"
     if snapshot.state_json.get("topic_id")!=snapshot.topic_id or snapshot.state_json.get("experiment_id")!=experiment.id:
+        return "UNVERIFIED_RESEARCH_PROVENANCE"
+    if snapshot.feature_schema_version==FEATURE_SCHEMA_VERSION_V2:
+        try:
+            vector,_=extract_features_v2(snapshot.state_json)
+            if vector.tolist()!=snapshot.feature_vector_json:
+                return "UNVERIFIED_RESEARCH_PROVENANCE"
+        except ScientificStateError:
+            return "UNVERIFIED_RESEARCH_PROVENANCE"
+    elif snapshot.feature_schema_version!=FEATURE_SCHEMA_VERSION:
         return "UNVERIFIED_RESEARCH_PROVENANCE"
     provenance=snapshot.provenance_json or {}
     if provenance.get("decision_contract_version")!=DECISION_SNAPSHOT_CONTRACT:
@@ -254,8 +291,20 @@ def _research_dataset_issue(db, dataset):
         if (not snapshot or snapshot.id!=case.snapshot_id or item.get("action")!=case.selected_action
             or item.get("snapshot_hash")!=snapshot.snapshot_hash
             or item.get("decision_contract_version")!=DECISION_SNAPSHOT_CONTRACT
-            or item.get("features")!=snapshot.feature_vector_json or item.get("state")!=snapshot.state_json
+            or (item.get("snapshot_state",item.get("state"))!=snapshot.state_json if dataset.feature_schema_version==FEATURE_SCHEMA_VERSION_V2 else item.get("state")!=snapshot.state_json)
             or item.get("case_group_id")!=expected_group):
+            return "UNVERIFIED_RESEARCH_PROVENANCE"
+        if dataset.feature_schema_version==FEATURE_SCHEMA_VERSION:
+            expected_features=snapshot.feature_vector_json
+        elif dataset.feature_schema_version==FEATURE_SCHEMA_VERSION_V2:
+            try:
+                compatible_state=_state_to_stage3(snapshot.state_json)
+                compatible_state["topic_id"]=snapshot.topic_id;compatible_state["experiment_id"]=snapshot.experiment_id
+                expected_features=extract_features_v2(compatible_state)[0].tolist()
+            except ScientificStateError: return "UNVERIFIED_RESEARCH_PROVENANCE"
+        else:
+            return "UNVERIFIED_RESEARCH_PROVENANCE"
+        if item.get("features")!=expected_features:
             return "UNVERIFIED_RESEARCH_PROVENANCE"
     eval_ids=manifest.get("evaluation_case_ids",[])
     if not eval_ids or len(eval_ids)!=len(set(eval_ids)) or not set(eval_ids)<=set(ids):
@@ -312,7 +361,8 @@ def _snapshot_contract_payload(*,topic_id,experiment_id,mode,decision_timestamp,
         "decision_contract_version":DECISION_SNAPSHOT_CONTRACT}
 
 
-def _save_snapshot(db,topic_id,mode,state,model,result,*,experiment_id=None,source_case=None,existing=None):
+def _save_snapshot(db,topic_id,mode,state,model,result,*,experiment_id=None,source_case=None,existing=None,
+        feature_vector_override=None,feature_schema_version=FEATURE_SCHEMA_VERSION):
     if existing:
         if existing.topic_id!=topic_id or existing.mode!=mode:
             raise HTTPException(409,detail={"code":"MODEL_DATASET_MODE_MISMATCH","message":"Snapshot and model dataset modes must match."})
@@ -330,7 +380,7 @@ def _save_snapshot(db,topic_id,mode,state,model,result,*,experiment_id=None,sour
     sources=_snapshot_sources(db,experiment_id,topic_id)
     if source_case:
         sources.update(source_case_id=source_case.id,case_group_id=source_case.case_group_id)
-    feature_vector=encode_state(state).tolist()
+    feature_vector=feature_vector_override if feature_vector_override is not None else encode_state(state).tolist()
     provenance={"dataset_type":"SYNTHETIC_SOFTWARE_FIXTURE" if mode=="SANDBOX" else "RESEARCH_STATE_SNAPSHOT",
         "source_case_id":source_case.id if source_case else state.get("decision_source_case_id"),
         "case_group_id":source_case.case_group_id if source_case else state.get("decision_case_group_id"),
@@ -347,7 +397,7 @@ def _save_snapshot(db,topic_id,mode,state,model,result,*,experiment_id=None,sour
     abstention_reason=result.get("abstention_reason");model_version=model.model_version if model else result.get("model_version")
     body=_snapshot_contract_payload(topic_id=topic_id,experiment_id=experiment_id,mode=mode,
         decision_timestamp=now.isoformat(),state=state,features=feature_vector,
-        feature_schema_version=FEATURE_SCHEMA_VERSION,sources=sources,model_id=model.id if model else None,
+        feature_schema_version=feature_schema_version,sources=sources,model_id=model.id if model else None,
         model_version=model_version,raw_action=raw_action,final_action=final_action,
         probabilities=probabilities,confidence=confidence,calibration_status=calibration_status,
         ood_status=ood_status,ood_reasons=ood_reasons,abstention_reason=abstention_reason,
@@ -365,7 +415,7 @@ def _save_snapshot(db,topic_id,mode,state,model,result,*,experiment_id=None,sour
         ood_reasons_json=result.get("ood_reasons",[]),abstention_reason=result.get("abstention_reason"),
         safety_override=safety_override,safety_override_reason=safety_reason,
         decision_contract_version=DECISION_SNAPSHOT_CONTRACT,
-        feature_schema_version=FEATURE_SCHEMA_VERSION,source_observation_ids_json=sources["observation_ids"],
+        feature_schema_version=feature_schema_version,source_observation_ids_json=sources["observation_ids"],
         source_analysis_ids_json=sources["analysis_ids"],source_simulation_ids_json=sources["simulation_ids"],
         source_optimization_model_ids_json=sources["optimization_model_ids"],provenance_json=provenance,
         snapshot_hash=dataset_digest(body),created_at=now)
@@ -443,7 +493,7 @@ def _model_out(row):
 @router.get("/training-readiness")
 def training_readiness(topic_id:int,db:Session=Depends(get_db)):
     _topic(db,topic_id)
-    rows=db.query(DecisionCase).filter(DecisionCase.topic_id==topic_id).all()
+    rows=db.query(DecisionCase).filter(DecisionCase.topic_id==topic_id,DecisionCase.feature_schema_version==FEATURE_SCHEMA_VERSION).all()
     feedback_rows=db.query(DecisionFeedback).filter_by(topic_id=topic_id).order_by(DecisionFeedback.snapshot_id,DecisionFeedback.model_run_id,DecisionFeedback.revision.desc()).all()
     latest={}
     for feedback in feedback_rows:latest.setdefault((feedback.snapshot_id,feedback.model_run_id),feedback)
@@ -505,9 +555,9 @@ def seed_sandbox(topic_id:int,seed:int=7,db:Session=Depends(get_db)):
 def train(payload:TrainIn,db:Session=Depends(get_db)):
     _topic(db,payload.topic_id)
     rows=db.query(DecisionCase).filter(DecisionCase.topic_id==payload.topic_id).all()
-    if payload.mode=="sandbox": rows=[row for row in rows if row.label_source=="SYNTHETIC_SANDBOX" and row.review_status=="SYNTHETIC_ONLY"]
+    if payload.mode=="sandbox": rows=[row for row in rows if row.label_source=="SYNTHETIC_SANDBOX" and row.review_status=="SYNTHETIC_ONLY" and row.feature_schema_version==FEATURE_SCHEMA_VERSION]
     else:
-        research_candidates=[row for row in rows if row.label_source in {"HUMAN_REVIEWED_DECISION","EXPERT_ANNOTATION"}]
+        research_candidates=[row for row in rows if row.label_source in {"HUMAN_REVIEWED_DECISION","EXPERT_ANNOTATION"} and row.feature_schema_version==FEATURE_SCHEMA_VERSION]
         rows=[row for row in research_candidates if _research_case_issue(db,row) is None]
         if research_candidates and not rows:
             raise HTTPException(409,detail={"code":"UNVERIFIED_RESEARCH_PROVENANCE","message":"No stored Research case satisfies the verified experiment/source contract."})
@@ -596,6 +646,8 @@ def _rule_result(state):
 def predict(model_id:int,payload:PredictIn,db:Session=Depends(get_db)):
     _topic(db,payload.topic_id);row=db.get(DecisionModelRun,model_id)
     if not row or row.topic_id!=payload.topic_id: raise HTTPException(404,"Decision model not found")
+    if row.feature_schema_version!=FEATURE_SCHEMA_VERSION:
+        raise HTTPException(409,detail={"code":"MODEL_FEATURE_SCHEMA_MISMATCH","message":"Use the Stage 3 prediction endpoint for a V2 model; V1 inputs and artifacts remain version-isolated."})
     try:
         state,experiment_id,snapshot=_resolve_model_state(db,payload,row)
         model=LearnedDecisionHead.from_dict(row.model_json);result=infer_safe(model,state)
@@ -614,6 +666,8 @@ def predict(model_id:int,payload:PredictIn,db:Session=Depends(get_db)):
 def compare(payload:CompareIn,db:Session=Depends(get_db)):
     _topic(db,payload.topic_id);row=db.get(DecisionModelRun,payload.model_id)
     if not row or row.topic_id!=payload.topic_id: raise HTTPException(404,detail={"code":"DECISION_MODEL_NOT_FOUND","message":"Decision model not found for this topic."})
+    if row.feature_schema_version!=FEATURE_SCHEMA_VERSION:
+        raise HTTPException(409,detail={"code":"MODEL_FEATURE_SCHEMA_MISMATCH","message":"Use the Stage 3 prediction endpoint for a V2 model."})
     try:
         state,experiment_id,snapshot=_resolve_model_state(db,payload,row)
         learned=infer_safe(LearnedDecisionHead.from_dict(row.model_json),state);rule=_rule_result(state)
@@ -626,6 +680,339 @@ def compare(payload:CompareIn,db:Session=Depends(get_db)):
             "agreement":learned["action"]==rule["action"],"mode":"SHADOW_ONLY","workflow_triggered":False,
             "tool_eligibility":state.get("tool_availability",{}),"safety_gate_status":"NOT_EXECUTED_SHADOW_RECOMMENDATION_ONLY","review_required":True}
     except DecisionInputError as exc: raise HTTPException(422,str(exc)) from exc
+
+
+@router.get("/stage3/schema")
+def stage3_schema():
+    return {**FEATURE_SCHEMA_V2,"actions":list(V2_ACTIONS),"model_version":MODEL_VERSION_V2,
+            "interfaces":{"encoder":"ScientificStateEncoder.encode(state) -> ScientificRepresentation",
+                          "representation_version":"scientific-state-embedding-v2"},
+            "limits":{"shared_transformer":False,"early_exit":False,"conditional_lm":False}}
+
+
+@router.post("/stage3/features")
+def stage3_features(payload:Stage3PredictIn,db:Session=Depends(get_db)):
+    _topic(db,payload.topic_id)
+    state=payload.scientific_state
+    if payload.case_id is not None:
+        case=db.get(DecisionCase,payload.case_id)
+        if not case or case.topic_id!=payload.topic_id:
+            raise HTTPException(404,detail={"code":"DECISION_CASE_NOT_FOUND","message":"Case does not belong to this topic."})
+        if case.label_source in {"HUMAN_REVIEWED_DECISION","EXPERT_ANNOTATION"} and _research_case_issue(db,case):
+            raise HTTPException(409,detail={"code":"UNVERIFIED_RESEARCH_PROVENANCE","message":"Research feature inspection requires a verified immutable source case."})
+        snapshot=db.get(DecisionSnapshot,case.snapshot_id) if case.snapshot_id else None
+        state=_state_to_stage3(snapshot.state_json if snapshot else case.state_json)
+    elif payload.experiment_id is not None:
+        state=_stage3_experiment_state(db,payload.topic_id,payload.experiment_id)
+    if state is None:
+        raise HTTPException(422,detail={"code":"SCIENTIFIC_STATE_REQUIRED","message":"Provide a recorded non-demo experiment or an explicit ScientificState V2 object."})
+    try:
+        normalized=canonical_state_v2(state);vector,metadata=extract_features_v2(normalized)
+        return {"schema_version":FEATURE_SCHEMA_VERSION_V2,"scientific_state_schema_version":normalized["schema_version"],
+                "feature_count":len(vector),"features":dict(zip(FEATURES_V2,vector.tolist())),
+                "metadata":metadata,"scientific_state":normalized}
+    except ScientificStateError as exc: raise HTTPException(422,detail={"code":"SCIENTIFIC_STATE_V2_INVALID","message":str(exc)}) from exc
+
+
+def _stage3_experiment_state(db,topic_id,experiment_id):
+    experiment=db.get(Experiment,experiment_id)
+    if not experiment or experiment.topic_id!=topic_id or experiment.demo:
+        raise HTTPException(422,detail={"code":"EXPERIMENT_TOPIC_MISMATCH","message":"Stage 3 research state requires a non-demo experiment in this topic."})
+    observations=db.query(ScientificObservation).filter_by(experiment_id=experiment_id).all()
+    analysis=db.query(MaterialAnalysisRun).filter_by(experiment_id=experiment_id).all()
+    simulations=db.query(SimulationRun).filter_by(experiment_id=experiment_id).all()
+    optimization=db.query(OptimizationModelRun).filter_by(topic_id=topic_id).all()
+    recommendations=db.query(OptimizationRecommendationRun).filter_by(topic_id=topic_id).all()
+    record={"id":experiment.id,"topic_id":experiment.topic_id,"method_version_id":experiment.method_version_id,
+        "demo":experiment.demo,"status":experiment.status,"materials":[],
+        "steps":[{"name":step.name,"order_index":step.order_index,"variables":[{"name":v.name,"value":v.value,"unit":v.unit,"material":v.material} for v in step.variables]} for step in experiment.steps],
+        "results":[{"key":r.key,"value":r.value,"unit":r.unit} for r in experiment.results]}
+    analysis_context=[{"id":row.id,"modality":row.modality,"tool_id":row.tool_id,"analysis_status":row.analysis_status,
+        "sha256":row.sha256,"result":row.result_json or {}} for row in analysis]
+    registered=recommend_tools(record,analysis_context)["recommendations"]
+    return scientific_state_from_experiment(experiment,observations,analysis,simulations,optimization,recommendations,registered)
+
+
+def _state_to_stage3(state):
+    if state.get("schema_version")=="scientific-state-v2": return canonical_state_v2(state)
+    return canonical_state_v2(from_legacy_state_v2(state))
+
+
+def _condition_group(state):
+    try:
+        vector,meta=extract_features_v2(state)
+        keys=["temperature_mean_c","pressure_mean_kpa","duration_mean_min","volume_mean_ml","concentration_mean_mol_l"]
+        values={key:round(float(state["process_conditions"][key]),3) for key in keys if state["process_conditions"].get(key) is not None}
+        return stage3_hash(values) if values else None
+    except (ScientificStateError,KeyError,TypeError,ValueError): return None
+
+
+def _stage3_fit_calibration_ids(records,seed=1731):
+    groups=sorted({x["case_group_id"] for x in records})
+    if len(groups)<5: return [x["case_id"] for x in records],[]
+    rng=np.random.default_rng(seed);rng.shuffle(groups)
+    cal_groups=set(groups[:max(1,int(round(len(groups)*.2)))])
+    fit=[x["case_id"] for x in records if x["case_group_id"] not in cal_groups]
+    cal=[x["case_id"] for x in records if x["case_group_id"] in cal_groups]
+    if set(x["case_group_id"] for x in records if x["case_id"] in fit)&set(x["case_group_id"] for x in records if x["case_id"] in cal):
+        raise HTTPException(409,detail={"code":"EVALUATION_SET_LEAKAGE","message":"Stage 3 calibration groups overlap fit groups."})
+    return fit,cal
+
+
+@router.post("/stage3/datasets/build")
+def stage3_build_dataset(payload:Stage3DatasetBuildIn,db:Session=Depends(get_db)):
+    _topic(db,payload.topic_id);mode=payload.mode.upper()
+    rows=db.query(DecisionCase).filter_by(topic_id=payload.topic_id).order_by(DecisionCase.id).all()
+    feedback_rows=db.query(DecisionFeedback).filter_by(topic_id=payload.topic_id).order_by(DecisionFeedback.snapshot_id,DecisionFeedback.model_run_id,DecisionFeedback.revision.desc()).all()
+    latest_feedback={}
+    for feedback in feedback_rows: latest_feedback.setdefault((feedback.snapshot_id,feedback.model_run_id),feedback)
+    latest_eligible={x.id for x in latest_feedback.values() if x.feedback_type in {"ACCEPT","CORRECT","REJECT"} and x.final_reviewed_action}
+    if mode=="SANDBOX":
+        rows=[x for x in rows if x.label_source=="SYNTHETIC_SANDBOX" and x.review_status=="SYNTHETIC_ONLY"
+              and (x.feedback_id is None or x.feedback_id in latest_eligible)]
+    else:
+        rows=[x for x in rows if x.label_source=="HUMAN_REVIEWED_DECISION" and x.review_status=="ACCEPTED" and x.snapshot_id and _research_case_issue(db,x) is None]
+    if not rows:
+        raise HTTPException(409,detail={"code":"INSUFFICIENT_REVIEWED_DECISIONS" if mode=="RESEARCH" else "INSUFFICIENT_SANDBOX_CASES","message":"No eligible Stage 3 cases with V2-compatible state provenance are available."})
+    snapshots={x.id:x for x in db.query(DecisionSnapshot).filter(DecisionSnapshot.id.in_([r.snapshot_id for r in rows if r.snapshot_id])).all()}
+    records=[]
+    for row in rows:
+        snapshot=snapshots.get(row.snapshot_id)
+        if mode=="RESEARCH" and (not snapshot or _research_snapshot_issue(db,snapshot)): continue
+        raw_state=snapshot.state_json if snapshot else row.state_json
+        state=_state_to_stage3(raw_state)
+        state["topic_id"]=row.topic_id;state["experiment_id"]=row.experiment_id
+        vector,meta=extract_features_v2(state)
+        group=f"experiment-{row.experiment_id}" if row.experiment_id else row.case_group_id
+        records.append({"case_id":row.id,"snapshot_id":row.snapshot_id,"case_group_id":group,
+            "experiment_id":row.experiment_id,"method_version_id":snapshot.method_version_id if snapshot else raw_state.get("method_version_id"),
+            "features":vector.tolist(),"feature_metadata":meta,"state":state,"action":row.selected_action,
+            "snapshot_state":raw_state,"v1_state":raw_state if snapshot is None or snapshot.feature_schema_version==FEATURE_SCHEMA_VERSION else None,
+            "label_source":row.label_source,"review_status":row.review_status,
+            "snapshot_hash":snapshot.snapshot_hash if snapshot else None,
+            "decision_contract_version":snapshot.decision_contract_version if snapshot else None,
+            "condition_group":_condition_group(state)})
+    if len(records)<18:
+        raise HTTPException(409,detail={"code":"INSUFFICIENT_REVIEWED_DECISIONS" if mode=="RESEARCH" else "INSUFFICIENT_SANDBOX_CASES","message":"At least 18 Stage 3 cases are required."})
+    groups=sorted({x["case_group_id"] for x in records})
+    if payload.holdout_strategy=="topic":
+        return {"status":"INSUFFICIENT_DATA","feature_schema_version":FEATURE_SCHEMA_VERSION_V2,"holdout_strategy":"topic",
+                "message":"A single selected topic cannot provide a topic-held-out evaluation set. Cross-topic validation requires multiple independent research topics."}
+    if payload.holdout_strategy=="method":
+        method_groups=sorted({str(x["method_version_id"]) for x in records if x["method_version_id"] is not None})
+        if len(method_groups)<2:
+            return {"status":"INSUFFICIENT_DATA","feature_schema_version":FEATURE_SCHEMA_VERSION_V2,"holdout_strategy":"method",
+                    "message":"Fewer than two independently represented method versions; method generalization was not evaluated."}
+        held_method=method_groups[-1]
+        eval_records=[x for x in records if str(x["method_version_id"])==held_method]
+        train_records=[x for x in records if str(x["method_version_id"])!=held_method]
+        if len({x["case_group_id"] for x in train_records})<15 or not eval_records:
+            return {"status":"INSUFFICIENT_DATA","feature_schema_version":FEATURE_SCHEMA_VERSION_V2,"holdout_strategy":"method",
+                    "message":"The method-held-out split lacks enough independent training/evaluation groups."}
+        eval_ids=[x["case_id"] for x in eval_records]
+        fit_ids,cal_ids=_stage3_fit_calibration_ids(train_records)
+        method_status={"status":"EVALUATED_SINGLE_HELD_METHOD","held_out_method_version":held_method}
+    elif payload.holdout_strategy=="condition_shift":
+        signatures=[x["condition_group"] for x in records if x["condition_group"]]
+        counts=Counter(signatures)
+        rare=sorted(counts,key=lambda x:(counts[x],x))
+        held=set(rare[:max(1,len(rare)//4)])
+        eval_records=[x for x in records if x["condition_group"] in held]
+        train_records=[x for x in records if x not in eval_records]
+        if len({x["case_group_id"] for x in train_records})<15 or len({x["case_group_id"] for x in eval_records})<3:
+            return {"status":"INSUFFICIENT_DATA","feature_schema_version":FEATURE_SCHEMA_VERSION_V2,"holdout_strategy":"condition_shift",
+                    "message":"Historical source states do not contain enough distinct recorded condition groups to evaluate condition shift."}
+        eval_ids=[x["case_id"] for x in eval_records];fit_ids,cal_ids=_stage3_fit_calibration_ids(train_records)
+        method_status={"status":"HELD_RARE_CONDITION_SIGNATURES","held_signature_count":len(held)}
+    else:
+        try:
+            fit_ix,cal_ix,test_ix=split_stage3_groups([x["case_group_id"] for x in records],seed=1729)
+        except ScientificStateError as exc:
+            raise HTTPException(409,detail={"code":"INSUFFICIENT_DATA","message":str(exc)}) from exc
+        fit_ids=[records[i]["case_id"] for i in fit_ix];cal_ids=[records[i]["case_id"] for i in cal_ix];eval_ids=[records[i]["case_id"] for i in test_ix]
+        eval_records=[records[i] for i in test_ix];train_records=[records[i] for i in np.concatenate([fit_ix,cal_ix])]
+        method_status={"status":"NOT_EVALUATED_SINGLE_TOPIC","reason":"This dataset is topic-scoped."}
+    if not eval_ids or not fit_ids:
+        raise HTTPException(409,detail={"code":"INSUFFICIENT_DATA","message":"Selected holdout strategy did not produce non-empty disjoint groups."})
+    previous=db.query(DecisionDatasetVersion).filter_by(topic_id=payload.topic_id,mode=mode,feature_schema_version=FEATURE_SCHEMA_VERSION_V2).order_by(DecisionDatasetVersion.id.desc()).all()
+    previous=next((x for x in previous if (x.source_summary_json or {}).get("holdout_strategy")==payload.holdout_strategy),None)
+    eval_group_ids=sorted({x["case_group_id"] for x in eval_records})
+    if previous:
+        prior=previous.manifest_json
+        old_eval_ids=list(prior.get("evaluation_case_ids",[]))
+        current={x["case_id"]:x for x in records}
+        if not set(old_eval_ids)<=set(current):
+            raise HTTPException(409,detail={"code":"EVALUATION_SET_LEAKAGE","message":"Frozen Stage 3 evaluation cases are missing from the current source set."})
+        frozen={x["case_id"]:x for x in prior.get("records",[]) if x["case_id"] in set(old_eval_ids)}
+        if set(frozen)!=set(old_eval_ids): raise HTTPException(409,detail={"code":"EVALUATION_SET_LEAKAGE","message":"Frozen Stage 3 evaluation manifest is incomplete."})
+        records=[frozen.get(x["case_id"],x) for x in records]
+        eval_ids=old_eval_ids;eval_group_ids=list(prior.get("evaluation_group_ids",[]))
+        train_records=[x for x in records if x["case_id"] not in set(eval_ids)]
+        fit_ids,cal_ids=_stage3_fit_calibration_ids(train_records)
+    records=sorted(records,key=lambda x:(x["case_group_id"],x["case_id"]))
+    evaluation=[x for x in records if x["case_id"] in set(eval_ids)]
+    eval_hash=dataset_digest(evaluation)
+    actions={action:sum(x["action"]==action for x in records) for action in ACTIONS}
+    manifest={"contract":"decision-dataset-v2", "records":records,"evaluation_case_ids":eval_ids,
+        "evaluation_group_ids":eval_group_ids,"evaluation_hash":eval_hash,"fit_case_ids":fit_ids,
+        "calibration_case_ids":cal_ids,"holdout_strategy":payload.holdout_strategy,
+        "holdout_status":method_status,"split_policy":"group-disjoint-v2",
+        "excluded_training_group_ids":eval_group_ids,"research_source_policy":RESEARCH_SOURCE_POLICY if mode=="RESEARCH" else None}
+    digest=dataset_digest({"topic_id":payload.topic_id,"mode":mode,"feature_schema_version":FEATURE_SCHEMA_VERSION_V2,
+        "label_mapping_version":"decision-actions-v1","manifest":manifest})
+    existing=db.query(DecisionDatasetVersion).filter_by(topic_id=payload.topic_id,mode=mode,dataset_hash=digest).first()
+    if existing:return {**_dataset_out(existing),"status":"EXISTING_IMMUTABLE_VERSION"}
+    number=db.query(DecisionDatasetVersion).filter_by(topic_id=payload.topic_id,mode=mode,feature_schema_version=FEATURE_SCHEMA_VERSION_V2).count()+1
+    row=DecisionDatasetVersion(topic_id=payload.topic_id,mode=mode,dataset_version=f"{mode.lower()}-stage3-v{number}",dataset_hash=digest,
+        feature_schema_version=FEATURE_SCHEMA_VERSION_V2,label_mapping_version="decision-actions-v1",case_count=len(records),
+        group_count=len(groups),action_distribution_json=actions,
+        missingness_json={"cases_with_missing_v2_context":sum(x["feature_metadata"]["missing_feature_count"]>0 for x in records),
+                          "missing_feature_count_total":sum(x["feature_metadata"]["missing_feature_count"] for x in records)},
+        source_summary_json={"dataset_type":"SYNTHETIC_SOFTWARE_FIXTURE" if mode=="SANDBOX" else "RESEARCHER_REVIEWED_DECISIONS",
+            "holdout_strategy":payload.holdout_strategy,"holdout_status":method_status,"cross_topic_generalization":"INSUFFICIENT_DATA",
+            "synthetic_is_not_research":mode=="SANDBOX"},manifest_json=manifest,created_at=datetime.now(timezone.utc).replace(tzinfo=None))
+    db.add(row);db.commit();db.refresh(row)
+    return {**_dataset_out(row),"status":"CREATED","holdout_status":method_status}
+
+
+@router.post("/stage3/retrain")
+def stage3_retrain(payload:Stage3RetrainIn,db:Session=Depends(get_db)):
+    dataset=db.get(DecisionDatasetVersion,payload.dataset_version_id)
+    if not dataset: raise HTTPException(404,detail={"code":"DECISION_DATASET_NOT_FOUND","message":"Decision dataset version not found."})
+    if dataset.feature_schema_version!=FEATURE_SCHEMA_VERSION_V2:
+        raise HTTPException(409,detail={"code":"MODEL_FEATURE_SCHEMA_MISMATCH","message":"Stage 3 training requires a V2 dataset."})
+    if dataset.mode=="RESEARCH" and _research_dataset_issue(db,dataset):
+        raise HTTPException(409,detail={"code":"UNVERIFIED_RESEARCH_PROVENANCE","message":"Research V2 dataset source/snapshot validation failed."})
+    manifest=dataset.manifest_json;records=manifest.get("records",[]);eval_ids=list(manifest.get("evaluation_case_ids",[]))
+    by_id={x["case_id"]:x for x in records};evaluation=[by_id[x] for x in eval_ids if x in by_id]
+    if len(evaluation)!=len(eval_ids) or not evaluation: raise HTTPException(409,detail={"code":"EVALUATION_SET_LEAKAGE","message":"Frozen Stage 3 evaluation set is incomplete."})
+    fit_ids=list(manifest.get("fit_case_ids",[]));cal_ids=list(manifest.get("calibration_case_ids",[]))
+    fit=[by_id[x] for x in fit_ids if x in by_id];cal=[by_id[x] for x in cal_ids if x in by_id]
+    if not fit or (cal_ids and len(cal)!=len(cal_ids)): raise HTTPException(409,detail={"code":"INSUFFICIENT_DATA","message":"Stage 3 fit/calibration partitions are incomplete."})
+    if (set(fit_ids)|set(cal_ids)) & set(eval_ids): raise HTTPException(409,detail={"code":"EVALUATION_SET_LEAKAGE","message":"Evaluation rows cannot be used for fitting or calibration."})
+    parent=db.get(DecisionModelRun,payload.parent_model_id) if payload.parent_model_id else None
+    if parent and (parent.topic_id!=dataset.topic_id or parent.mode.upper()!=dataset.mode or parent.feature_schema_version!=FEATURE_SCHEMA_VERSION_V2):
+        raise HTTPException(409,detail={"code":"MODEL_FEATURE_SCHEMA_MISMATCH","message":"Parent must use the same topic, mode and V2 feature schema."})
+    if parent:
+        pp=parent.provenance_json or {}
+        if pp.get("evaluation_case_ids")!=eval_ids or pp.get("evaluation_hash")!=manifest.get("evaluation_hash"):
+            raise HTTPException(409,detail={"code":"MODELS_NOT_COMPARABLE","message":"Parent and challenger must use the identical frozen V2 evaluation set."})
+    try:
+        x_fit=np.vstack([np.asarray(x["features"],dtype=float) for x in fit]);y_fit=[x["action"] for x in fit]
+        x_eval=np.vstack([np.asarray(x["features"],dtype=float) for x in evaluation]);y_eval=[x["action"] for x in evaluation]
+        model,losses=StructuredDecisionHeadV2.fit(x_fit,y_fit,seed=payload.seed)
+        calibration_available=False
+        if cal:
+            calibration_available=model.calibrate(np.vstack([np.asarray(x["features"],dtype=float) for x in cal]),[x["action"] for x in cal])
+        probs=model.predict_proba(x_eval);metrics=calibration_metrics(y_eval,probs)
+        pred=[ACTIONS[int(i)] for i in probs.argmax(axis=1)]
+        metrics.update({"per_class":{action:{"precision":sum(a==action and p==action for a,p in zip(y_eval,pred))/max(1,sum(p==action for p in pred)),
+            "recall":sum(a==action and p==action for a,p in zip(y_eval,pred))/max(1,sum(a==action for a in y_eval))} for action in ACTIONS},
+            "balanced_accuracy":float(np.mean([sum(a==action and p==action for a,p in zip(y_eval,pred))/max(1,sum(a==action for a in y_eval)) for action in ACTIONS if action in y_eval])),
+            "training_loss_start":losses[0],"training_loss_end":losses[-1],"training_loss_decreased":losses[-1]<losses[0],
+            "calibration_status":"TEMPERATURE_SCALED_ON_SEPARATE_GROUPS" if calibration_available else "INSUFFICIENT_CALIBRATION_DATA",
+            "calibration_group_count":len({x["case_group_id"] for x in cal}),"abstention_rate":float(np.mean([model.predict_safe(x["state"])["action"]=="ABSTAIN" for x in evaluation])),
+            "model_parameter_count":model.parameter_count,"model_size_bytes":len(json.dumps(model.to_dict(),separators=(",",":" )).encode()),
+            "selective_threshold_source":"CALIBRATION_GROUPS_ONLY" if calibration_available else "FIXED_CONSERVATIVE_FALLBACK",
+            "action_probabilities_are_success_probabilities":False,"workflow_triggered":False})
+        v1_x=[];v1_y=[]
+        from app.services.decision_head import encode_state
+        for item in fit:
+            try:
+                v1_state=item.get("v1_state")
+                if v1_state is None: v1_state=item.get("state") if not item.get("snapshot_id") else None
+                if isinstance(v1_state,dict): v1_x.append(encode_state(v1_state));v1_y.append(item["action"])
+            except DecisionInputError: pass
+        v1_metrics={"status":"NOT_AVAILABLE_FROM_VERIFIED_V1_INPUTS"}
+        if len(v1_x)>=24 and len(set(v1_y))>=2:
+            v1,_,=LearnedDecisionHead.fit(np.vstack(v1_x),v1_y,seed=payload.seed)
+            v1_cal=[]
+            for item in cal:
+                vs=item.get("v1_state")
+                if isinstance(vs,dict): v1_cal.append((encode_state(vs),item["action"]))
+            v1_calibrated=False
+            if v1_cal:
+                v1_calibrated=v1.calibrate(np.vstack([i[0] for i in v1_cal]),[i[1] for i in v1_cal])
+            v1_eval=[]
+            for item in evaluation:
+                vs=item.get("v1_state")
+                if isinstance(vs,dict): v1_eval.append((encode_state(vs),item["action"]))
+            if v1_eval:
+                vx=np.vstack([i[0] for i in v1_eval]);vy=[i[1] for i in v1_eval];vprob=v1.predict_proba(vx)
+                v1_metrics={**calibration_metrics(vy,vprob),"calibration_status":"CALIBRATED_ON_STAGE3_CALIBRATION_GROUPS" if v1_calibrated else "INSUFFICIENT_CALIBRATION_DATA",
+                    "calibration_group_count":len({x["case_group_id"] for x in cal if isinstance(x.get("v1_state"),dict)}),
+                    "evaluation_group_count":len({x["case_group_id"] for x in evaluation if isinstance(x.get("v1_state"),dict)}),
+                    "evaluation_case_count":len(v1_eval),"evaluation_split_hash":manifest.get("evaluation_hash")}
+        metrics["v1_comparator_on_stage3_split"]=v1_metrics
+        model_json=model.to_dict();run_no=db.query(DecisionModelRun).filter_by(topic_id=dataset.topic_id,mode=dataset.mode,feature_schema_version=FEATURE_SCHEMA_VERSION_V2).count()+1
+        provenance={"dataset_type":"SYNTHETIC_SOFTWARE_FIXTURE" if dataset.mode=="SANDBOX" else "RESEARCHER_REVIEWED_DECISIONS",
+            "dataset_version_id":dataset.id,"dataset_version":dataset.dataset_version,"dataset_hash":dataset.dataset_hash,
+            "feature_schema_version":FEATURE_SCHEMA_VERSION_V2,"scientific_state_schema_version":"scientific-state-v2",
+            "label_mapping_version":"decision-actions-v1","model_artifact_hash":dataset_digest(model_json),"training_seed":payload.seed,
+            "training_case_ids":fit_ids,"calibration_case_ids":cal_ids,"evaluation_case_ids":eval_ids,
+            "evaluation_group_ids":manifest.get("evaluation_group_ids",[]),"evaluation_hash":manifest.get("evaluation_hash"),
+            "group_split":manifest.get("split_policy"),"holdout_strategy":manifest.get("holdout_strategy"),
+            "shadow_mode_only":True,"no_pseudo_labels":True}
+        if dataset.mode=="RESEARCH": provenance.update({"research_source_policy":RESEARCH_SOURCE_POLICY,"research_source_case_ids":[x["case_id"] for x in records]})
+        row=DecisionModelRun(topic_id=dataset.topic_id,mode=dataset.mode,status="EVALUATED",dataset_hash=dataset.dataset_hash,
+            model_version=f"{MODEL_VERSION_V2}+run-{run_no}",feature_schema_version=FEATURE_SCHEMA_VERSION_V2,
+            dataset_version=dataset.dataset_version,model_json=model_json,metrics_json=metrics,provenance_json=provenance,
+            created_at=datetime.now(timezone.utc).replace(tzinfo=None))
+        db.add(row);db.commit();db.refresh(row)
+        return _model_out(row)
+    except (ScientificStateError,DecisionInputError,ValueError,np.linalg.LinAlgError) as exc:
+        db.rollback();raise HTTPException(422,detail={"code":"STAGE3_TRAINING_INVALID","message":str(exc)}) from exc
+
+
+@router.post("/stage3/benchmark")
+def stage3_benchmark(samples_per_seed:int=576):
+    try:
+        # The public benchmark always uses the fixed five-seed acceptance set.
+        report=run_robustness_benchmark(samples_per_seed=min(max(samples_per_seed,180),1200))
+        return report
+    except ScientificStateError as exc: raise HTTPException(422,detail={"code":"STAGE3_BENCHMARK_INVALID","message":str(exc)}) from exc
+
+
+@router.post("/stage3/models/{model_id}/predict")
+def stage3_predict(model_id:int,payload:Stage3PredictIn,db:Session=Depends(get_db)):
+    _topic(db,payload.topic_id);row=db.get(DecisionModelRun,model_id)
+    if not row or row.topic_id!=payload.topic_id: raise HTTPException(404,detail={"code":"DECISION_MODEL_NOT_FOUND","message":"Stage 3 model not found."})
+    if row.feature_schema_version!=FEATURE_SCHEMA_VERSION_V2: raise HTTPException(409,detail={"code":"MODEL_FEATURE_SCHEMA_MISMATCH","message":"This endpoint only accepts a V2 model."})
+    mode=row.mode.upper();experiment_id=payload.experiment_id
+    if payload.case_id is not None:
+        case=db.get(DecisionCase,payload.case_id)
+        if not case or case.topic_id!=payload.topic_id: raise HTTPException(404,detail={"code":"DECISION_CASE_NOT_FOUND","message":"Case does not belong to this topic."})
+        if mode=="SANDBOX" and case.label_source!="SYNTHETIC_SANDBOX": raise HTTPException(409,detail={"code":"MODEL_DATASET_MODE_MISMATCH","message":"Sandbox models accept synthetic cases only."})
+        if mode=="RESEARCH" and _research_case_issue(db,case): raise HTTPException(409,detail={"code":"UNVERIFIED_RESEARCH_PROVENANCE","message":"Research V2 inference requires a verified source case."})
+        snapshot=db.get(DecisionSnapshot,case.snapshot_id) if case.snapshot_id else None
+        state=_state_to_stage3(snapshot.state_json if snapshot else case.state_json);experiment_id=case.experiment_id
+    elif experiment_id is not None:
+        if mode!="RESEARCH": raise HTTPException(409,detail={"code":"MODEL_DATASET_MODE_MISMATCH","message":"Sandbox prediction requires an explicit synthetic case."})
+        state=_stage3_experiment_state(db,payload.topic_id,experiment_id)
+    else:
+        state=payload.scientific_state
+        if mode=="RESEARCH": raise HTTPException(409,detail={"code":"RESEARCH_EXPERIMENT_REQUIRED","message":"Research inference requires a non-demo experiment or verified source case."})
+        if not isinstance(state,dict): raise HTTPException(422,detail={"code":"SCIENTIFIC_STATE_REQUIRED","message":"Provide a sandbox scenario state."})
+        state=_state_to_stage3(state)
+    if mode=="RESEARCH":
+        exp=db.get(Experiment,experiment_id) if experiment_id else None
+        if not exp or exp.demo or exp.topic_id!=payload.topic_id: raise HTTPException(422,detail={"code":"RESEARCH_EXPERIMENT_REQUIRED","message":"Research V2 predictions require a non-demo experiment."})
+    state["topic_id"]=payload.topic_id
+    if experiment_id is not None: state["experiment_id"]=experiment_id
+    try:
+        model=StructuredDecisionHeadV2.from_dict(row.model_json);vector,metadata=extract_features_v2(state);result=model.predict_safe(state)
+        snapshot=_save_snapshot(db,payload.topic_id,mode,state,row,result,experiment_id=experiment_id,
+            feature_vector_override=vector.tolist(),feature_schema_version=FEATURE_SCHEMA_VERSION_V2)
+        db.commit()
+        return {**result,"model_id":row.id,"model_version":row.model_version,"model_mode":mode,
+            "feature_schema_version":FEATURE_SCHEMA_VERSION_V2,"dataset_hash":row.dataset_hash,
+            "scientific_state":state,"feature_metadata":metadata,"decision_snapshot":_snapshot_out(snapshot),
+            "mode":"SHADOW_ONLY","workflow_triggered":False,"review_required":True,
+            "user_summary":{"measurement_status":state["measurements"].get("quality_status"),
+                "analysis_pending":state["analysis"].get("pending_analysis_count"),
+                "missing_required_information":state["provenance"].get("missing_required_information_count"),
+                "recommendation_action":result["action"],"review_required":True}}
+    except ScientificStateError as exc: raise HTTPException(422,detail={"code":"SCIENTIFIC_STATE_V2_INVALID","message":str(exc)}) from exc
 
 
 @router.get("/cases")
@@ -669,10 +1056,10 @@ def build_dataset(payload:DatasetBuildIn,db:Session=Depends(get_db)):
     for feedback in feedbacks: latest.setdefault((feedback.snapshot_id,feedback.model_run_id),feedback)
     latest_feedback_ids={item.id for item in latest.values() if item.feedback_type in {"ACCEPT","CORRECT","REJECT"} and item.final_reviewed_action}
     if mode=="SANDBOX":
-        rows=[row for row in rows if row.label_source=="SYNTHETIC_SANDBOX" and row.review_status=="SYNTHETIC_ONLY"]
+        rows=[row for row in rows if row.label_source=="SYNTHETIC_SANDBOX" and row.review_status=="SYNTHETIC_ONLY" and row.feature_schema_version==FEATURE_SCHEMA_VERSION]
         rows=[case for case in rows if case.feedback_id is None or case.feedback_id in latest_feedback_ids]
     else:
-        rows=[row for row in rows if row.label_source in {"HUMAN_REVIEWED_DECISION","EXPERT_ANNOTATION"} and row.review_status=="ACCEPTED" and row.snapshot_id]
+        rows=[row for row in rows if row.label_source in {"HUMAN_REVIEWED_DECISION","EXPERT_ANNOTATION"} and row.review_status=="ACCEPTED" and row.snapshot_id and row.feature_schema_version==FEATURE_SCHEMA_VERSION]
         # Eligibility is explicit from the final action and feedback type.
         rows=[case for case in rows if case.feedback_id is None or case.feedback_id in latest_feedback_ids]
         rows=[row for row in rows if _research_case_issue(db,row) is None]
@@ -699,7 +1086,7 @@ def build_dataset(payload:DatasetBuildIn,db:Session=Depends(get_db)):
             "decision_contract_version":snapshots[row.snapshot_id].decision_contract_version if mode=="RESEARCH" else None})
     if len(records)<2: raise HTTPException(409,detail={"code":"INSUFFICIENT_REVIEWED_DECISIONS" if mode=="RESEARCH" else "INSUFFICIENT_SANDBOX_CASES","message":"At least two eligible decision cases are required."})
     record_ids={item["case_id"] for item in records}
-    previous=db.query(DecisionDatasetVersion).filter_by(topic_id=payload.topic_id,mode=mode).order_by(DecisionDatasetVersion.id.desc()).first()
+    previous=db.query(DecisionDatasetVersion).filter_by(topic_id=payload.topic_id,mode=mode,feature_schema_version=FEATURE_SCHEMA_VERSION).order_by(DecisionDatasetVersion.id.desc()).first()
     frozen_eval_ids=[];frozen_group_ids=[]
     if previous:
         frozen_eval_ids=list(previous.manifest_json.get("evaluation_case_ids",[]));frozen_group_ids=list(previous.manifest_json.get("evaluation_group_ids",[]))
@@ -795,7 +1182,8 @@ def create_feedback(payload:FeedbackIn,db:Session=Depends(get_db)):
             (snapshot.provenance_json.get("case_group_id") or f"decision-snapshot-{snapshot.id}"))
         synthetic=mode=="SANDBOX"
         case=DecisionCase(topic_id=snapshot.topic_id,experiment_id=snapshot.experiment_id,snapshot_id=snapshot.id,feedback_id=feedback.id,
-            case_group_id=case_group,state_json=state,features_json={"vector":snapshot.feature_vector_json,"feature_names":list(FEATURES)},
+            case_group_id=case_group,state_json=state,features_json={"vector":snapshot.feature_vector_json,
+                "feature_names":list(FEATURES_V2 if snapshot.feature_schema_version==FEATURE_SCHEMA_VERSION_V2 else FEATURES)},
             feature_schema_version=snapshot.feature_schema_version,candidate_actions_json=list(ACTIONS),selected_action=final_action,
             label_source=label_source,reviewer=payload.reviewer.strip(),review_status="SYNTHETIC_ONLY" if synthetic else "ACCEPTED",
             provenance_json={"label_source":label_source,"reviewer_identity_status":"SELF_REPORTED_NOT_AUTHENTICATED",
@@ -818,6 +1206,8 @@ def create_feedback(payload:FeedbackIn,db:Session=Depends(get_db)):
 def retrain(payload:RetrainIn,db:Session=Depends(get_db)):
     dataset=db.get(DecisionDatasetVersion,payload.dataset_version_id)
     if not dataset: raise HTTPException(404,detail={"code":"DECISION_DATASET_NOT_FOUND","message":"Decision dataset version not found."})
+    if dataset.feature_schema_version!=FEATURE_SCHEMA_VERSION:
+        raise HTTPException(409,detail={"code":"MODEL_FEATURE_SCHEMA_MISMATCH","message":"Stage 2 retraining accepts V1 datasets only; use the Stage 3 retraining endpoint for V2."})
     if dataset.mode=="RESEARCH" and _research_dataset_issue(db,dataset):
         raise HTTPException(409,detail={"code":"UNVERIFIED_RESEARCH_PROVENANCE","message":"This frozen Research dataset predates or fails the verified experiment/source contract and cannot be used for new training."})
     records=dataset.manifest_json.get("records",[]);eval_ids=list(dataset.manifest_json.get("evaluation_case_ids",[]))
@@ -900,6 +1290,8 @@ def compare_models(payload:ModelCompareIn,db:Session=Depends(get_db)):
         raise HTTPException(404,detail={"code":"DECISION_MODEL_NOT_FOUND","message":"Both models must belong to the selected topic."})
     if champion.id==challenger.id or champion.mode.upper()!=challenger.mode.upper():
         raise HTTPException(409,detail={"code":"MODEL_DATASET_MODE_MISMATCH","message":"Champion and challenger must be different models from the same dataset mode."})
+    if champion.feature_schema_version!=challenger.feature_schema_version:
+        raise HTTPException(409,detail={"code":"MODEL_FEATURE_SCHEMA_MISMATCH","message":"Champion and challenger must use the same versioned feature schema."})
     cp=champion.provenance_json or {};npv=challenger.provenance_json or {}
     champion_eval=cp.get("evaluation_case_ids") or cp.get("validation_case_ids") or []
     challenger_eval=npv.get("evaluation_case_ids") or npv.get("validation_case_ids") or []
@@ -986,6 +1378,8 @@ def _set_active_shadow(db,topic_id,mode,model,comparison,reviewer,reason,action)
         raise HTTPException(409,detail={"code":"MODEL_NOT_EVALUATED_FOR_PROMOTION","message":"A frozen evaluation result is required before activation."})
     if model.topic_id!=topic_id or model.mode.upper()!=mode or not (model.provenance_json or {}).get("evaluation_hash"):
         raise HTTPException(409,detail={"code":"MODEL_DATASET_MODE_MISMATCH","message":"Only evaluated models with the same topic and dataset mode can be activated."})
+    if active and db.get(DecisionModelRun,previous_id).feature_schema_version!=model.feature_schema_version:
+        raise HTTPException(409,detail={"code":"MODEL_FEATURE_SCHEMA_MISMATCH","message":"A Shadow replacement must use the same feature schema as the currently active model."})
     if mode=="RESEARCH" and _research_model_source_issue(db,model):
         raise HTTPException(409,detail={"code":"UNVERIFIED_RESEARCH_PROVENANCE","message":"This Research model has no verifiable, contract-compliant experiment source and cannot be activated."})
     if active: active.model_run_id=model.id;active.updated_at=datetime.now(timezone.utc).replace(tzinfo=None)
