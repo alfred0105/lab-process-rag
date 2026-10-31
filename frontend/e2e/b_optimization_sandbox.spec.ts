@@ -34,6 +34,9 @@ test('isolated sandbox trains a GP, ranks candidates, and compares Branin baseli
 });
 
 test('multiobjective sandbox trains two GPs, shows Pareto hypervolume and persists a reviewed batch', async ({page})=>{
+  // The five-seed multi-objective benchmark is CPU-bound and can take over
+  // 90 seconds on shared CI runners; retain assertions with a realistic ceiling.
+  test.setTimeout(240_000);
   await page.goto('/');
   await page.getByRole('button',{name:/Playwright isolated synthetic topic/}).click();
   await page.getByRole('button',{name:'기타',exact:true}).click();
