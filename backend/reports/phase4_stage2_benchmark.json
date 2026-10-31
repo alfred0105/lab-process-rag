@@ -1,0 +1,134 @@
+{
+  "additional_evaluations": 12,
+  "base_seed": 7,
+  "benchmark_kind": "synthetic software validation",
+  "constrained": {
+    "constraint": "x1 + x2 <= 9",
+    "function": "Constrained Branin (synthetic; x1+x2<=9)",
+    "initial_points": 5,
+    "known_feasible_minimum_approx": 0.3985490299800798,
+    "notice": "Unconstrained policy proposals are evaluated only inside this mathematical benchmark to count violations; they are never executable experiment recommendations.",
+    "policies": {
+      "constraint_aware_gp_ei": {
+        "best_feasible_by_seed": [
+          0.4174533346442537,
+          0.4432229558285581,
+          0.4078885523723663,
+          0.9289329339209029,
+          0.49417420923529143
+        ],
+        "constraint_violation_count": 0,
+        "feasible_recommendation_rate": 1.0,
+        "mean_simple_regret": 0.1397853672201947,
+        "median_best_feasible_objective": 0.4432229558285581,
+        "runs": 5
+      },
+      "random_feasible": {
+        "best_feasible_by_seed": [
+          1.5210705115388645,
+          4.8297607262712745,
+          8.079981497027273,
+          0.9929062374660447,
+          0.6132993498346675
+        ],
+        "constraint_violation_count": 0,
+        "feasible_recommendation_rate": 1.0,
+        "mean_simple_regret": 2.808854634447545,
+        "median_best_feasible_objective": 1.5210705115388645,
+        "runs": 5
+      },
+      "unconstrained_gp_ei": {
+        "best_feasible_by_seed": [
+          0.5028078853624471,
+          0.5120870771201087,
+          1.1269870254378578,
+          0.9929062374660447,
+          0.6132993498346675
+        ],
+        "constraint_violation_count": 29,
+        "feasible_recommendation_rate": 0.5166666666666667,
+        "mean_simple_regret": 0.35106848506414534,
+        "median_best_feasible_objective": 0.6132993498346675,
+        "runs": 5
+      }
+    }
+  },
+  "noisy": {
+    "function": "Noisy one-dimensional synthetic objective",
+    "initial_points": 4,
+    "known_minimum_approx": 0.004583362167203741,
+    "noise_std": 0.08,
+    "policies": {
+      "gp_ei": {
+        "best_observed_by_seed": [
+          -0.10664332107183562,
+          -0.1345727169364424,
+          -0.16915916386006621,
+          -0.08254402617720216,
+          -0.16279380803395513
+        ],
+        "best_true_by_seed": [
+          0.007120457563037596,
+          0.02837782606349784,
+          0.007756864827572412,
+          0.005353242935540445,
+          0.006993542730069274
+        ],
+        "mean_best_true_objective": 0.011120386823943515,
+        "mean_simple_regret": 0.0065370246567397735,
+        "median_best_observed_objective": -0.1345727169364424,
+        "median_best_true_objective": 0.007120457563037596,
+        "recommendation_location_std": 0.15099783846870862,
+        "runs": 5
+      },
+      "gp_noisy_ei": {
+        "best_observed_by_seed": [
+          -0.09523975790598746,
+          -0.16453453440755922,
+          -0.170650313489382,
+          -0.14322559321087272,
+          -0.06052990371998784
+        ],
+        "best_true_by_seed": [
+          0.005353242935540445,
+          0.007120457563037596,
+          0.0045834454522465165,
+          0.0047755330494807305,
+          0.00501465524399981
+        ],
+        "mean_best_true_objective": 0.0053694668488610195,
+        "mean_simple_regret": 0.0007861046816572785,
+        "median_best_observed_objective": -0.14322559321087272,
+        "median_best_true_objective": 0.00501465524399981,
+        "recommendation_location_std": 0.31949667447408586,
+        "runs": 5
+      },
+      "random_search": {
+        "best_observed_by_seed": [
+          -0.06250062386982108,
+          -0.1019718807687911,
+          -0.04964456081800865,
+          -0.14720558416647062,
+          -0.06823720241348408
+        ],
+        "best_true_by_seed": [
+          0.006993542730069274,
+          0.006050427842052831,
+          0.007756864827572412,
+          0.005614509375604915,
+          0.006993542730069274
+        ],
+        "mean_best_true_objective": 0.0066817775010737405,
+        "mean_simple_regret": 0.0020984153338700004,
+        "median_best_observed_objective": -0.06823720241348408,
+        "median_best_true_objective": 0.006993542730069274,
+        "recommendation_location_std": 0.2865685394068543,
+        "runs": 5
+      }
+    }
+  },
+  "notice": "Synthetic software benchmark only. It does not establish experimental performance or material science validity.",
+  "runtime_environment": "Python / NumPy / SciPy; CPU",
+  "seeds": 5,
+  "wall_clock_seconds": 6.276910458000202
+}

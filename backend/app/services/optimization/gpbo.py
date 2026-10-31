@@ -15,7 +15,7 @@ import numpy as np
 from scipy.optimize import minimize
 from scipy.special import ndtr
 
-MODEL_VERSION = "gpbo-mvp-1"
+MODEL_VERSION = "gpbo-stage2-2"
 
 
 class OptimizationInputError(ValueError):
@@ -109,7 +109,8 @@ class GaussianProcess:
             raise OptimizationInputError("Covariance matrix remained numerically unstable")
         return cls(xm.tolist(), xs.tolist(), ym, ys, xn.tolist(), alpha.tolist(), observation_variance.tolist(), length.tolist(), signal, learned_noise, kernel, jitter)
 
-    def predict(self, x):
+    def posterior(self, x):
+        """Return latent posterior mean and covariance in original target units."""
         x = _matrix(x, "X")
         if x.shape[1] != len(self.x_mean):
             raise OptimizationInputError("Candidate feature dimension does not match model")
@@ -122,18 +123,47 @@ class GaussianProcess:
         chol = np.linalg.cholesky(cov)
         mean = np.array(self.y_mean) + self.y_scale*(k @ alpha)
         v = np.linalg.solve(chol, k.T)
-        variance = np.maximum(self.signal_variance - np.sum(v*v, axis=0), 1e-12)
-        std = self.y_scale*np.sqrt(variance)
-        return mean.tolist(), std.tolist()
+        prior = self.signal_variance * _kernel(xn, xn, self.kernel, length)
+        covariance = self.y_scale**2 * (prior - v.T @ v)
+        covariance = (covariance + covariance.T) * 0.5
+        diagonal = np.maximum(np.diag(covariance), 1e-12)
+        np.fill_diagonal(covariance, diagonal)
+        if not np.isfinite(mean).all() or not np.isfinite(covariance).all():
+            raise OptimizationInputError("GP posterior contains non-finite values")
+        return mean, covariance
+
+    def predict_components(self, x):
+        mean, covariance = self.posterior(x)
+        epistemic = np.sqrt(np.maximum(np.diag(covariance), 0.0))
+        # The optimized homoscedastic nugget represents residual observation
+        # noise for a future measurement. Known training-row uncertainties are
+        # already included heteroscedastically in the conditioning covariance.
+        aleatoric = np.full_like(epistemic, self.y_scale * math.sqrt(max(self.noise, 0.0)))
+        total = np.sqrt(epistemic**2 + aleatoric**2)
+        return mean.tolist(), epistemic.tolist(), aleatoric.tolist(), total.tolist()
+
+    def predict(self, x, *, prediction_type="observation"):
+        mean, epistemic, _aleatoric, total = self.predict_components(x)
+        if prediction_type == "latent":
+            return mean, epistemic
+        if prediction_type == "observation":
+            return mean, total
+        raise OptimizationInputError("prediction_type must be latent or observation")
 
     def to_dict(self):
         return self.__dict__.copy()
 
     @classmethod
     def from_dict(cls, value):
-        if value.get("model_version") != MODEL_VERSION:
+        version=value.get("model_version")
+        if version not in {MODEL_VERSION,"gpbo-mvp-1"}:
             raise OptimizationInputError("Unsupported saved model version")
-        return cls(**value)
+        # Stage 1 JSON remains readable. Its old predictive std is interpreted
+        # as latent posterior uncertainty and the learned nugget supplies the
+        # future-observation aleatoric component under the Stage 2 model.
+        payload=dict(value)
+        payload.setdefault("observation_noise_variance",[0.0]*len(payload.get("x_train",[])))
+        return cls(**payload)
 
 
 def acquisition(mean, std, best, name, *, maximize=True, kappa=2.0, xi=0.01):
@@ -153,6 +183,64 @@ def acquisition(mean, std, best, name, *, maximize=True, kappa=2.0, xi=0.01):
     if name == "ucb":
         return signed + float(kappa)*std
     raise OptimizationInputError("acquisition must be ei, pi, or ucb")
+
+
+def noisy_expected_improvement(model, candidates, *, samples=256, seed=7, maximize=True):
+    """Monte Carlo noisy EI over the joint latent posterior at observed X and candidates.
+
+    The sampled incumbent is the best latent objective over the noisy baseline
+    observations, rather than the best noisy measured value. Candidate values
+    are sampled conditionally on each shared baseline draw, preserving their
+    posterior dependence. This is a one-candidate qNEI-style acquisition.
+    """
+    if not isinstance(samples, int) or samples < 32 or samples > 8192:
+        raise OptimizationInputError("noisy EI samples must be an integer in [32, 8192]")
+    candidates = _matrix(candidates, "Candidates")
+    if candidates.shape[1] != len(model.x_mean):
+        raise OptimizationInputError("Candidate feature dimension does not match model")
+    baseline = np.asarray(model.x_train) * np.asarray(model.x_scale) + np.asarray(model.x_mean)
+    baseline_mean, baseline_cov = model.posterior(baseline)
+    candidate_mean, candidate_cov = model.posterior(candidates)
+    baseline_candidate_cov = _posterior_cross_covariance(model, baseline, candidates)
+    baseline_cov = (baseline_cov + baseline_cov.T) * 0.5
+    scale = max(float(np.max(np.diag(baseline_cov))), 1.0)
+    jitter = scale * 1e-12
+    for _ in range(8):
+        try:
+            chol = np.linalg.cholesky(baseline_cov + np.eye(len(baseline))*jitter)
+            break
+        except np.linalg.LinAlgError:
+            jitter *= 10
+    else:
+        raise OptimizationInputError("Noisy EI baseline posterior is numerically unstable")
+    rng = np.random.default_rng(seed)
+    baseline_draws = np.asarray(baseline_mean)[None, :] + rng.standard_normal((samples, len(baseline))) @ chol.T
+    weights = np.linalg.solve(chol.T, np.linalg.solve(chol, baseline_candidate_cov))
+    conditional_mean = np.asarray(candidate_mean)[None, :] + (baseline_draws - np.asarray(baseline_mean)[None, :]) @ weights
+    conditional_variance = np.maximum(np.diag(candidate_cov) - np.sum(baseline_candidate_cov * weights, axis=0), 0.0)
+    candidate_draws = conditional_mean + rng.standard_normal(conditional_mean.shape) * np.sqrt(conditional_variance)[None, :]
+    signed_baseline = baseline_draws if maximize else -baseline_draws
+    signed_candidates = candidate_draws if maximize else -candidate_draws
+    incumbent = np.max(signed_baseline, axis=1, keepdims=True)
+    return np.mean(np.maximum(signed_candidates - incumbent, 0.0), axis=0)
+
+
+def _posterior_cross_covariance(model, left, right):
+    left = _matrix(left, "Left points"); right = _matrix(right, "Right points")
+    xm = np.asarray(model.x_mean); xs = np.asarray(model.x_scale); train = np.asarray(model.x_train)
+    left_n = (left-xm)/xs; right_n=(right-xm)/xs
+    train_cov = model.signal_variance*_kernel(train,train,model.kernel,np.asarray(model.length_scale))
+    train_cov += np.diag(np.asarray(model.observation_noise_variance)+model.jitter)
+    try:
+        chol=np.linalg.cholesky(train_cov)
+        k_train_left=model.signal_variance*_kernel(train,left_n,model.kernel,np.asarray(model.length_scale))
+        k_train_right=model.signal_variance*_kernel(train,right_n,model.kernel,np.asarray(model.length_scale))
+        v_left=np.linalg.solve(chol,k_train_left)
+        v_right=np.linalg.solve(chol,k_train_right)
+    except np.linalg.LinAlgError as exc:
+        raise OptimizationInputError("GP covariance is numerically unstable") from exc
+    prior=model.signal_variance*_kernel(left_n,right_n,model.kernel,np.asarray(model.length_scale))
+    return model.y_scale**2*(prior-v_left.T@v_right)
 
 
 def dataset_hash(rows):
@@ -226,3 +314,113 @@ def sandbox_benchmark(seed=7, budget=20, seeds=5):
             "initial_points":5,"additional_evaluations":budget,"policies":summary,
             "wall_clock_seconds":time.perf_counter()-started,
             "notice":"Synthetic benchmark only; these optimizer results do not establish experimental success or performance on research materials."}
+
+
+def stage2_sandbox_benchmark(kind="all", seed=7, budget=12, seeds=5, noise_level=0.08):
+    """Noise-aware and constrained synthetic evaluations; never writes lab records."""
+    if kind not in {"noisy","constrained","all"}:
+        raise OptimizationInputError("benchmark kind must be noisy, constrained, or all")
+    if not 5 <= seeds <= 20 or not 3 <= budget <= 40 or not math.isfinite(noise_level) or not 0 <= noise_level <= 1:
+        raise OptimizationInputError("invalid Stage 2 benchmark budget, seed count, or noise level")
+    started=time.perf_counter(); result={"base_seed":seed,"seeds":seeds,"additional_evaluations":budget,
+        "notice":"Synthetic software benchmark only. It does not establish experimental performance or material science validity."}
+    if kind in {"noisy","all"}:
+        def objective(x): return (x-0.63)**2 + 0.035*np.sin(12*x)
+        domain=np.linspace(0.0,1.0,241); true_values=objective(domain); known=float(np.min(objective(np.linspace(0,1,20001))))
+        policies={name:[] for name in ("random_search","gp_ei","gp_noisy_ei")}
+        final_locations={name:[] for name in policies}
+        for run in range(seeds):
+            design_rng=np.random.default_rng(seed+run)
+            x0=np.sort(design_rng.choice(domain,4,replace=False)); y0=objective(x0)+design_rng.normal(0,noise_level,4)
+            # Give every policy an independent, reproducible stream so one
+            # policy's internal sampling cannot change another's noise draws.
+            policy_rng={name:np.random.default_rng(seed+run*1009+offset*7919)
+                        for offset,name in enumerate(policies, start=1)}
+            # Include the shared initial design in both true and observed best
+            # values; otherwise a small added-evaluation budget is biased.
+            initial_true=objective(x0).astype(float).tolist()
+            states={name:(x0.copy(),y0.copy(),initial_true.copy(),[]) for name in policies}
+            for _ in range(budget):
+                for name,(x_obs,y_obs,true_seen,locs) in states.items():
+                    rng=policy_rng[name]
+                    if name=="random_search": candidate=float(rng.choice(domain))
+                    else:
+                        model=GaussianProcess.fit(x_obs[:,None],y_obs,kernel="matern",measurement_std=np.full(len(y_obs),noise_level))
+                        if name=="gp_ei":
+                            mean,std=model.predict(domain[:,None],prediction_type="latent")
+                            scores=acquisition(mean,std,float(np.min(y_obs)),"ei",maximize=False)
+                        else:
+                            scores=noisy_expected_improvement(model,domain[:,None],samples=128,seed=seed+run*1000+len(locs),maximize=False)
+                        candidate=float(domain[int(np.argmax(scores))])
+                    true_value=float(objective(candidate)); observed=true_value+float(rng.normal(0,noise_level))
+                    x_obs=np.r_[x_obs,candidate]; y_obs=np.r_[y_obs,observed]; true_seen.append(true_value); locs.append(candidate)
+                    states[name]=(x_obs,y_obs,true_seen,locs)
+            for name,(x_obs,y_obs,true_seen,locs) in states.items():
+                policies[name].append({"best_true":float(np.min(true_seen)),"best_observed":float(np.min(y_obs)),"last_x":float(locs[-1])})
+                final_locations[name].append(float(locs[-1]))
+        summary={}
+        for name,runs in policies.items():
+            best_true=np.asarray([row["best_true"] for row in runs]); best_observed=np.asarray([row["best_observed"] for row in runs])
+            summary[name]={"runs":seeds,"median_best_true_objective":float(np.median(best_true)),"mean_best_true_objective":float(np.mean(best_true)),
+                "median_best_observed_objective":float(np.median(best_observed)),"mean_simple_regret":float(np.mean(np.maximum(0,best_true-known))),
+                "recommendation_location_std":float(np.std(final_locations[name],ddof=1)) if seeds>1 else 0.0,
+                "best_true_by_seed":best_true.tolist(),"best_observed_by_seed":best_observed.tolist()}
+        result["noisy"]={"function":"Noisy one-dimensional synthetic objective","noise_std":noise_level,"known_minimum_approx":known,
+            "initial_points":4,"policies":summary}
+    if kind in {"constrained","all"}:
+        bounds=np.array([[-5.,10.],[0.,15.]])
+        constraint=lambda points: points[:,0]+points[:,1] <= 9.0
+        grid_x,grid_y=np.meshgrid(np.linspace(*bounds[0],501),np.linspace(*bounds[1],501),indexing="ij")
+        grid=np.column_stack((grid_x.ravel(),grid_y.ravel()))
+        feasible_grid=grid[constraint(grid)]; known=float(np.min(branin(feasible_grid)))
+        policies={name:[] for name in ("random_feasible","unconstrained_gp_ei","constraint_aware_gp_ei")}
+        for run in range(seeds):
+            rng=np.random.default_rng(seed+run); initial=[]
+            while len(initial)<5:
+                batch=bounds[:,0]+rng.random((64,2))*(bounds[:,1]-bounds[:,0])
+                initial.extend(batch[constraint(batch)].tolist())
+            x0=np.asarray(initial[:5]); y0=branin(x0)
+            # The initial design is feasible by construction and counts toward
+            # the best feasible objective for every policy equally.
+            states={name:(x0.copy(),y0.copy(),y0.astype(float).tolist(),[]) for name in policies}
+            policy_rng={name:np.random.default_rng(seed+run*1009+offset*7919)
+                        for offset,name in enumerate(policies, start=1)}
+            for _ in range(budget):
+                for name,(x_obs,y_obs,feasible_values,violations) in states.items():
+                    policy_random=policy_rng[name]
+                    proposals=bounds[:,0]+policy_random.random((1600,2))*(bounds[:,1]-bounds[:,0])
+                    if name=="random_feasible":
+                        valid=proposals[constraint(proposals)]; candidate=valid[int(policy_random.integers(len(valid)))]
+                    else:
+                        model=GaussianProcess.fit(x_obs,y_obs,kernel="matern")
+                        mean,std=model.predict(proposals,prediction_type="latent")
+                        score=acquisition(mean,std,float(np.min(y_obs)),"ei",maximize=False)
+                        if name=="constraint_aware_gp_ei":
+                            mask=constraint(proposals)
+                            if not mask.any(): continue
+                            candidate=proposals[np.flatnonzero(mask)[int(np.argmax(score[mask]))]]
+                        else:
+                            candidate=proposals[int(np.argmax(score))]
+                    value=float(branin(candidate)); valid=bool(constraint(np.asarray(candidate)[None,:])[0])
+                    violations.append(not valid)
+                    if valid: feasible_values.append(value)
+                    # Benchmark deliberately evaluates the mathematical function
+                    # even at violating suggestions to expose unsafe proposals.
+                    x_obs=np.vstack([x_obs,candidate]); y_obs=np.r_[y_obs,value]
+                    states[name]=(x_obs,y_obs,feasible_values,violations)
+            for name,(_x,_y,values,violations) in states.items():
+                policies[name].append({"best_feasible":float(np.min(values)) if values else None,"violations":sum(violations),"feasible":len(violations)-sum(violations)})
+        summary={}
+        for name,runs in policies.items():
+            best=np.asarray([row["best_feasible"] if row["best_feasible"] is not None else math.inf for row in runs])
+            violation=sum(row["violations"] for row in runs); total=seeds*budget
+            finite=best[np.isfinite(best)]
+            summary[name]={"runs":seeds,"feasible_recommendation_rate":float((total-violation)/total),"constraint_violation_count":int(violation),
+                "median_best_feasible_objective":float(np.median(finite)) if len(finite) else None,
+                "mean_simple_regret":float(np.mean(np.maximum(0,finite-known))) if len(finite) else None,
+                "best_feasible_by_seed":[None if not np.isfinite(value) else float(value) for value in best]}
+        result["constrained"]={"function":"Constrained Branin (synthetic; x1+x2<=9)","known_feasible_minimum_approx":known,
+            "initial_points":5,"constraint":"x1 + x2 <= 9","policies":summary,
+            "notice":"Unconstrained policy proposals are evaluated only inside this mathematical benchmark to count violations; they are never executable experiment recommendations."}
+    result["wall_clock_seconds"]=time.perf_counter()-started
+    return result
