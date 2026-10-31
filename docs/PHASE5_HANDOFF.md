@@ -2,7 +2,7 @@
 
 **Phase status:** `IN_PROGRESS`
 **Stage 1 status:** `PHASE_5_STAGE_1_MVP_IMPLEMENTED`
-**Stage 2 status:** `IN_PROGRESS` pending full-suite/browser/CI closure; detailed ledger: [`PHASE5_STAGE2.md`](PHASE5_STAGE2.md)
+**Stage 2 status:** `PHASE_5_STAGE_2_IMPLEMENTED`; detailed ledger and CI evidence: [`PHASE5_STAGE2.md`](PHASE5_STAGE2.md)
 **Operating mode:** shadow recommendation only
 
 ## Purpose and role boundaries

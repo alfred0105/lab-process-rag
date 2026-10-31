@@ -1,7 +1,7 @@
 # Phase 5 Stage 2 — Decision Feedback Learning
 
 **Repository:** `alfred0105/lab-process-rag`  
-**Stage status:** `IN_PROGRESS` until the complete local regression, browser E2E and remote Actions run are recorded.  
+**Stage status:** `PHASE_5_STAGE_2_IMPLEMENTED`
 **Phase 5 status:** `IN_PROGRESS`  
 **Stage 1:** remains `PHASE_5_STAGE_1_MVP_IMPLEMENTED`; its historical record is retained in [`PHASE5_STAGE1.md`](PHASE5_STAGE1.md).  
 **Scope:** the fixed P5-S2-001–012 acceptance list from the Stage 2 implementation request. No Phase 6, automated promotion, autonomous experiment execution or claim of laboratory accuracy is included.
@@ -38,6 +38,8 @@ The scripted benchmark is [`backend/scripts/benchmark_phase5_stage2.py`](../back
 
 Current captured benchmark: **PASSED**, synthetic software fixtures only; V1 144 cases, V2 145 cases, and the same evaluation hash across versions. The reproducibility comparison is `COMPARABLE`. V1-vs-V2 is `REGRESSED` under the configured safety gate: macro F1 changed from 0.8418 to 0.8333 (−0.0085), Brier improved from 0.2158 to 0.2096, and ECE improved from 0.0827 to 0.0424, but `ABSTAIN` recall fell by 0.2857 (allowed decrease: 0.10). The active V1 Shadow stays in place; the V2 model was not auto-promoted. Frozen holdout: 36 cases across 36 independent groups; evaluation hash `7f9c21e285c1dc5fc8c9fb4990c18ab2a9e72aab2c82aab26e9fc8a04498e5da`. Full cycle runtime was 0.3725 s on the local test run; this is synthetic software runtime, not a general latency guarantee. This result is not evidence of scientific or laboratory performance.
 
+The implementation commit is `c033612eb5ae43d1910c2c35bc469380c3781b19`. GitHub Actions [run 41190940798](https://github.com/alfred0105/lab-process-rag/actions/runs/41190940798) completed successfully for that SHA: backend **203 passed**, frontend production build passed and browser E2E **5 passed**. Local verification also passed the same backend suite, build and all five E2E cases.
+
 Acceptance status will be updated only after full local and remote verification:
 
 | ID | Requirement | Current state | Evidence / remaining gate |
@@ -53,7 +55,7 @@ Acceptance status will be updated only after full local and remote verification:
 | P5-S2-009 | Explicit Shadow activation and audited rollback | VERIFIED | Initial activation, comparison-gated replacement, rollback and no-workflow assertion exercised. |
 | P5-S2-010 | Data integrity, OOD/abstention and approval boundary | VERIFIED | Stage 1 OOD/abstention tests plus Stage 2 mode, latest-feedback and no-workflow tests; external accuracy unavailable. |
 | P5-S2-011 | One-screen feedback and learning management UI/API | VERIFIED | Production build and full 5-case browser E2E, including feedback, retraining, comparison, activation and rollback. |
-| P5-S2-012 | Learning-cycle report and complete CI/regression | IN_PROGRESS | Local regression has passed; remote GitHub Actions for the implementation commit is the remaining closure gate. |
+| P5-S2-012 | Learning-cycle report and complete CI/regression | VERIFIED | Local pytest **203 passed**, production build passed, Playwright **5 passed**; GitHub Actions [41190940798](https://github.com/alfred0105/lab-process-rag/actions/runs/41190940798) passed backend, frontend and browser E2E on implementation SHA `c033612eb5ae43d1910c2c35bc469380c3781b19`. |
 
 ## Limitations and later work
 
@@ -67,4 +69,4 @@ Acceptance status will be updated only after full local and remote verification:
 
 ## Phase status
 
-The local fixed acceptance checks P5-S2-001–011 pass. Stage 2 remains `IN_PROGRESS` until the implementation commit's GitHub Actions completes successfully; then P5-S2-012 and the stage may be marked `VERIFIED` / `PHASE_5_STAGE_2_IMPLEMENTED`. Phase 5 remains `IN_PROGRESS`; Phases 6, 7 and 8 remain `NOT_STARTED`. Real research accuracy remains unverified regardless of synthetic software-test success.
+All fixed acceptance items P5-S2-001–012 are `VERIFIED` against code, tests, benchmark, migration, UI integration and CI. Stage 2 is `PHASE_5_STAGE_2_IMPLEMENTED`. Phase 5 remains `IN_PROGRESS`; Phases 6, 7 and 8 remain `NOT_STARTED`. Real research accuracy remains unverified regardless of synthetic software-test success.
