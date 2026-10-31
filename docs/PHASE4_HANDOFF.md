@@ -8,7 +8,7 @@ At the time of that snapshot Phase 4 had **not** started, while Phase 3 was stil
 
 ## Current phase transition — 2026-10-31
 
-Current official status before the Stage 3 remote CI gate: Phase 3 `PHASE_3_CORE_COMPLETE`; Phase 4 overall `IN_PROGRESS`, Stage 1 `PHASE_4_MVP_IMPLEMENTED`, Stage 2 `PHASE_4_STAGE_2_IMPLEMENTED`, Stage 3 `IN_PROGRESS`; Phase 5–7 `NOT_STARTED`. Stage 3's local implementation/tests and pending GitHub CI are tracked in [`PHASE4_STAGE3.md`](PHASE4_STAGE3.md). The phase distinction does not upgrade earlier detailed rows or assert real experimental performance. Approved-research validation remains `PENDING`.
+Current status after Stage 3 CI: Phase 3 `PHASE_3_CORE_COMPLETE`; Phase 4 overall `IN_PROGRESS`, Stage 1 `PHASE_4_MVP_IMPLEMENTED`, Stage 2 `PHASE_4_STAGE_2_IMPLEMENTED`, Stage 3 `PHASE_4_STAGE_3_IMPLEMENTED`; Phase 5–7 `NOT_STARTED`. Stage 3 code commit `a3bc55ae9702548e138e365328dc404eb5d6a217` passed GitHub Actions [run 41185807419](https://github.com/alfred0105/lab-process-rag/actions/runs/41185807419). Its implementation, test evidence, limits and remaining external validation are tracked in [`PHASE4_STAGE3.md`](PHASE4_STAGE3.md). The phase distinction does not upgrade earlier detailed rows or assert real experimental performance. Approved-research validation remains `PENDING`.
 
 ## Phase 4 MVP implementation snapshot — 2026-10-31
 

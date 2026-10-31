@@ -1,7 +1,7 @@
 # Phase 4 Stage 3 — 다목적 GP·Pareto 추천
 
 **범위:** 두 개 목적, 연속 입력 변수 최대 6개, 결정론적 Stage 2 제약, 후보 batch 1~4개
-**Stage 상태:** `IN_PROGRESS` (기능 구현과 로컬 검증 완료, 최신 GitHub CI 대기)
+**Stage 상태:** `PHASE_4_STAGE_3_IMPLEMENTED` (로컬 검증 및 원격 CI 통과)
 **Phase 4 전체:** `IN_PROGRESS`
 **실제 연구 성능 검증:** `PENDING` — 승인된 실측 다목적 데이터가 준비되지 않음
 
@@ -65,10 +65,10 @@ Hypervolume은 문제별 고정 기준점에 대한 값이므로 서로 다른 b
 | P4-S3-009 — DB/provenance/호환성 | IMPLEMENTED | 기존 optimization JSON 테이블; MOO `model_type` | 모델/추천 조회 지속성, 주제 격리, 기존 단일목적 회귀 전체 suite | 별도 관계형 Pareto 테이블은 추가하지 않음 |
 | P4-S3-010 — Pareto UI | IMPLEMENTED | `frontend/src/components/MultiObjectivePanel.tsx`; CSS/API | production build 및 2후보 browser flow; 관측/Pareto/예측 점, 기준점, HV, 검토 표시 | Research 실제 데이터 UI 사용은 승인 데이터 대기 |
 | P4-S3-011 — 데이터·수치·제약 안전 | IMPLEMENTED | 연구 데이터 builder, constraints, numerical guards | unit/finite/reference/compute-budget/topic/source/feasibility/approval 회귀 테스트 | 로그인 사용자별 인가 및 실제 재료 안전 제약은 프로젝트 공통 backlog |
-| P4-S3-012 — backend/frontend/E2E/CI | IN_PROGRESS | `backend/tests/test_multiobjective_stage3.py`; Playwright spec; CI workflow | 로컬 pytest **195 passed**, frontend production build 성공, browser E2E **4 passed**, temporary SQLite DB에서 Alembic `upgrade head`가 revision `0008_gpbo_mvp`에 도달 | 이번 push의 최신 GitHub Actions 성공 확인 필요 |
+| P4-S3-012 — backend/frontend/E2E/CI | VERIFIED | `backend/tests/test_multiobjective_stage3.py`; Playwright spec; CI workflow | 로컬 pytest **195 passed**, frontend production build 성공, browser E2E **4 passed**, temporary SQLite DB에서 Alembic `upgrade head`가 revision `0008_gpbo_mvp`에 도달; commit `a3bc55ae9702548e138e365328dc404eb5d6a217`의 GitHub Actions [run 41185807419](https://github.com/alfred0105/lab-process-rag/actions/runs/41185807419)에서 backend/frontend/browser-e2e 모두 성공 | 기존 Node.js 20 deprecation 및 `ubuntu-latest` 전환 알림은 CI warning; 실제 연구 데이터 검증은 별도 미완료 |
 
 로컬 전체 회귀에서는 기존 API/PHREEQC·XRD·AFM·SEM/TEM·Worker 테스트도 함께 실행됐다. pytest는 **310개 deprecation 경고**(주로 기존 `datetime.utcnow`, Starlette TestClient/httpx, SWIG bindings)를 출력했으나 실패는 없었다. Stage 3은 기존 테이블의 JSON 필드를 재사용하므로 새 DB migration은 추가하지 않았다.
 
 ## 판정
 
-Stage 3 코드는 구현됐지만 P4-S3-012의 원격 CI가 끝날 때까지 Stage 상태는 `IN_PROGRESS`로 둔다. Phase 3은 `PHASE_3_CORE_COMPLETE`, Stage 1 `PHASE_4_MVP_IMPLEMENTED`, Stage 2 `PHASE_4_STAGE_2_IMPLEMENTED`, Phase 4 전체 `IN_PROGRESS`, External Scientific Validation `PENDING`, Phase 5–7 `NOT_STARTED`로 유지한다. 승인된 실제 다목적 연구 데이터가 없어 모델 예측 정확도·재료별 효율성·실험 성공률은 검증되지 않았다.
+P4-S3-001~011은 기능 구현 및 로컬 검증 완료, P4-S3-012는 로컬 검증과 원격 CI를 통과했다. Stage 3 상태는 `PHASE_4_STAGE_3_IMPLEMENTED`다. 코드 commit `a3bc55ae9702548e138e365328dc404eb5d6a217`의 GitHub Actions [run 41185807419](https://github.com/alfred0105/lab-process-rag/actions/runs/41185807419)에서 backend, frontend, browser-e2e가 모두 성공했다. Phase 3은 `PHASE_3_CORE_COMPLETE`, Stage 1 `PHASE_4_MVP_IMPLEMENTED`, Stage 2 `PHASE_4_STAGE_2_IMPLEMENTED`, Phase 4 전체 `IN_PROGRESS`, External Scientific Validation `PENDING`, Phase 5–7 `NOT_STARTED`로 유지한다. 승인된 실제 다목적 연구 데이터가 없어 모델 예측 정확도·재료별 효율성·실험 성공률은 검증되지 않았다.
