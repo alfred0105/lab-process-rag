@@ -79,7 +79,8 @@ The frozen condition-shift family has 48 cases per seed at the 576-sample benchm
 - Alembic migration compatibility: `backend/.venv/bin/pytest tests/test_alembic_migrations.py -q` — **1 passed**; no schema migration was required for JSON manifest metadata.
 - Phase 3/4 and Stage 1/2 regression: covered by the same full backend suite and passed.
 - Five-seed benchmark: `backend/.venv/bin/python backend/scripts/benchmark_phase5_stage3.py` — passed, 576 samples per seed, 5 seeds, synthetic software evaluation; report saved in `backend/reports/phase5_stage3_generalization.json`.
-- GitHub Actions: the preceding baseline [run 41196292332](https://github.com/alfred0105/lab-process-rag/actions/runs/41196292332) passed on implementation commit `43a7f7d53285e85f760a295672c12fc35c5e455e`; the final leakage-fix CI run is linked after push.
+- GitHub Actions: final leakage-fix commit `fe0260db420ff2d0078213aef2cb9e1d5908a678` passed all jobs in [run 41205291999](https://github.com/alfred0105/lab-process-rag/actions/runs/41205291999). The first browser job attempt hit its existing 90-second multi-objective benchmark timeout; rerunning the failed job passed. Backend and frontend jobs passed on the initial run.
+- Latest code-fix commit: `fe0260db420ff2d0078213aef2cb9e1d5908a678` (`Fix Stage 3 frozen evaluation group leakage`).
 
 ## Limitations / next phase boundary
 
