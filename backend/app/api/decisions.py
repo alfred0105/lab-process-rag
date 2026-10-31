@@ -759,6 +759,80 @@ def _stage3_fit_calibration_ids(records,seed=1731):
     return fit,cal
 
 
+def _stage3_groups(records):
+    grouped={}
+    for record in records:
+        grouped.setdefault(record["case_group_id"],[]).append(record)
+    return grouped
+
+
+def _stage3_method_holdout_groups(grouped):
+    method_by_group={}
+    for group,items in grouped.items():
+        versions={str(item["method_version_id"]) if item.get("method_version_id") is not None else None for item in items}
+        if len(versions)!=1:
+            return None,None,f"Method holdout cannot split group {group}: it contains conflicting method versions."
+        method_by_group[group]=next(iter(versions))
+    methods=sorted({value for value in method_by_group.values() if value is not None})
+    if len(methods)<2: return None,None,"Fewer than two independently represented method versions."
+    held_method=methods[-1]
+    return held_method,{group for group,value in method_by_group.items() if value==held_method},None
+
+
+def _stage3_condition_holdout_groups(grouped):
+    group_signatures={group:{item["condition_group"] for item in items if item.get("condition_group")} for group,items in grouped.items()}
+    counts=Counter(signature for signatures in group_signatures.values() for signature in signatures)
+    rare=sorted(counts,key=lambda value:(counts[value],value))
+    held=set(rare[:max(1,len(rare)//4)])
+    return {group for group,signatures in group_signatures.items() if signatures & held},held
+
+
+def _stage3_validate_manifest_partitions(manifest):
+    """Fail closed when a persisted V2 split is incomplete, tampered, or group-leaky."""
+    records=manifest.get("records")
+    if not isinstance(records,list) or not records:
+        raise HTTPException(409,detail={"code":"EVALUATION_GROUP_LEAKAGE","message":"Stage 3 dataset manifest has no valid records."})
+    ids=[item.get("case_id") for item in records]
+    if any(not isinstance(value,int) for value in ids) or len(ids)!=len(set(ids)):
+        raise HTTPException(409,detail={"code":"EVALUATION_GROUP_LEAKAGE","message":"Stage 3 dataset contains missing or duplicate case IDs."})
+    by_id={item["case_id"]:item for item in records}
+    fit_ids=manifest.get("fit_case_ids",[]);cal_ids=manifest.get("calibration_case_ids",[]);eval_ids=manifest.get("evaluation_case_ids",[])
+    excluded_ids=manifest.get("excluded_case_ids",[])
+    partitions=[fit_ids,cal_ids,eval_ids,excluded_ids]
+    if any(not isinstance(part,list) or len(part)!=len(set(part)) for part in partitions):
+        raise HTTPException(409,detail={"code":"EVALUATION_GROUP_LEAKAGE","message":"Stage 3 partition case IDs are duplicated or malformed."})
+    if any(not set(part)<=set(by_id) for part in partitions):
+        raise HTTPException(409,detail={"code":"EVALUATION_GROUP_LEAKAGE","message":"Stage 3 manifest references cases absent from its immutable records."})
+    sets=[set(part) for part in partitions]
+    if any(sets[i]&sets[j] for i in range(len(sets)) for j in range(i+1,len(sets))):
+        raise HTTPException(409,detail={"code":"EVALUATION_GROUP_LEAKAGE","message":"Stage 3 case partitions overlap."})
+    if manifest.get("split_policy")=="group-disjoint-v3" and set.union(*sets)!=set(by_id):
+        raise HTTPException(409,detail={"code":"EVALUATION_GROUP_LEAKAGE","message":"Stage 3 partition manifest does not account for every dataset case."})
+    fit=[by_id[value] for value in fit_ids];cal=[by_id[value] for value in cal_ids]
+    eval_set=set(eval_ids);evaluation=[item for item in records if item["case_id"] in eval_set]
+    fit_groups={item["case_group_id"] for item in fit};cal_groups={item["case_group_id"] for item in cal};eval_groups={item["case_group_id"] for item in evaluation}
+    if fit_groups&cal_groups or fit_groups&eval_groups or cal_groups&eval_groups:
+        raise HTTPException(409,detail={"code":"EVALUATION_GROUP_LEAKAGE","message":"Fit, calibration, and frozen evaluation groups must be pairwise disjoint."})
+    stored_eval_groups=manifest.get("evaluation_group_ids",[])
+    if set(stored_eval_groups)!=eval_groups:
+        raise HTTPException(409,detail={"code":"EVALUATION_GROUP_LEAKAGE","message":"Frozen evaluation group IDs do not match evaluation records."})
+    for key,actual in (("fit_group_ids",fit_groups),("calibration_group_ids",cal_groups)):
+        if key in manifest and set(manifest[key])!=actual:
+            raise HTTPException(409,detail={"code":"EVALUATION_GROUP_LEAKAGE","message":f"Stored {key} do not match their case records."})
+    reasons=manifest.get("excluded_case_reasons",{})
+    if set(excluded_ids)!=set(reasons):
+        raise HTTPException(409,detail={"code":"EVALUATION_GROUP_LEAKAGE","message":"Every excluded case must have exactly one recorded exclusion reason."})
+    if any(reasons[value]!="EXCLUDED_FROZEN_EVALUATION_GROUP" for value in excluded_ids):
+        raise HTTPException(409,detail={"code":"EVALUATION_GROUP_LEAKAGE","message":"Unknown Stage 3 exclusion reason."})
+    excluded_groups={by_id[value]["case_group_id"] for value in excluded_ids}
+    if not excluded_groups<=eval_groups or not excluded_groups<=set(manifest.get("excluded_training_group_ids",[])):
+        raise HTTPException(409,detail={"code":"EVALUATION_GROUP_LEAKAGE","message":"Excluded records must belong to a recorded frozen evaluation group."})
+    evaluation_hash=dataset_digest(evaluation)
+    if not evaluation or evaluation_hash!=manifest.get("evaluation_hash"):
+        raise HTTPException(409,detail={"code":"EVALUATION_GROUP_LEAKAGE","message":"Frozen evaluation records do not match their stored hash."})
+    return by_id,fit,cal,evaluation
+
+
 @router.post("/stage3/datasets/build")
 def stage3_build_dataset(payload:Stage3DatasetBuildIn,db:Session=Depends(get_db)):
     _topic(db,payload.topic_id);mode=payload.mode.upper()
@@ -794,18 +868,17 @@ def stage3_build_dataset(payload:Stage3DatasetBuildIn,db:Session=Depends(get_db)
             "condition_group":_condition_group(state)})
     if len(records)<18:
         raise HTTPException(409,detail={"code":"INSUFFICIENT_REVIEWED_DECISIONS" if mode=="RESEARCH" else "INSUFFICIENT_SANDBOX_CASES","message":"At least 18 Stage 3 cases are required."})
-    groups=sorted({x["case_group_id"] for x in records})
+    grouped=_stage3_groups(records);groups=sorted(grouped)
     if payload.holdout_strategy=="topic":
         return {"status":"INSUFFICIENT_DATA","feature_schema_version":FEATURE_SCHEMA_VERSION_V2,"holdout_strategy":"topic",
                 "message":"A single selected topic cannot provide a topic-held-out evaluation set. Cross-topic validation requires multiple independent research topics."}
     if payload.holdout_strategy=="method":
-        method_groups=sorted({str(x["method_version_id"]) for x in records if x["method_version_id"] is not None})
-        if len(method_groups)<2:
+        held_method,eval_groups,method_error=_stage3_method_holdout_groups(grouped)
+        if method_error:
             return {"status":"INSUFFICIENT_DATA","feature_schema_version":FEATURE_SCHEMA_VERSION_V2,"holdout_strategy":"method",
-                    "message":"Fewer than two independently represented method versions; method generalization was not evaluated."}
-        held_method=method_groups[-1]
-        eval_records=[x for x in records if str(x["method_version_id"])==held_method]
-        train_records=[x for x in records if str(x["method_version_id"])!=held_method]
+                    "message":method_error}
+        eval_records=[x for x in records if x["case_group_id"] in eval_groups]
+        train_records=[x for x in records if x["case_group_id"] not in eval_groups]
         if len({x["case_group_id"] for x in train_records})<15 or not eval_records:
             return {"status":"INSUFFICIENT_DATA","feature_schema_version":FEATURE_SCHEMA_VERSION_V2,"holdout_strategy":"method",
                     "message":"The method-held-out split lacks enough independent training/evaluation groups."}
@@ -813,12 +886,9 @@ def stage3_build_dataset(payload:Stage3DatasetBuildIn,db:Session=Depends(get_db)
         fit_ids,cal_ids=_stage3_fit_calibration_ids(train_records)
         method_status={"status":"EVALUATED_SINGLE_HELD_METHOD","held_out_method_version":held_method}
     elif payload.holdout_strategy=="condition_shift":
-        signatures=[x["condition_group"] for x in records if x["condition_group"]]
-        counts=Counter(signatures)
-        rare=sorted(counts,key=lambda x:(counts[x],x))
-        held=set(rare[:max(1,len(rare)//4)])
-        eval_records=[x for x in records if x["condition_group"] in held]
-        train_records=[x for x in records if x not in eval_records]
+        eval_groups,held=_stage3_condition_holdout_groups(grouped)
+        eval_records=[x for x in records if x["case_group_id"] in eval_groups]
+        train_records=[x for x in records if x["case_group_id"] not in eval_groups]
         if len({x["case_group_id"] for x in train_records})<15 or len({x["case_group_id"] for x in eval_records})<3:
             return {"status":"INSUFFICIENT_DATA","feature_schema_version":FEATURE_SCHEMA_VERSION_V2,"holdout_strategy":"condition_shift",
                     "message":"Historical source states do not contain enough distinct recorded condition groups to evaluate condition shift."}
@@ -836,28 +906,54 @@ def stage3_build_dataset(payload:Stage3DatasetBuildIn,db:Session=Depends(get_db)
         raise HTTPException(409,detail={"code":"INSUFFICIENT_DATA","message":"Selected holdout strategy did not produce non-empty disjoint groups."})
     previous=db.query(DecisionDatasetVersion).filter_by(topic_id=payload.topic_id,mode=mode,feature_schema_version=FEATURE_SCHEMA_VERSION_V2).order_by(DecisionDatasetVersion.id.desc()).all()
     previous=next((x for x in previous if (x.source_summary_json or {}).get("holdout_strategy")==payload.holdout_strategy),None)
+    excluded_case_ids=[];excluded_case_reasons={}
     eval_group_ids=sorted({x["case_group_id"] for x in eval_records})
     if previous:
-        prior=previous.manifest_json
+        prior=previous.manifest_json or {}
+        try:
+            prior_by_id,_,_,prior_evaluation=_stage3_validate_manifest_partitions(prior)
+        except HTTPException as exc:
+            raise HTTPException(409,detail={"code":"EVALUATION_GROUP_LEAKAGE","message":"Prior frozen Stage 3 dataset failed integrity validation; it was preserved and not rewritten."}) from exc
         old_eval_ids=list(prior.get("evaluation_case_ids",[]))
         current={x["case_id"]:x for x in records}
         if not set(old_eval_ids)<=set(current):
             raise HTTPException(409,detail={"code":"EVALUATION_SET_LEAKAGE","message":"Frozen Stage 3 evaluation cases are missing from the current source set."})
-        frozen={x["case_id"]:x for x in prior.get("records",[]) if x["case_id"] in set(old_eval_ids)}
+        frozen={x["case_id"]:x for x in prior_evaluation}
         if set(frozen)!=set(old_eval_ids): raise HTTPException(409,detail={"code":"EVALUATION_SET_LEAKAGE","message":"Frozen Stage 3 evaluation manifest is incomplete."})
-        records=[frozen.get(x["case_id"],x) for x in records]
         eval_ids=old_eval_ids;eval_group_ids=list(prior.get("evaluation_group_ids",[]))
-        train_records=[x for x in records if x["case_id"] not in set(eval_ids)]
+        actual_frozen_groups={prior_by_id[value]["case_group_id"] for value in old_eval_ids}
+        if set(actual_frozen_groups)!=set(eval_group_ids):
+            raise HTTPException(409,detail={"code":"EVALUATION_GROUP_LEAKAGE","message":"Prior frozen evaluation groups do not match frozen cases."})
+        current_by_id={item["case_id"]:item for item in records}
+        if any(current_by_id[value]["case_group_id"]!=prior_by_id[value]["case_group_id"] for value in old_eval_ids):
+            raise HTTPException(409,detail={"code":"EVALUATION_GROUP_LEAKAGE","message":"Frozen evaluation case group membership changed."})
+        frozen_group_set=set(eval_group_ids)
+        excluded_case_ids=sorted(item["case_id"] for item in records if item["case_group_id"] in frozen_group_set and item["case_id"] not in set(old_eval_ids))
+        excluded_case_reasons={case_id:"EXCLUDED_FROZEN_EVALUATION_GROUP" for case_id in excluded_case_ids}
+        # Keep frozen records byte-for-byte; current versions of the remaining records and
+        # newly excluded records remain auditable in the new immutable manifest.
+        records=[frozen.get(item["case_id"],item) for item in records]
+        eval_set=set(eval_ids)
+        train_records=[item for item in records if item["case_id"] not in eval_set
+            and item["case_group_id"] not in frozen_group_set]
         fit_ids,cal_ids=_stage3_fit_calibration_ids(train_records)
     records=sorted(records,key=lambda x:(x["case_group_id"],x["case_id"]))
     evaluation=[x for x in records if x["case_id"] in set(eval_ids)]
     eval_hash=dataset_digest(evaluation)
+    fit_groups=sorted({x["case_group_id"] for x in records if x["case_id"] in set(fit_ids)})
+    calibration_groups=sorted({x["case_group_id"] for x in records if x["case_id"] in set(cal_ids)})
+    actual_eval_groups=sorted({x["case_group_id"] for x in evaluation})
+    if set(fit_groups)&set(calibration_groups) or set(fit_groups)&set(actual_eval_groups) or set(calibration_groups)&set(actual_eval_groups):
+        raise HTTPException(409,detail={"code":"EVALUATION_GROUP_LEAKAGE","message":"Stage 3 split contains overlapping groups; dataset version was not saved."})
     actions={action:sum(x["action"]==action for x in records) for action in ACTIONS}
     manifest={"contract":"decision-dataset-v2", "records":records,"evaluation_case_ids":eval_ids,
-        "evaluation_group_ids":eval_group_ids,"evaluation_hash":eval_hash,"fit_case_ids":fit_ids,
+        "evaluation_group_ids":actual_eval_groups,"evaluation_hash":eval_hash,"fit_case_ids":fit_ids,
         "calibration_case_ids":cal_ids,"holdout_strategy":payload.holdout_strategy,
-        "holdout_status":method_status,"split_policy":"group-disjoint-v2",
-        "excluded_training_group_ids":eval_group_ids,"research_source_policy":RESEARCH_SOURCE_POLICY if mode=="RESEARCH" else None}
+        "fit_group_ids":fit_groups,"calibration_group_ids":calibration_groups,
+        "excluded_case_ids":excluded_case_ids,"excluded_case_reasons":excluded_case_reasons,
+        "group_leakage_detected":False,"holdout_status":method_status,"split_policy":"group-disjoint-v3",
+        "excluded_training_group_ids":sorted(set(actual_eval_groups)|{x["case_group_id"] for x in records if x["case_id"] in set(excluded_case_ids)}),
+        "research_source_policy":RESEARCH_SOURCE_POLICY if mode=="RESEARCH" else None}
     digest=dataset_digest({"topic_id":payload.topic_id,"mode":mode,"feature_schema_version":FEATURE_SCHEMA_VERSION_V2,
         "label_mapping_version":"decision-actions-v1","manifest":manifest})
     existing=db.query(DecisionDatasetVersion).filter_by(topic_id=payload.topic_id,mode=mode,dataset_hash=digest).first()
@@ -883,13 +979,15 @@ def stage3_retrain(payload:Stage3RetrainIn,db:Session=Depends(get_db)):
         raise HTTPException(409,detail={"code":"MODEL_FEATURE_SCHEMA_MISMATCH","message":"Stage 3 training requires a V2 dataset."})
     if dataset.mode=="RESEARCH" and _research_dataset_issue(db,dataset):
         raise HTTPException(409,detail={"code":"UNVERIFIED_RESEARCH_PROVENANCE","message":"Research V2 dataset source/snapshot validation failed."})
-    manifest=dataset.manifest_json;records=manifest.get("records",[]);eval_ids=list(manifest.get("evaluation_case_ids",[]))
-    by_id={x["case_id"]:x for x in records};evaluation=[by_id[x] for x in eval_ids if x in by_id]
-    if len(evaluation)!=len(eval_ids) or not evaluation: raise HTTPException(409,detail={"code":"EVALUATION_SET_LEAKAGE","message":"Frozen Stage 3 evaluation set is incomplete."})
-    fit_ids=list(manifest.get("fit_case_ids",[]));cal_ids=list(manifest.get("calibration_case_ids",[]))
-    fit=[by_id[x] for x in fit_ids if x in by_id];cal=[by_id[x] for x in cal_ids if x in by_id]
-    if not fit or (cal_ids and len(cal)!=len(cal_ids)): raise HTTPException(409,detail={"code":"INSUFFICIENT_DATA","message":"Stage 3 fit/calibration partitions are incomplete."})
-    if (set(fit_ids)|set(cal_ids)) & set(eval_ids): raise HTTPException(409,detail={"code":"EVALUATION_SET_LEAKAGE","message":"Evaluation rows cannot be used for fitting or calibration."})
+    manifest=dataset.manifest_json or {}
+    expected_dataset_hash=dataset_digest({"topic_id":dataset.topic_id,"mode":dataset.mode,
+        "feature_schema_version":dataset.feature_schema_version,"label_mapping_version":dataset.label_mapping_version,"manifest":manifest})
+    if expected_dataset_hash!=dataset.dataset_hash:
+        raise HTTPException(409,detail={"code":"EVALUATION_GROUP_LEAKAGE","message":"Immutable Stage 3 dataset manifest hash is invalid."})
+    by_id,fit,cal,evaluation=_stage3_validate_manifest_partitions(manifest)
+    records=manifest["records"];eval_ids=list(manifest["evaluation_case_ids"])
+    fit_ids=list(manifest["fit_case_ids"]);cal_ids=list(manifest["calibration_case_ids"])
+    if not fit: raise HTTPException(409,detail={"code":"INSUFFICIENT_DATA","message":"Stage 3 fit partition is empty."})
     parent=db.get(DecisionModelRun,payload.parent_model_id) if payload.parent_model_id else None
     if parent and (parent.topic_id!=dataset.topic_id or parent.mode.upper()!=dataset.mode or parent.feature_schema_version!=FEATURE_SCHEMA_VERSION_V2):
         raise HTTPException(409,detail={"code":"MODEL_FEATURE_SCHEMA_MISMATCH","message":"Parent must use the same topic, mode and V2 feature schema."})

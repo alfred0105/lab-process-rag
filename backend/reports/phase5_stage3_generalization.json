@@ -337,8 +337,8 @@
             "count": 115
           }
         ],
-        "fit_runtime_ms": 84.42012500017881,
-        "inference_latency_ms_per_case": 0.026828330010175705,
+        "fit_runtime_ms": 90.46054199279752,
+        "inference_latency_ms_per_case": 0.03392999991774559,
         "parameter_count": 342,
         "model_size_bytes": 7294
       },
@@ -511,8 +511,8 @@
         "selective_risk": 0.1875,
         "confidence_threshold": 0.9987,
         "calibration_status": "CALIBRATED",
-        "fit_runtime_ms": 216.01554099470377,
-        "inference_latency_ms_per_case": 0.12381458000163548,
+        "fit_runtime_ms": 227.17679099878296,
+        "inference_latency_ms_per_case": 0.1358875000732951,
         "parameter_count": 1392,
         "model_size_bytes": 26335,
         "scenario_family_accuracy": {
@@ -1133,8 +1133,8 @@
             "count": 115
           }
         ],
-        "fit_runtime_ms": 87.50429199426435,
-        "inference_latency_ms_per_case": 0.028476249863160774,
+        "fit_runtime_ms": 89.35999999812339,
+        "inference_latency_ms_per_case": 0.03053207998163998,
         "parameter_count": 342,
         "model_size_bytes": 7273
       },
@@ -1321,8 +1321,8 @@
         "selective_risk": 0.0,
         "confidence_threshold": 0.9781,
         "calibration_status": "CALIBRATED",
-        "fit_runtime_ms": 222.4155419971794,
-        "inference_latency_ms_per_case": 0.13438458001473919,
+        "fit_runtime_ms": 219.6066670003347,
+        "inference_latency_ms_per_case": 0.13931542009231634,
         "parameter_count": 1392,
         "model_size_bytes": 26430,
         "scenario_family_accuracy": {
@@ -1943,8 +1943,8 @@
             "count": 115
           }
         ],
-        "fit_runtime_ms": 85.18174999335315,
-        "inference_latency_ms_per_case": 0.027686660032486543,
+        "fit_runtime_ms": 84.5342079992406,
+        "inference_latency_ms_per_case": 0.028382909949868917,
         "parameter_count": 342,
         "model_size_bytes": 7267
       },
@@ -2138,8 +2138,8 @@
         "selective_risk": 0.125,
         "confidence_threshold": 0.9978,
         "calibration_status": "CALIBRATED",
-        "fit_runtime_ms": 215.89962500729598,
-        "inference_latency_ms_per_case": 0.12641458000871353,
+        "fit_runtime_ms": 218.08687500015367,
+        "inference_latency_ms_per_case": 0.1344154099933803,
         "parameter_count": 1392,
         "model_size_bytes": 26436,
         "scenario_family_accuracy": {
@@ -2760,8 +2760,8 @@
             "count": 115
           }
         ],
-        "fit_runtime_ms": 90.79812500567641,
-        "inference_latency_ms_per_case": 0.0283987500006333,
+        "fit_runtime_ms": 90.48920799978077,
+        "inference_latency_ms_per_case": 0.02926749992184341,
         "parameter_count": 342,
         "model_size_bytes": 7286
       },
@@ -2948,8 +2948,8 @@
         "selective_risk": 0.06666666666666667,
         "confidence_threshold": 0.9327,
         "calibration_status": "CALIBRATED",
-        "fit_runtime_ms": 219.69579099095426,
-        "inference_latency_ms_per_case": 0.13264334003906697,
+        "fit_runtime_ms": 226.12466699501965,
+        "inference_latency_ms_per_case": 0.1367916700837668,
         "parameter_count": 1392,
         "model_size_bytes": 26448,
         "scenario_family_accuracy": {
@@ -3570,8 +3570,8 @@
             "count": 115
           }
         ],
-        "fit_runtime_ms": 91.77941700909287,
-        "inference_latency_ms_per_case": 0.028527920076157898,
+        "fit_runtime_ms": 85.60829200723674,
+        "inference_latency_ms_per_case": 0.02833999998983927,
         "parameter_count": 342,
         "model_size_bytes": 7303
       },
@@ -3751,8 +3751,8 @@
         "selective_risk": 0.043478260869565216,
         "confidence_threshold": 0.9726,
         "calibration_status": "CALIBRATED",
-        "fit_runtime_ms": 220.92587500810623,
-        "inference_latency_ms_per_case": 0.13415708002867177,
+        "fit_runtime_ms": 210.18558299692813,
+        "inference_latency_ms_per_case": 0.13618709010188468,
         "parameter_count": 1392,
         "model_size_bytes": 26378,
         "scenario_family_accuracy": {
@@ -4298,8 +4298,8 @@
       }
     }
   },
-  "runtime_seconds": 5.793931457999861,
-  "peak_python_memory_bytes": 14668131,
+  "runtime_seconds": 5.905733749998035,
+  "peak_python_memory_bytes": 14669067,
   "runtime_environment": {
     "python": "3.12.14",
     "numpy": "2.5.4",

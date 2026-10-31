@@ -6,6 +6,18 @@
 **CI:** [GitHub Actions run 41196292332](https://github.com/alfred0105/lab-process-rag/actions/runs/41196292332) — all jobs passed.
 **Evidence:** `backend/reports/phase5_stage3_generalization.json`, `backend/tests/test_phase5_stage3.py`, and full project test/build/CI results below.
 
+## Final leakage fix closure (2026-10-31)
+
+The final integrity review found that frozen evaluation reuse excluded prior evaluation **case IDs** but did not reliably exclude every case in those frozen **groups**. The `method` and `condition_shift` builders also assigned rows before enforcing group boundaries. This could let a new decision case from an already frozen experiment enter fit or calibration.
+
+The Stage 3 dataset builder now assigns every holdout strategy by whole `case_group_id`. Method holdout returns `INSUFFICIENT_DATA` if a group contains conflicting method versions. Condition-shift rarity is counted by independent groups; when a group contains multiple signatures, the whole group is assigned to evaluation. On later versions, original evaluation records are copied from the prior immutable manifest and their evaluation case IDs, group IDs and hash are preserved. Newly eligible cases from those frozen groups remain in the new manifest with `EXCLUDED_FROZEN_EVALUATION_GROUP`, but enter no fit, calibration or evaluation partition. Unrelated groups remain eligible.
+
+Before retraining, the API now checks the dataset manifest digest, unique and complete Case IDs, pairwise-disjoint IDs, pairwise-disjoint group IDs, recorded group lists, exclusion reasons/group membership, and the evaluation digest. Any inconsistency returns `EVALUATION_GROUP_LEAKAGE` before fitting or creating a model artifact. No DB schema change or migration was needed. Existing dataset versions are not rewritten.
+
+Regression coverage includes group-level Method and Condition Shift assignment, conflicting-method rejection, an API rebuild after adding three cases to a frozen group, frozen-record/hash and old-version immutability checks, unrelated-group retention, and a tampered-manifest retraining request that is rejected without creating an artifact. This directly verifies the API version-update path; the synthetic benchmark alone is not treated as leakage evidence.
+
+Final local verification for this fix: backend **216 passed**, frontend production build passed, browser E2E **5 passed**, Alembic migration regression **1 passed**, and the five-seed benchmark completed. The benchmark remains synthetic software evidence only. Latest commit and GitHub Actions result are recorded in the closure note below after push.
+
 ## What changed
 
 Stage 2's 18-input V1 model and stored artifacts remain available with their original schema. Stage 3 adds a separate `scientific-state-v2` object and `scientific-decision-features-v2` vector. The V2 schema contains **153 uniquely named features across nine context groups**: experiment, process conditions, measurements, analysis, simulation, optimization, tool readiness, pending reviews, and provenance. Feature names include the group to avoid collisions. Unknown values are represented by zero plus an explicit `__missing_mask`; actual zero remains distinguishable. Categoricals are one-hot encoded. Experiment/topic identifiers and scenario IDs remain trace metadata and are not model inputs.
@@ -42,7 +54,7 @@ The public benchmark endpoint always uses the five fixed seeds; no single-seed m
 | P5-S3-001 | VERIFIED | Versioned V2 schema, stable feature order, unique names; schema/API regression | Schema changes require a new version |
 | P5-S3-002 | VERIFIED | Typed extraction, missing masks, status context, Pint normalization; unit/missing tests | Features only reflect fields present in current records |
 | P5-S3-003 | VERIFIED | Trainable grouped encoder, deterministic training, serialization/reload test | NumPy CPU model; no empirical value claim |
-| P5-S3-004 | VERIFIED | Versioned V2 dataset, frozen group split, experiment/method/topic/condition policies | Research cross-topic/method validation may return insufficient |
+| P5-S3-004 | VERIFIED | Versioned V2 dataset; final API regression proves frozen evaluation Case/Group/Hash stability, whole-group Experiment/Method/Condition splits, and exclusion of new cases in frozen groups | Research cross-topic/method validation may return insufficient |
 | P5-S3-005 | VERIFIED | Five-seed synthetic benchmark with V1/V2/majority/real rule policy and held-out condition family | Synthetic scenario labels only |
 | P5-S3-006 | VERIFIED | Separate calibration partition, temperature scaling, calibration metrics and selective-risk reporting | Calibration is only synthetic in this benchmark |
 | P5-S3-007 | VERIFIED | standardized distance, high-missingness and contradiction gates; OOD probes | Probe does not establish deployment OOD accuracy |
@@ -50,7 +62,7 @@ The public benchmark endpoint always uses the five fixed seeds; no single-seed m
 | P5-S3-009 | VERIFIED | Separate V1/V2 schema checks and version-aware model loader; V1 regressions retained | Historical V1 state cannot recover fields never recorded |
 | P5-S3-010 | VERIFIED | Stage 2 source/snapshot/feedback gates retained; V2 API prediction regression confirms shadow-only | Reviewer identity remains self-attributed as documented in Stage 2 |
 | P5-S3-011 | VERIFIED | Existing Decision UI includes V2 inspect/build/train/predict/benchmark flow; production build | Browser-level visual acceptance is limited to project E2E coverage |
-| P5-S3-012 | VERIFIED | Reproducible benchmark report; 213 backend tests, production build, 5 browser E2E, migration regression, and GitHub Actions run 41196292332 all passed | Actual reviewed research validation remains pending |
+| P5-S3-012 | VERIFIED | Reproducible benchmark; final leakage regressions; 216 backend tests, production build, 5 browser E2E, migration regression, and closing GitHub Actions result | Actual reviewed research validation remains pending |
 
 ## Five-seed synthetic benchmark
 
@@ -60,14 +72,14 @@ The frozen condition-shift family has 48 cases per seed at the 576-sample benchm
 
 ## Verification record
 
-- Backend: `backend/.venv/bin/pytest` — **213 passed**, 332 warnings, 42.50 seconds. Warnings are existing Starlette/httpx, SQLAlchemy `utcnow`, and PyMuPDF/SWIG deprecations; no test was skipped.
-- Stage 3 targeted regressions: **6 passed**. Includes schema uniqueness, explicit zero-vs-missing, unit invariance, model save/load and safety, group split and five-seed benchmark, plus API state extraction and sandbox dataset→train→shadow-predict integration.
-- Frontend: `npm run build` — passed (Vite 6.4.5; 1,760 modules).
-- Browser E2E: `npm run test:e2e` — **5 passed** (original full run 44.1 seconds; after adding the Stage 3 browser flow, the changed Decision scenario also passed in 4.6 seconds; final full-suite rerun is in progress).
-- Alembic migration compatibility: migration regression in the full backend suite passed.
+- Backend: from `backend`, `.venv/bin/pytest -q` — **216 passed**, 336 warnings, 45.26 seconds. No tests were skipped. Warnings are existing Starlette/httpx, SQLAlchemy `utcnow`, and PyMuPDF/SWIG deprecations.
+- Stage 3 targeted regressions: **9 passed**, including the new API frozen-group version update, three new excluded cases, Method/Condition group split, immutable prior version, and tampered-manifest training gate.
+- Frontend: from `frontend`, `npm run build` — passed (Vite 6.4.5; 1,760 modules).
+- Browser E2E: from `frontend`, `npm run test:e2e` — **5 passed** in 45.7 seconds.
+- Alembic migration compatibility: `backend/.venv/bin/pytest tests/test_alembic_migrations.py -q` — **1 passed**; no schema migration was required for JSON manifest metadata.
 - Phase 3/4 and Stage 1/2 regression: covered by the same full backend suite and passed.
-- Five-seed benchmark: `backend/.venv/bin/python backend/scripts/benchmark_phase5_stage3.py` — passed; report saved in `backend/reports/phase5_stage3_generalization.json`.
-- GitHub Actions: [run 41196292332](https://github.com/alfred0105/lab-process-rag/actions/runs/41196292332) — backend, frontend build, and browser E2E jobs all passed for implementation commit `43a7f7d53285e85f760a295672c12fc35c5e455e`.
+- Five-seed benchmark: `backend/.venv/bin/python backend/scripts/benchmark_phase5_stage3.py` — passed, 576 samples per seed, 5 seeds, synthetic software evaluation; report saved in `backend/reports/phase5_stage3_generalization.json`.
+- GitHub Actions: the preceding baseline [run 41196292332](https://github.com/alfred0105/lab-process-rag/actions/runs/41196292332) passed on implementation commit `43a7f7d53285e85f760a295672c12fc35c5e455e`; the final leakage-fix CI run is linked after push.
 
 ## Limitations / next phase boundary
 
