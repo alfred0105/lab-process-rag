@@ -51,6 +51,8 @@ def test_legacy_sqlite_schema_upgrades_twice_without_duplicate_columns(tmp_path)
         "simulation_runs":{"idempotency_key","worker_id","lease_expires_at","heartbeat_at","timeout_seconds","cancel_requested","attempt","max_attempts","error_code","lease_generation"},
         "workflow_runs":{"topic_id","experiment_id","goal","status","graph_json"},
         "workflow_nodes":{"workflow_id","node_key","tool_id","dependency_keys","lease_generation","approval_confirmed"},
+        "optimization_model_runs":{"topic_id","mode","dataset_hash","model_version","config_json","model_json","metrics_json"},
+        "optimization_recommendation_runs":{"model_run_id","topic_id","acquisition","config_json","candidates_json","approval_status"},
     }
     for table,columns in expected.items():
         assert columns <= {column["name"] for column in inspector.get_columns(table)}
@@ -58,7 +60,7 @@ def test_legacy_sqlite_schema_upgrades_twice_without_duplicate_columns(tmp_path)
     assert review_columns["analysis_run_id"]["nullable"] is True
     assert review_columns["observation_id"]["nullable"] is True
     with engine.connect() as connection:
-        assert connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one()=="0007_workflow_approval_flag"
+        assert connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one()=="0008_gpbo_mvp"
         assert connection.exec_driver_sql("SELECT parameter_id FROM scientific_observations WHERE id=7").scalar_one()=="temperature"
         assert connection.exec_driver_sql("SELECT reviewer FROM measurement_review_events WHERE id=9").scalar_one()=="old reviewer"
     assert any(index["name"]=="uq_simulation_run_idempotency_key" and index["unique"] for index in inspector.get_indexes("simulation_runs"))

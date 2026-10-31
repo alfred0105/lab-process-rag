@@ -1,8 +1,10 @@
-# Phase 3 software closure — latest audit
+# Phase 3 software closure — historical audit
 
-## Current follow-up — 2026-10-31
+> This document preserves the software-in-progress audit snapshot. The current phase decision later separates `PHASE_3_CORE_COMPLETE` from a non-blocking technical backlog and external scientific validation. See [`MASTER_ROADMAP.md`](MASTER_ROADMAP.md) and [`PHASE3_CORE_COMPLETION.md`](PHASE3_CORE_COMPLETION.md) for the current state. Historic detailed requirement rows remain unchanged.
 
-Current official status remains **`PHASE_3_SOFTWARE_IN_PROGRESS`**; see [`PHASE3_FINAL_CLOSURE_2026-10-30.md`](PHASE3_FINAL_CLOSURE_2026-10-30.md) for the superseding current audit and evidence. Since the prior snapshot, the XRD Bragg-law axis conversion/child-run lineage was implemented, PHREEQC and XRD browser E2E were made Workflow-ID-specific and run in reversed order, and the complete backend suite passed 178 tests. The production build succeeded; Playwright passed 2/2.
+## Historical follow-up — 2026-10-31
+
+At that time, the latest audit status remained **`PHASE_3_SOFTWARE_IN_PROGRESS`**; see [`PHASE3_FINAL_CLOSURE_2026-10-30.md`](PHASE3_FINAL_CLOSURE_2026-10-30.md) for the evidence. Since the prior snapshot, the XRD Bragg-law axis conversion/child-run lineage was implemented, PHREEQC and XRD browser E2E were made Workflow-ID-specific and run in reversed order, and the complete backend suite passed 178 tests. The production build succeeded; Playwright passed 2/2. The later core/backlog decision is linked above.
 
 The durable workflow benchmark now covers 20 repeats each for four analysis modalities, warm PHREEQC and typed two-node PHREEQC; one fresh Worker PHREEQC run; an actual cached workflow reuse; and concurrent same-key/different-key Worker processes. JSON and CSV are in `backend/reports/phase3_durable_benchmark.*`. It uses temporary synthetic data only. API/Worker memory separation, confidence-grade repeated cold/cache measurements, restart/retry latency, worker-count throughput scaling, the complete artifact recovery contract audit and full Phase 3 safety matrix are still open. This update does not claim Phase 3 closure.
 

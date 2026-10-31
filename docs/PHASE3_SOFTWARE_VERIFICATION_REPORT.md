@@ -1,5 +1,7 @@
 # Phase 3 software verification report
 
+> Historical verification snapshots follow. The later project decision classifies the Phase 3 core as `PHASE_3_CORE_COMPLETE` and preserves unverified detail in [`PHASE3_TECHNICAL_BACKLOG.md`](PHASE3_TECHNICAL_BACKLOG.md); real instrument/CFD checks remain in [`PHASE3_EXTERNAL_VALIDATION.md`](PHASE3_EXTERNAL_VALIDATION.md). Past `IN_PROGRESS` statuses and evidence are intentionally retained rather than rewritten as verified.
+
 ## 최신 definitive closure 감사 추가 — 2026-10-31
 
 Code commit `468b2090cf110fc6e0c061f049902bce03ae05aa` fixes the previously failing ambiguous PHREEQC selector and removes false positives caused by unrelated completed workflows: browser E2E now verifies each test's own Workflow ID, result node, SimulationRun and database fingerprint after reload. The PHREEQC test executes before XRD to exercise the reverse prior order. Full local E2E: **2 passed**.

@@ -392,3 +392,29 @@ class MeasurementReviewEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
     analysis_run: Mapped[MaterialAnalysisRun] = relationship(back_populates="review_events")
     observation: Mapped[ScientificObservation] = relationship(back_populates="review_events")
+
+class OptimizationModelRun(Base):
+    """Reproducible GP model run; JSON payload avoids executable serialization."""
+    __tablename__ = "optimization_model_runs"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    topic_id: Mapped[int] = mapped_column(ForeignKey("research_topics.id", ondelete="CASCADE"), index=True)
+    mode: Mapped[str] = mapped_column(String(20), index=True)
+    status: Mapped[str] = mapped_column(String(30), index=True, default="COMPLETED")
+    dataset_hash: Mapped[str] = mapped_column(String(64), index=True)
+    model_version: Mapped[str] = mapped_column(String(80))
+    config_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    model_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    metrics_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+class OptimizationRecommendationRun(Base):
+    """Immutable candidate recommendation record linked to a trained model."""
+    __tablename__ = "optimization_recommendation_runs"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    model_run_id: Mapped[int] = mapped_column(ForeignKey("optimization_model_runs.id", ondelete="CASCADE"), index=True)
+    topic_id: Mapped[int] = mapped_column(ForeignKey("research_topics.id", ondelete="CASCADE"), index=True)
+    acquisition: Mapped[str] = mapped_column(String(20))
+    config_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    candidates_json: Mapped[list] = mapped_column(JSON, default=list)
+    approval_status: Mapped[str] = mapped_column(String(30), default="PENDING_RESEARCHER_REVIEW")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)

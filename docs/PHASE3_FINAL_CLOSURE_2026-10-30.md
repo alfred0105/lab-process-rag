@@ -1,10 +1,12 @@
-# Phase 3 definitive closure audit — current review 2026-10-31
+# Phase 3 definitive closure audit — historical verification snapshot 2026-10-31
+
+> Status history: this document records the 2026-10-31 software verification decision and the then-open detailed checks. The later project decision separates `PHASE_3_CORE_COMPLETE` from non-blocking technical backlog and external validation. Current phase status is maintained in [`MASTER_ROADMAP.md`](MASTER_ROADMAP.md); core evidence is summarized in [`PHASE3_CORE_COMPLETION.md`](PHASE3_CORE_COMPLETION.md). Do not rewrite the historical `IN_PROGRESS` audit into blanket `VERIFIED` states.
 
 ## Latest verification update — 2026-10-31
 
 This update supersedes the older local run counts and E2E caveats below while preserving their dated audit history. The latest code commit is `468b2090cf110fc6e0c061f049902bce03ae05aa`.
 
-**Current status remains `PHASE_3_SOFTWARE_IN_PROGRESS`.** XRD axis conversion and workflow-ID-specific browser checks are now implemented and locally verified. The durable benchmark now runs the real API route through `TestClient`, a disposable SQLite queue, and the real Worker execution path. The complete software exit gate remains open because API and Worker process resources are not yet independently profiled for the whole matrix, restart/retry latency is not included in the benchmark, and the all-adapter artifact/recovery contract audit is incomplete.
+**Historical audit decision: `PHASE_3_SOFTWARE_IN_PROGRESS`.** XRD axis conversion and workflow-ID-specific browser checks were locally verified. The durable benchmark ran the real API route through `TestClient`, a disposable SQLite queue, and the real Worker execution path. At that audit point, the complete software exit gate remained open because API and Worker process resources were not independently profiled for the whole matrix, restart/retry latency was not included in the benchmark, and the all-adapter artifact/recovery contract audit was incomplete. See the status history note above for the later core/backlog separation.
 
 The latest full backend run passed **178 tests**. The production frontend build passed (Vite 6.4.5, 1,757 modules). The reordered browser E2E run passed **2 tests** with PHREEQC first and XRD second; each flow checks its own Workflow ID. The PHREEQC and XRD tests also passed separately in earlier runs. The backend run reported 211 warnings, mainly `datetime.utcnow()`, SWIG, and Starlette TestClient/httpx deprecations.
 

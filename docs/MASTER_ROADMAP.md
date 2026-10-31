@@ -29,11 +29,17 @@
 - 목표 하드웨어는 MacBook Air M5, 통합 메모리 24GB. AI 피크 약 12GB 목표는 전체 RAM 한도와 구분하고 실제 기기에서 측정한다.
 - 사용자가 선택한 Gemma 계열은 교체 가능한 백본 후보로 둔다. JEV는 실험에서 다음 행동/도구를 선택하는 별도 Decision Head이며 분석 도구를 대체하지 않는다. 모델 가중치는 저장소에 포함하지 않는다.
 
-## 최신 공식 상태 — 2026-10-30 Phase 3 closure 감사
+## 최신 공식 상태 — 2026-10-31 Phase 3 archive / Phase 4 kickoff
+
+최신 개발 단계 결정: **Phase 3 `PHASE_3_CORE_COMPLETE`; Phase 4 `IN_PROGRESS`; Phase 5–7 `NOT_STARTED`**. Phase 3의 구체적 구현·테스트 근거는 [`PHASE3_CORE_COMPLETION.md`](PHASE3_CORE_COMPLETION.md), 비차단 검증 잔여분은 [`PHASE3_TECHNICAL_BACKLOG.md`](PHASE3_TECHNICAL_BACKLOG.md), 실제 연구실 및 CFD 검증은 [`PHASE3_EXTERNAL_VALIDATION.md`](PHASE3_EXTERNAL_VALIDATION.md)에서 관리한다. 과거 요구 ID와 감사 결과를 삭제하거나 일괄 `VERIFIED`로 승격하지 않는다. 핵심 완료 상태는 이 상세 상태 원장을 대신하지 않는다. 치명적인 데이터 무결성·승인 우회·잘못된 과학 handoff·보안 결함이 발견되면 단계 구분 없이 즉시 수정한다.
+
+Phase 4 MVP 구현은 현재 브랜치에서 진행 중이다. 새 GP/BO API, 추가 저장 테이블, synthetic sandbox 및 기본 UI는 코드에 추가됐지만 전체 회귀 테스트·frontend build·브라우저 통합·원격 CI 검증 전이므로 이 문서 시점에는 `IMPLEMENTED` 또는 `IN_PROGRESS`로만 관리한다. Research 모드는 승인된 비데모 관측값만 읽으며, 데이터가 부족하면 `INSUFFICIENT_APPROVED_DATA`를 반환한다. 합성 Branin 비교는 연구 데이터와 분리된다.
+
+## 과거 공식 상태 — 2026-10-30 Phase 3 software audit
 
 작업 기준 커밋은 `115d591c6509f95ad7da6ceddc2e6548812fb7cc`이며 최신 `origin/main`과 일치했다. 첨부된 최종 closure 요청을 반영해 PHREEQC Typed Handoff의 `COMPUTED` 상태·tool/version·DB hash·부모 계보 누락을 수정하고, 실제 PHREEQC 결과를 다음 PHREEQC Worker 계산이 소비하는 node-to-node 회귀를 추가했다. 구조화된 조성/단위·온도·pH 또는 sweep·DB 식별자·단계·승인 기반 Planner도 연결했다.
 
-현재 상태는 **`PHASE_3_SOFTWARE_IN_PROGRESS`** 다. 완료 조건 전체를 재검증하고 있어 아직 Phase 3 종료 판정을 내리지 않는다. 외부 실측 장비 정확도, 승인된 VM의 실제 CFD, 장비 제어는 **`EXTERNAL_VALIDATION_PENDING`** 으로 별도 관리한다. 이 공식 최신 상태가 아래 역사적 감사 스냅샷의 과거 상태를 대체한다.
+당시 상태는 **`PHASE_3_SOFTWARE_IN_PROGRESS`** 였다. 이 판정은 2026-10-30 audit snapshot의 역사적 기록이며, 2026-10-31의 core-completion 구분으로 대체됐다. 실제 실측 장비 정확도, 승인된 VM의 실제 CFD, 장비 제어는 계속 **`EXTERNAL_VALIDATION_PENDING`** 으로 별도 관리한다.
 
 ## 공식 Phase 0~7 개발 구조 (2026-10-30 확정)
 
@@ -44,8 +50,8 @@
 | Phase 0 — Stability & Foundation | DB/Alembic, FastAPI, 기본 React UI, 백업·복구, 회귀 테스트·CI, 안정성 및 공통 품질 | 데이터 보존·복구와 API/UI 기본 흐름 검증 |
 | Phase 1 — Scientific Data Foundation | Topic/Experiment, Materials, Process Steps, Method Versions, ScientificObservation, 출처 분류, 검토·승인·provenance | 승인된 실측·문헌·합성·계산의 분리 및 계보 검증 |
 | Phase 2 — Scientific Knowledge & RAG | PDF ingestion, RAG, evidence retrieval, citation/provenance, scientific claims, 문헌/실험 분리, 분석 도구 기초 | 인용·주제 격리·근거 누락 보류 검증 |
-| Phase 3 — Scientific Tool Execution & Orchestration | Tool Registry, DecisionPolicy interface, ValidationGate, adapters/ResultValidator, ScientificStateBuilder, durable queue/worker/lease/fencing, DAG/Planner, XRD·AFM·SEM·TEM·PHREEQC, 승인 기반 OpenFOAM, 데이터 검증·typed handoff·테스트/성능 | 아래 Phase 3 closure 보고서의 실제 소프트웨어 통과 조건. 장비 정확도 및 승인 CFD는 별도 외부 검증 |
-| Phase 4 — Gaussian Process & Bayesian Optimization | 승인된 실험 관측 계약, feature/정규화/물리 경계, GP·kernel·hyperparameter, uncertainty, acquisition (EI/PI/UCB), 제약·noise·replicate·multi-objective/Pareto, CV·leakage 방지·surrogate 검증·candidate ranking·abstention | 비데모 승인 실측 없이 실제 연구 최적화 성능 VERIFIED 금지. JEV 선행조건 아님 |
+| Phase 3 — Scientific Tool Execution & Orchestration | Tool Registry, DecisionPolicy interface, ValidationGate, adapters/ResultValidator, ScientificStateBuilder, durable queue/worker/lease/fencing, DAG/Planner, XRD·AFM·SEM·TEM·PHREEQC, 승인 기반 OpenFOAM, 데이터 검증·typed handoff·테스트/성능 | `PHASE_3_CORE_COMPLETE`; 세부 미검증은 technical backlog, 실제 장비 정확도 및 CFD는 외부 검증 |
+| Phase 4 — Gaussian Process & Bayesian Optimization | 승인된 실험 관측 계약, feature/정규화/물리 경계, GP·kernel·hyperparameter, uncertainty, acquisition (EI/PI/UCB), 제약·noise·replicate·multi-objective/Pareto, CV·leakage 방지·surrogate 검증·candidate ranking·abstention | `IN_PROGRESS`; 첫 MVP 구현 및 검증 상태는 아래 P4-MVP 작업 원장. 비데모 승인 실측 없이 실제 연구 최적화 성능 VERIFIED 금지. JEV 선행조건 아님 |
 | Phase 5 — Learned JEV Decision Head | 상태 표현, 행동/도구 선택 레이블, 요청·검토·분석·시뮬·최적화·보류 데이터셋, 학습 head, OOD·calibration, rule baseline, accuracy/F1/Brier/ECE/risk-coverage/latency | Phase 4 optimizer 상태·결과와 action 학습을 통합해 평가 |
 | Phase 6 — Shared Transformer / Early Exit / Conditional LM | 공유 백본 및 decision/LM head, hidden state reuse, confidence gating, conditional generation, layerwise early exit, KV·quantization·memory, MLX/Ollama 비교, M5 24GB latency/열·전력 측정 | Transformer 계산량 감소와 판단/언어 품질을 실제 비교 측정 |
 | Phase 7 — Autonomous Experiment Optimization Loop | 데이터→ScientificState→JEV→tool/simulation→검증→BO→다음 후보→사람 승인→실험 기록→결과·학습 갱신, active learning·drift·재현성·안전 감사 | 실제 장비 실행은 별도 안전 제어 및 연구자 승인 없이는 자동화하지 않음 |
@@ -246,9 +252,9 @@
 | ORCH-002 | ToolRegistry, DecisionPolicy, ValidationGate, ToolExecutor, ResultValidator, ExplanationProvider 분리; 모델 선택만으로 도구 실행 불가 | P0 | IN_PROGRESS | tool_registry.py, routes.py | PHREEQC와 저장된 분석 결과 adapter 실행/검증, CFD 승인 차단 통합 테스트 | 현재 Phase 3 작업 | 모든 분석/시뮬 도구의 동일한 validate/prepare/execute/persist adapter 계약; explanation wiring |
 | ORCH-003 | RUN_ANALYSIS, RUN_SIMULATION, RUN_OPTIMIZATION, REQUEST_DATA, REVIEW_RESULT, GENERATE_EXPLANATION, ABSTAIN 구조화 행동 | P0 | IN_PROGRESS | RuleBasedDecisionPolicy, registry API/UI | 연구 목표 입력 선택, RUN_DATA_VALIDATION, 중복 분석 보류, 실제 API action 테스트 | 현재 Phase 3 작업 | 모든 action 실행 계약, 정책 평가셋, JEV 인터페이스 통합 (학습 head 없음) |
 | ORCH-004 | Gemma는 필요 입력을 질문하고 결과를 설명하되 측정/계산/근거를 창작하지 않음; 대화 전체를 KV에 오래 쌓지 않고 정제 요약/기록으로 필요한 맥락만 조회 | P1 | IN_PROGRESS | backend/app/services/llm.py, assistant interaction, docs/AI_ARCHITECTURE.md | local provider/evidence boundary 일부 구현 | 기존 | 정보 요청·저장·재개, 요약 품질, KV/RAM 실제 벤치마크 |
-| OPT-001 | BO 문제에 입력변수 범위/고정변수, 목표 결과·방향, constraints, 비용, 반복수, 불확도, 승인관측값, 실측/시뮬 분리를 정의 | P0 | IN_PROGRESS | approved observations API | 승인된 input/outcome projection·uncertainty/source 일부 | 0ccad66 | OptimizationProblem API/UI/schema 미구현 |
+| OPT-001 | BO 문제에 입력변수 범위/고정변수, 목표 결과·방향, constraints, 비용, 반복수, 불확도, 승인관측값, 실측/시뮬 분리를 정의 | P0 | IN_PROGRESS | `backend/app/api/optimization.py`, `frontend/src/components/OptimizationPanel.tsx` | P4 MVP가 승인 데이터/연속형 bounds/목표 방향/불확도와 실측·샌드박스 분리를 제공 | P4 kickoff | 고정 변수, 비용·반복수, 일반 물리 constraint와 전체 문제 schema는 후속 |
 | OPT-002 | Ridge 등 단순 대리모델을 baseline으로 하고 논문·실험 누수 없는 split/OOD를 사용; 문헌 backtest를 앱 추천 성능이라 하지 않음 | P1 | IMPLEMENTED | scripts/evaluate_benchmark_backtest.py, docs/BENCHMARK_BACKTEST_REPORT.md | 논문별 holdout 결과와 한계 설명 | report existing | 앱 campaign 데이터로 independent validation |
-| OPT-003 | 승인 실험을 기본으로 GP+Bayesian Optimization 및 constrained acquisition으로 다음 조건 추천; 미검증 score는 성공확률로 표시하지 않음 | P0 | NOT_STARTED | future optimization service | 제품 기능 없음 | — | OPT-001·충분한 비데모 데이터·목표 기준 |
+| OPT-003 | 승인 실험을 기본으로 GP+Bayesian Optimization 및 constrained acquisition으로 다음 조건 추천; 미검증 score는 성공확률로 표시하지 않음 | P0 | IN_PROGRESS | `backend/app/services/optimization/gpbo.py`, `backend/app/api/optimization.py` | GP, EI/PI/UCB와 연속형 bounds 추천 구현; 미지원 제약은 fail-closed. Research 데이터가 없으면 `INSUFFICIENT_APPROVED_DATA` | P4 kickoff | 일반 물리·확률 제약과 실측 성능 검증은 미완료 |
 | OPT-004 | Active Learning이 정보가치/불확도/실험비용/위험을 고려; 사람 승인 없이 실제 실험·장비 실행하지 않음 | P1 | NOT_STARTED | future optimizer | 미구현 | — | OPT-003, 승인 프로토콜/기록 |
 | OPT-005 | paired data로 시뮬레이션 bias/discrepancy를 보정하고 출처를 유지; sim output은 실측 학습 라벨이 아님 | P1 | NOT_STARTED | ScientificObservation, future calibration module | source-type 구분만 구현 | 0ccad66 | 실제 같은 조건의 sim/lab 자료 |
 | OPT-006 | 실험→JEV action→분석/시뮬→BO→연구자 승인→결과→검토의 폐루프를 재현 가능한 campaign으로 보존 | P0 | NOT_STARTED | future campaign schema/API/UI | 전체 chain 미연결 | — | Phase 1, 3, 5 선행 |
@@ -303,7 +309,7 @@
 - OpenFOAM VM 계산은 실행하지 않았다.
 - 해당 시점 최종 상태: **`PHASE_3_IN_PROGRESS`**. Cache, planner 기본 경로, crash fencing 및 subprocess cancellation은 구현·검증됐다. 실측 XRD/AFM/SEM/TEM, PHREEQC 독립 Adapter golden comparison, 실제 OpenFOAM 승인 검증, 브라우저 E2E, 성능 측정, remaining typed Adapter coverage가 당시 미완료였다.
 - 이 추가 감사 기록은 기존 요구사항과 상세 Phase 3 하위 요구사항을 삭제하거나 대체하지 않는다.
-| OPT-007 | 평균 예측, Ridge, Random Forest, Gaussian Process 및 필요한 물리제약 회귀를 공정군별 baseline으로 비교; EI 등 acquisition, 다목표·잡음 반복측정·복수 후보를 고려하고 근거 부족 때 탐색/보류 | P1 | NOT_STARTED | benchmark and future optimizer | Ridge 문헌 baseline만 존재 | benchmark report | 최적화 목표/범위/제약 정의와 승인 실험자료 선행 |
+| OPT-007 | 평균 예측, Ridge, Random Forest, Gaussian Process 및 필요한 물리제약 회귀를 공정군별 baseline으로 비교; EI 등 acquisition, 다목표·잡음 반복측정·복수 후보를 고려하고 근거 부족 때 탐색/보류 | P1 | IN_PROGRESS | `backend/scripts/benchmark_phase4_branin.py`, `backend/reports/phase4_branin_benchmark.json` | Random, LHS, GP-EI, GP-UCB를 같은 초기점/예산으로 5 seeds 비교; GP-PI도 함수 테스트 | P4 kickoff | Branin 외 공개 함수·실측 campaign, Ridge/RF/다목표·잡음 baseline 비교 필요 |
 
 ## 역사적 요구사항 원장 — 과거 Phase 6 분류 (Shared Transformer/Early Exit은 현재 Phase 6으로 이관)
 
@@ -469,6 +475,22 @@ The previous Phase 0–7 sections and historical audit entries remain unchanged.
 | P3-FC-07 | Phase 4 input extraction contract from actual approved database records, without implementing BO | P1 | IN_PROGRESS | `docs/PHASE4_HANDOFF.md`, `/api/optimization/observations/approved` | Current endpoint emits source/review/unit/experiment/method/step/material/uncertainty/replicate lineage and paired observations. Explicit variable bounds and physical-constraint fields plus end-to-end contract validation remain. | 3024472 |
 | P3-FC-08 | Phase 3 closure decision must distinguish software verification from external instrument/CFD validation and must not start Phase 5/6 | P0 | IN_PROGRESS | `docs/PHASE3_FINAL_CLOSURE_2026-10-30.md`, `docs/PHASE4_HANDOFF.md` | P3-FC-02 is now verified. Phase 3 remains open on P3-FC-01 common artifact/retry/restart completeness, P3-FC-05 resource/throughput matrix, and P3-FC-06 final safety audit. External device accuracy and approved CFD remain `EXTERNAL_VALIDATION_PENDING`; Phase 4/5/6 implementation has not started. | 468b209 |
 
-## Definitive closure update — 2026-10-31
+## Historical definitive closure update — 2026-10-31
 
 Code commit `468b2090cf110fc6e0c061f049902bce03ae05aa` adds XRD axis conversion, Workflow-ID-specific browser assertions, and a repeatable durable workflow benchmark. The 20-repeat M5 results and limitations are in [PHASE3_FINAL_CLOSURE_2026-10-30.md](PHASE3_FINAL_CLOSURE_2026-10-30.md) and `backend/reports/phase3_durable_benchmark.*`. Latest local verification: backend 178 passed, frontend production build passed, Playwright 2 passed in PHREEQC-first file order. GitHub Actions run [41167692819](https://github.com/alfred0105/lab-process-rag/actions/runs/41167692819) passed backend, frontend build, and browser E2E for that code commit. **Official status remains `PHASE_3_SOFTWARE_IN_PROGRESS`** because independent API/Worker memory profiling, restart/retry timing and throughput scaling, all-adapter artifact/recovery contract audit, and full safety matrix closure remain unfinished. Actual instrument data and approved CFD are separate `EXTERNAL_VALIDATION_PENDING` items.
+
+## Phase 4 kickoff implementation ledger — 2026-10-31
+
+This additive ledger starts Phase 4 without changing detailed Phase 3 audit IDs or claiming the optimizer fully verified. Current implementation is in the working tree and still requires full local regression, migration validation, frontend build/E2E and latest-commit GitHub Actions before any item is `VERIFIED`.
+
+| ID | Requirement | Priority | Status | Current implementation / evidence | Remaining work |
+|---|---|---:|---|---|---|
+| P4-MVP-001 | Phase 3 core archive, technical backlog and external validation separated; historic audits preserved | P0 | IMPLEMENTED | `docs/PHASE3_CORE_COMPLETION.md`, `docs/PHASE3_TECHNICAL_BACKLOG.md`, `docs/PHASE3_EXTERNAL_VALIDATION.md`; historical Phase 3 statuses retained | Validate links, review against full ID ledger, push and run latest CI |
+| P4-MVP-002 | Approved-data dataset builder filters accepted real lab records, pairs selected feature/target within topic and Method Version, checks source/review/units and preserves replicate provenance; emits insufficient-data status | P0 | IMPLEMENTED | `backend/app/api/optimization.py`, strict joins to non-demo experiments, accepted `LAB_RECORD` features and `LAB_RESULT`/`ANALYSIS_OUTPUT` outcomes; endpoint returns `INSUFFICIENT_APPROVED_DATA` | Expand unit conversion and process-step matching tests; independent audit of all parameter semantics and bounds |
+| P4-MVP-003 | Separate sandbox and research mode; synthetic data never enter experimental observations | P0 | IMPLEMENTED | `mode=SANDBOX` creates generated Branin inputs only in optimization model storage; research mode uses accepted rows only; topic scoping | Verify migration/backup and all source-exclusion cases in full suite |
+| P4-MVP-004 | Gaussian Process with RBF/Matérn kernels, learned length scales/noise, observation-noise propagation, prediction mean and uncertainty, stable JSON persistence | P0 | IMPLEMENTED | `backend/app/services/optimization/gpbo.py`, Cholesky+jitter, train-only feature/target normalization, accepted measurement uncertainty added to training covariance when available | More numerical edge-case tests; validate diagnostics and kernel calibration across repeated test functions |
+| P4-MVP-005 | EI/PI/UCB and continuous bounded candidate ranking with duplicate rejection and explicit constraints | P0 | IMPLEMENTED | `acquisition`, recommendation API, declared-bound search, unsupported constraints fail closed | Expand maximize/minimize, boundary, duplicate and ranking tests; add constrained GP support later |
+| P4-MVP-006 | Reproducible model and recommendation persistence with lineage, hashes and researcher approval state | P0 | IMPLEMENTED | additive `0008_gpbo_mvp` migration, `OptimizationModelRun`, `OptimizationRecommendationRun`; computed recommendations remain pending review | Fresh/legacy DB migration integration tests, API full lifecycle and backup restore |
+| P4-MVP-007 | API train, predict, recommend, model lookup and sandbox baseline comparison | P0 | IMPLEMENTED | `backend/app/api/optimization.py`; actual GP training, predictions and saved candidates; Branin Random/LHS/GP-EI/GP-UCB multi-seed comparison | Existing synchronous API execution is acceptable for small MVP only; evaluate durable Worker integration before larger jobs |
+| P4-MVP-008 | Basic Optimization UI with separate modes, model quality indicators, ranked candidates and safety copy | P0 | IMPLEMENTED | `frontend/src/components/OptimizationPanel.tsx`, app navigation, Korean native labels | Run build, browser E2E, improve Research Mode field selection beyond manually entered parameter IDs |
+| P4-MVP-009 | Holdout evaluation, multiple-seed BO comparison and prevent synthetic results from implying research performance | P0 | IN_PROGRESS | Training uses deterministic 80/20 split and computes holdout RMSE/MAE/NLPD/95% coverage; Branin compares Random Search, LHS, EI and UCB across 5 seeds with shared 5-point initial designs and 20 additional evaluations. Median best values 6.9162 / 1.6154 / 0.4132 / 0.4647; output at `backend/reports/phase4_branin_benchmark.json`. | Full end-to-end and latest CI verification still required; repeat with broader seeds/functions before scientific or generalized claims |
