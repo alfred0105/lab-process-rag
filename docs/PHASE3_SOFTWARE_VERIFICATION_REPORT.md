@@ -1,6 +1,18 @@
 # Phase 3 software verification report
 
-## 최신 closure 감사 추가 — 2026-10-30
+## 최신 definitive closure 감사 추가 — 2026-10-31
+
+Code commit `468b2090cf110fc6e0c061f049902bce03ae05aa` fixes the previously failing ambiguous PHREEQC selector and removes false positives caused by unrelated completed workflows: browser E2E now verifies each test's own Workflow ID, result node, SimulationRun and database fingerprint after reload. The PHREEQC test executes before XRD to exercise the reverse prior order. Full local E2E: **2 passed**.
+
+XRD `2theta_deg`, `d_angstrom`, and `q_angstrom^-1` conversion is implemented with Bragg's law, explicit wavelength validation, physical-domain checks, sorted converted coordinates and immutable child-run lineage. Axis round trips were compared against NumPy and API history/idempotency tests were added.
+
+The new isolated durable benchmark executes planner→queue→Worker→typed output→database persistence on generated data. 20/20 successful runs each for XRD, AFM, SEM, TEM, warm PHREEQC, and two-node PHREEQC. It also measured a fresh PHREEQC Worker process, one actual cache hit, and two-worker same-key and different-key cases. Results: [`backend/reports/phase3_durable_benchmark.json`](../backend/reports/phase3_durable_benchmark.json) and CSV.
+
+Latest local full backend result: **178 passed**; frontend build: **success**; full reordered E2E: **2 passed**. GitHub Actions run [41167692819](https://github.com/alfred0105/lab-process-rag/actions/runs/41167692819) passed backend, frontend build, and browser E2E for code commit `468b2090cf110fc6e0c061f049902bce03ae05aa`. Remaining software gaps are independently isolated API-vs-Worker memory, repeatable cold/cache confidence intervals, restart/retry timing, worker-count throughput scaling, full artifact/cache/retry/restart contract audit across all executable adapters, and the exhaustive Phase 3 safety matrix. Therefore official status stays **`PHASE_3_SOFTWARE_IN_PROGRESS`**. External device-data accuracy and approved CFD remain `EXTERNAL_VALIDATION_PENDING`.
+
+The previous dated report follows as historical evidence.
+
+## Historical closure audit — 2026-10-30
 
 외부 최신 기준 커밋 `115d591c6509f95ad7da6ceddc2e6548812fb7cc`에서 다시 실행한 전체 테스트는 **153 passed** 였다. 추가 감사에서 PHREEQC DAG 출력의 `review_status`/출처 계약이 빠져 Worker consumer에서 실패할 수 있는 결함과, 정상 입력에서도 Planner가 PHREEQC를 `REQUEST_DATA`로만 반환하는 미연결 경로를 확인했다.
 

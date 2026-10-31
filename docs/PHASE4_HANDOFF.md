@@ -2,6 +2,10 @@
 
 상태: **NOT_STARTED**. 현재 문서는 Phase 3 이후 GP/BO 구현 요구와 입력 계약을 정의한다. Bayesian optimization 실행, 학습, 후보 추천은 아직 포함하지 않는다. Phase 4는 학습형 JEV를 선행조건으로 요구하지 않으며 기존 RuleBasedDecisionPolicy와 독립된 optimizer로 시작한다.
 
+## Phase 3 entry gate status — 2026-10-31
+
+Phase 4 implementation has **not** started. The latest Phase 3 software status remains `PHASE_3_SOFTWARE_IN_PROGRESS`: local code/test improvements include XRD axis conversion and a real queued Worker benchmark, but the final artifact/recovery audit, independent API and Worker resource profiling, restart/retry performance and safety matrix are not closed. Do not treat this handoff document as approval to start GP/BO. Continue using only the accepted-data contract below after the Phase 3 entry gate is verified. External instrument accuracy and approved CFD remain `EXTERNAL_VALIDATION_PENDING` and are tracked separately.
+
 ## 목표 구현 범위
 
 - 승인된 실험 데이터의 optimization-ready contract와 실측/source/review 필터

@@ -1,5 +1,11 @@
 # Phase 3 software closure — latest audit
 
+## Current follow-up — 2026-10-31
+
+Current official status remains **`PHASE_3_SOFTWARE_IN_PROGRESS`**; see [`PHASE3_FINAL_CLOSURE_2026-10-30.md`](PHASE3_FINAL_CLOSURE_2026-10-30.md) for the superseding current audit and evidence. Since the prior snapshot, the XRD Bragg-law axis conversion/child-run lineage was implemented, PHREEQC and XRD browser E2E were made Workflow-ID-specific and run in reversed order, and the complete backend suite passed 178 tests. The production build succeeded; Playwright passed 2/2.
+
+The durable workflow benchmark now covers 20 repeats each for four analysis modalities, warm PHREEQC and typed two-node PHREEQC; one fresh Worker PHREEQC run; an actual cached workflow reuse; and concurrent same-key/different-key Worker processes. JSON and CSV are in `backend/reports/phase3_durable_benchmark.*`. It uses temporary synthetic data only. API/Worker memory separation, confidence-grade repeated cold/cache measurements, restart/retry latency, worker-count throughput scaling, the complete artifact recovery contract audit and full Phase 3 safety matrix are still open. This update does not claim Phase 3 closure.
+
 > This file preserves the preceding audit snapshot. The newer additive closure result, with artifact integrity, XRD reanalysis, PHREEQC equivalent-deck checks, browser workflow, benchmark, and updated status, is [PHASE3_FINAL_CLOSURE_2026-10-30.md](PHASE3_FINAL_CLOSURE_2026-10-30.md). Use that document for the current state.
 
 검토일: 2026-10-30  
