@@ -18,6 +18,12 @@ Regression coverage includes group-level Method and Condition Shift assignment, 
 
 Final local verification for this fix: backend **216 passed**, frontend production build passed, browser E2E **5 passed**, Alembic migration regression **1 passed**, and the five-seed benchmark completed. The benchmark remains synthetic software evidence only. Latest commit and GitHub Actions result are recorded in the closure note below after push.
 
+### JSON-key canonicalization follow-up (Phase 5 Stage 4 Part A)
+
+The final Stage 3 integrity pass found a second serialization boundary: integer excluded Case IDs become string object keys in JSON. Dataset creation now canonicalizes the manifest through a strict JSON round-trip before hashing and stores `excluded_case_reasons` with `str(case_id)` keys. The retraining validator compares canonical string-key sets and retrieves reasons through their string form. Non-finite JSON values fail closed. Previously persisted versions are neither rewritten nor silently rehashed; their stored digest remains the authority and new validation is applied to newly generated manifests.
+
+The API regression creates Dataset V1, freezes its evaluation groups, adds three new cases to a frozen group, creates V2, closes/reopens the DB session, checks string keys and hashes, retrains V2 and checks its model artifact, then adds a case in a fit group and creates V3. It verifies the original frozen evaluation IDs/hash and V2 manifest remain immutable and that V3's fit/calibration/evaluation groups stay disjoint. A separate regression covers numeric IDs `2`, `10`, `101` and legacy integer-key normalization. This does not retroactively bless a historical manifest whose stored hash is already invalid; a future explicit migration/repair path would need to preserve audit history.
+
 ## What changed
 
 Stage 2's 18-input V1 model and stored artifacts remain available with their original schema. Stage 3 adds a separate `scientific-state-v2` object and `scientific-decision-features-v2` vector. The V2 schema contains **153 uniquely named features across nine context groups**: experiment, process conditions, measurements, analysis, simulation, optimization, tool readiness, pending reviews, and provenance. Feature names include the group to avoid collisions. Unknown values are represented by zero plus an explicit `__missing_mask`; actual zero remains distinguishable. Categoricals are one-hot encoded. Experiment/topic identifiers and scenario IDs remain trace metadata and are not model inputs.

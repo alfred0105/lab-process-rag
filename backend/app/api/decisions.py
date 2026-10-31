@@ -766,6 +766,11 @@ def _stage3_groups(records):
     return grouped
 
 
+def _canonical_manifest(value):
+    """Return the exact JSON-safe object that will survive a DB JSON round-trip."""
+    return json.loads(json.dumps(value,ensure_ascii=False,sort_keys=True,separators=(",",":"),allow_nan=False))
+
+
 def _stage3_method_holdout_groups(grouped):
     method_by_group={}
     for group,items in grouped.items():
@@ -820,9 +825,10 @@ def _stage3_validate_manifest_partitions(manifest):
         if key in manifest and set(manifest[key])!=actual:
             raise HTTPException(409,detail={"code":"EVALUATION_GROUP_LEAKAGE","message":f"Stored {key} do not match their case records."})
     reasons=manifest.get("excluded_case_reasons",{})
-    if set(excluded_ids)!=set(reasons):
+    expected_reason_keys={str(value) for value in excluded_ids}
+    if expected_reason_keys!=set(reasons):
         raise HTTPException(409,detail={"code":"EVALUATION_GROUP_LEAKAGE","message":"Every excluded case must have exactly one recorded exclusion reason."})
-    if any(reasons[value]!="EXCLUDED_FROZEN_EVALUATION_GROUP" for value in excluded_ids):
+    if any(reasons[str(value)]!="EXCLUDED_FROZEN_EVALUATION_GROUP" for value in excluded_ids):
         raise HTTPException(409,detail={"code":"EVALUATION_GROUP_LEAKAGE","message":"Unknown Stage 3 exclusion reason."})
     excluded_groups={by_id[value]["case_group_id"] for value in excluded_ids}
     if not excluded_groups<=eval_groups or not excluded_groups<=set(manifest.get("excluded_training_group_ids",[])):
@@ -950,10 +956,11 @@ def stage3_build_dataset(payload:Stage3DatasetBuildIn,db:Session=Depends(get_db)
         "evaluation_group_ids":actual_eval_groups,"evaluation_hash":eval_hash,"fit_case_ids":fit_ids,
         "calibration_case_ids":cal_ids,"holdout_strategy":payload.holdout_strategy,
         "fit_group_ids":fit_groups,"calibration_group_ids":calibration_groups,
-        "excluded_case_ids":excluded_case_ids,"excluded_case_reasons":excluded_case_reasons,
+        "excluded_case_ids":excluded_case_ids,"excluded_case_reasons":{str(case_id):reason for case_id,reason in excluded_case_reasons.items()},
         "group_leakage_detected":False,"holdout_status":method_status,"split_policy":"group-disjoint-v3",
         "excluded_training_group_ids":sorted(set(actual_eval_groups)|{x["case_group_id"] for x in records if x["case_id"] in set(excluded_case_ids)}),
         "research_source_policy":RESEARCH_SOURCE_POLICY if mode=="RESEARCH" else None}
+    manifest=_canonical_manifest(manifest)
     digest=dataset_digest({"topic_id":payload.topic_id,"mode":mode,"feature_schema_version":FEATURE_SCHEMA_VERSION_V2,
         "label_mapping_version":"decision-actions-v1","manifest":manifest})
     existing=db.query(DecisionDatasetVersion).filter_by(topic_id=payload.topic_id,mode=mode,dataset_hash=digest).first()

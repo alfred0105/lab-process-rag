@@ -20,6 +20,8 @@ jobs:
         working-directory: backend
       - run: pytest -q
         working-directory: backend
+      - run: python scripts/benchmark_phase5_stage4.py
+        working-directory: backend
 
   frontend:
     runs-on: ubuntu-latest

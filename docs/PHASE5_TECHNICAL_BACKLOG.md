@@ -1,5 +1,15 @@
 # Phase 5 Technical Backlog
 
+## Stage 4 follow-up — external validity remains open
+
+The software acceptance register for Stage 4 is tracked in [`PHASE5_STAGE4.md`](PHASE5_STAGE4.md). Completion of synthetic diagnostics does not close external validation. The candidate selected in synthetic evaluation remains a benchmark reference only and is not promoted or activated.
+
+| ID | Remaining requirement | Priority | Status | Dependency / closure evidence |
+|---|---|---|---|---|
+| P5-EXT-009 | Obtain independently reviewed, provenance-complete human decisions from multiple real experiments/topics/methods; preregister group/topic/method splits and evaluate V1/V2/Rule/selected reference without synthetic labels. | P0 | NOT_STARTED | Requires researcher-reviewed data and governance. Report calibration, per-class errors, OOD and abstention with uncertainty; no synthetic benchmark can satisfy it. |
+| P5-EXT-010 | Validate OOD and risk thresholds on a held-out reviewed research corpus and distinguish data validity gates from representation shift. | P1 | NOT_STARTED | Depends on P5-EXT-009 and enough independent groups per partition. |
+| P5-EXT-011 | Evaluate any future Transformer representation adapter using a versioned contract and fresh reviewed evaluation. | P2 | NOT_STARTED | Phase 6 kickoff; no automatic transfer of V2 weights or embedding semantics. |
+
 This is a non-blocking backlog outside the fixed Stage 2 acceptance criteria. Items are not implied to be implemented or verified. New safety or data-integrity defects still take priority over phase boundaries.
 
 **Closed Stage 2 integrity defects:** FIX-01 (raw prediction vs. safety-filtered final label) and FIX-02 (Research source eligibility) were corrected, locally verified and passed GitHub Actions in implementation commit `884063bf9dd44f6110958df3799d01f136d15669`; they are closure work within P5-S2-004/005/010, not new backlog criteria. The remaining entries below are future work only.

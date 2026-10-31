@@ -152,12 +152,15 @@ def test_frozen_evaluation_group_excludes_new_cases_and_preserves_hash(tmp_path)
         frozen_group=old_manifest["evaluation_group_ids"][0]
         source=next(row for row in db.query(DecisionCase).filter_by(topic_id=topic_id).all()
                     if row.id==old_manifest["records"][[x["case_id"] for x in old_manifest["records"]].index(frozen_ids[0])]["case_id"])
+        source_case={"state_json":dict(source.state_json),"features_json":dict(source.features_json),
+            "feature_schema_version":source.feature_schema_version,"candidate_actions_json":list(source.candidate_actions_json or []),
+            "selected_action":source.selected_action,"dataset_version":source.dataset_version}
         for _ in range(3):
             db.add(DecisionCase(topic_id=topic_id,experiment_id=None,snapshot_id=None,feedback_id=None,
-                case_group_id=frozen_group,state_json=dict(source.state_json),features_json=dict(source.features_json),
-                feature_schema_version=source.feature_schema_version,candidate_actions_json=list(source.candidate_actions_json or []),
-                selected_action=source.selected_action,label_source="SYNTHETIC_SANDBOX",review_status="SYNTHETIC_ONLY",
-                dataset_version=source.dataset_version))
+                case_group_id=frozen_group,state_json=source_case["state_json"],features_json=source_case["features_json"],
+                feature_schema_version=source_case["feature_schema_version"],candidate_actions_json=source_case["candidate_actions_json"],
+                selected_action=source_case["selected_action"],label_source="SYNTHETIC_SANDBOX",review_status="SYNTHETIC_ONLY",
+                dataset_version=source_case["dataset_version"]))
         # An unrelated group remains eligible for training after the version advances.
         db.commit();v1_id=v1.id;db.close()
         second=client.post(path,json={"topic_id":topic_id,"mode":"sandbox","holdout_strategy":"experiment"})
@@ -166,6 +169,7 @@ def test_frozen_evaluation_group_excludes_new_cases_and_preserves_hash(tmp_path)
         new_ids=set(manifest["excluded_case_ids"])
         assert len(new_ids)>=3
         assert set(manifest["excluded_case_reasons"].values())=={"EXCLUDED_FROZEN_EVALUATION_GROUP"}
+        assert set(manifest["excluded_case_reasons"])=={str(value) for value in new_ids}
         assert set(manifest["evaluation_case_ids"])==set(frozen_ids)
         assert manifest["evaluation_hash"]==frozen_hash
         assert set(manifest["fit_group_ids"]).isdisjoint(manifest["evaluation_group_ids"])
@@ -175,9 +179,51 @@ def test_frozen_evaluation_group_excludes_new_cases_and_preserves_hash(tmp_path)
         old_again=db.get(DecisionDatasetVersion,v1_id).manifest_json
         assert old_again==old_manifest
         assert any(x["case_group_id"] not in manifest["evaluation_group_ids"] for x in manifest["records"] if x["case_id"] in manifest["fit_case_ids"])
+        v2_id=v2.id
+        # Persisted JSON keys have crossed a Session boundary and are now strings;
+        # the manifest must still hash and pass the retraining gate.
+        assert dataset_digest({"topic_id":v2.topic_id,"mode":v2.mode,
+            "feature_schema_version":v2.feature_schema_version,"label_mapping_version":v2.label_mapping_version,
+            "manifest":manifest})==v2.dataset_hash
+        db.close()
+        trained=client.post("/api/decisions/learned/stage3/retrain",json={"dataset_version_id":v2_id,"seed":45})
+        assert trained.status_code==200,trained.text
+        model_id=trained.json()["model_id"]
+        db=sessions();assert db.get(DecisionModelRun,model_id) is not None
+        # Add a new record in an unrelated training group to force Dataset V3.
+        v2=db.get(DecisionDatasetVersion,v2_id);v2_manifest=v2.manifest_json
+        training_group=next(group for group in manifest["fit_group_ids"] if group not in manifest["evaluation_group_ids"])
+        db.add(DecisionCase(topic_id=topic_id,experiment_id=None,snapshot_id=None,feedback_id=None,
+            case_group_id=training_group,state_json=source_case["state_json"],features_json=source_case["features_json"],
+            feature_schema_version=source_case["feature_schema_version"],candidate_actions_json=source_case["candidate_actions_json"],
+            selected_action=source_case["selected_action"],label_source="SYNTHETIC_SANDBOX",review_status="SYNTHETIC_ONLY",
+            dataset_version=source_case["dataset_version"]))
+        db.commit();db.close()
+        third=client.post(path,json={"topic_id":topic_id,"mode":"sandbox","holdout_strategy":"experiment"})
+        assert third.status_code==200,third.text
+        db=sessions();v3=db.get(DecisionDatasetVersion,third.json()["dataset_version_id"])
+        assert set(v3.manifest_json["evaluation_case_ids"])==set(frozen_ids)
+        assert v3.manifest_json["evaluation_hash"]==frozen_hash
+        assert db.get(DecisionDatasetVersion,v2_id).manifest_json==v2_manifest
+        fit_groups=set(v3.manifest_json["fit_group_ids"]);cal_groups=set(v3.manifest_json["calibration_group_ids"]);eval_groups=set(v3.manifest_json["evaluation_group_ids"])
+        assert not fit_groups&cal_groups and not fit_groups&eval_groups and not cal_groups&eval_groups
+        assert any(record["case_group_id"]==training_group for record in v3.manifest_json["records"] if record["case_id"] in v3.manifest_json["fit_case_ids"]+v3.manifest_json["calibration_case_ids"])
         db.close()
     finally:
         app.dependency_overrides.clear();engine.dispose()
+
+
+def test_manifest_excluded_reason_keys_are_json_canonical_and_legacy_is_explicit():
+    from app.api.decisions import _canonical_manifest
+    keys={"2":"EXCLUDED_FROZEN_EVALUATION_GROUP","10":"EXCLUDED_FROZEN_EVALUATION_GROUP",
+          "101":"EXCLUDED_FROZEN_EVALUATION_GROUP"}
+    encoded=_canonical_manifest({"excluded_case_ids":[2,10,101],"excluded_case_reasons":keys})
+    assert set(encoded["excluded_case_reasons"])=={"2","10","101"}
+    assert dataset_digest(encoded)==dataset_digest(_canonical_manifest(encoded))
+    # A legacy in-memory manifest with integer keys is normalized by JSON itself;
+    # already persisted manifests are checked by their immutable stored hash.
+    legacy=_canonical_manifest({"excluded_case_ids":[2,10,101],"excluded_case_reasons":{2:keys["2"],10:keys["10"],101:keys["101"]}})
+    assert legacy["excluded_case_reasons"]==keys
 
 
 def test_retrain_rejects_tampered_group_partition_before_artifact_creation(tmp_path):

@@ -432,11 +432,16 @@ class StructuredDecisionHeadV2:
         return int(sum(x.size for x in self.group_weights) + sum(x.size for x in self.group_biases) + self.output_weight.size + self.output_bias.size + self.mean.size * 2)
 
     @classmethod
-    def fit(cls, x: np.ndarray, labels: list[str], *, seed: int = 7, epochs: int = 220, learning_rate: float = .025) -> tuple["StructuredDecisionHeadV2", list[float]]:
+    def fit(cls, x: np.ndarray, labels: list[str], *, seed: int = 7, epochs: int = 220, learning_rate: float = .025,
+            sample_weights: np.ndarray | None = None) -> tuple["StructuredDecisionHeadV2", list[float]]:
         if x.ndim != 2 or x.shape[1] != len(FEATURE_NAMES) or len(labels) != len(x) or len(labels) < 18:
             raise ScientificStateError("V2 training requires at least 18 aligned vectors using the V2 feature schema")
         if set(labels) - set(ACTION_NAMES):
             raise ScientificStateError("Unknown V2 action label")
+        row_weights=np.ones(len(labels),dtype=float) if sample_weights is None else np.asarray(sample_weights,dtype=float)
+        if row_weights.shape!=(len(labels),) or not np.all(np.isfinite(row_weights)) or np.any(row_weights<=0):
+            raise ScientificStateError("V2 sample weights must be finite, positive and aligned to training rows")
+        row_weights=row_weights/row_weights.sum()
         groups = [np.asarray([i for i, spec in enumerate(FEATURE_SCHEMA["features"]) if spec["group"] == group], dtype=int)
                   for group in FEATURE_GROUPS]
         mean = x.mean(axis=0); scale = x.std(axis=0); scale[scale < 1e-8] = 1.0
@@ -453,10 +458,10 @@ class StructuredDecisionHeadV2:
             branch = [np.tanh(z[:, indexes] @ weight + bias) for indexes, weight, bias in zip(groups, w, b)]
             joined = np.concatenate(branch, axis=1)
             probabilities = _softmax(joined @ output + output_bias)
-            losses.append(float(-np.log(np.maximum(probabilities[np.arange(len(y)), y], 1e-12)).mean()))
+            losses.append(float(np.sum(-np.log(np.maximum(probabilities[np.arange(len(y)), y], 1e-12))*row_weights)))
             grad = probabilities
             grad[np.arange(len(y)), y] -= 1
-            grad /= len(y)
+            grad *= row_weights[:,None]
             out_grad = joined.T @ grad + 1e-4 * output
             out_bias_grad = grad.sum(axis=0)
             branch_grad = (grad @ output.T).reshape(len(x), len(groups), hidden)

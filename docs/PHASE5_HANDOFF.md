@@ -74,6 +74,10 @@ Stage 3 adds a separately versioned 153-feature Scientific State V2 and grouped 
 
 Stage 3 is a software implementation milestone only. The five-seed synthetic benchmark reports V1 mean accuracy 0.569 (SD 0.041) and V2 0.591 (SD 0.105); the variability and per-seed regressions mean these results do not establish V2 superiority. On the separate held-out synthetic condition family, V1 scored 0.546 (SD 0.086) and V2 0.225 (SD 0.097), a clear V2 regression. The benchmark invokes the existing RuleBasedDecisionPolicy and labels topic/method validation insufficient. Do not promote V2 based on synthetic results. Phase 5 remains `IN_PROGRESS`; Phase 6–8 remain `NOT_STARTED`.
 
+Stage 3's final JSON manifest repair canonicalizes excluded Case ID keys before hashing and is covered by a V1→V2→retrain→V3 API regression. See [`PHASE5_STAGE3.md`](PHASE5_STAGE3.md) for the frozen-group and immutable-hash evidence.
+
+Phase 5 Stage 4 adds independent synthetic diagnostics and model/OOD/calibration comparisons. The development-only selection retained a HistGradientBoosting benchmark reference under a fixed accuracy guard; it did not replace or activate the shadow model. Weighted V2 improves macro-F1 while sacrificing accuracy; fusion regresses. Its independent fresh final remains synthetic and cannot support a real lab accuracy claim. See [`PHASE5_STAGE4.md`](PHASE5_STAGE4.md) and the four JSON reports in `backend/reports/`. Phase 6 remains `NOT_STARTED`; its input/output readiness boundary is documented in [`PHASE6_READINESS.md`](PHASE6_READINESS.md). Current Stage 4 criterion status and CI evidence are in [`MASTER_ROADMAP.md`](MASTER_ROADMAP.md).
+
 Stage 3 fixed software acceptance P5-S3-001–012 passed locally and in GitHub Actions [run 41196292332](https://github.com/alfred0105/lab-process-rag/actions/runs/41196292332), implementation commit `43a7f7d53285e85f760a295672c12fc35c5e455e`. The Stage 3 lifecycle remains shadow-only. Real reviewed-decision, cross-topic/method and naturally occurring distribution-shift validation are not complete.
 
 ### Stage 3 final leakage fix (2026-10-31)
