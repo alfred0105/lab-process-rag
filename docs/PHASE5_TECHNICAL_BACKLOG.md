@@ -2,6 +2,8 @@
 
 This is a non-blocking backlog outside the fixed Stage 2 acceptance criteria. Items are not implied to be implemented or verified. New safety or data-integrity defects still take priority over phase boundaries.
 
+**Closed Stage 2 integrity defects:** FIX-01 (raw prediction vs. safety-filtered final label) and FIX-02 (Research source eligibility) were corrected, locally verified and passed GitHub Actions in implementation commit `884063bf9dd44f6110958df3799d01f136d15669`; they are closure work within P5-S2-004/005/010, not new backlog criteria. The remaining entries below are future work only.
+
 | ID | Follow-up | Priority | State | Dependency / completion evidence |
 |---|---|---:|---|---|
 | P5-BL-001 | Collect a sufficiently large, consented, reviewer-authenticated real research decision corpus with time-aligned snapshots and source provenance. | P0 | NOT_STARTED | Identity/role controls and institutional data governance; publish inclusion, exclusion and review-agreement report. |

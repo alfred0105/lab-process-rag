@@ -187,7 +187,12 @@ def test_research_cases_require_verified_non_demo_experiment_and_expert_source_c
         assert snapshot["suggested_action"]=="REQUEST_REVIEW"
         db=sessions();case=db.get(DecisionCase,saved.json()["case_id"])
         assert case.provenance_json["research_source_policy"]=="verified-experiment-snapshot-v2"
-        db.close()
+        snapshot_row=db.get(DecisionSnapshot,snapshot["snapshot_id"])
+        snapshot_row.confidence=0.123  # Simulate a changed immutable field without updating its stored hash.
+        db.commit();db.close()
+        blocked_dataset=client.post("/api/decisions/learned/datasets/build",json={"topic_id":topic_id,"mode":"research"})
+        assert blocked_dataset.status_code==409
+        assert blocked_dataset.json()["detail"]["code"]=="UNVERIFIED_RESEARCH_PROVENANCE"
         assert other_topic_id!=topic_id
     finally:
         app.dependency_overrides.clear();engine.dispose()
