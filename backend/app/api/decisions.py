@@ -24,6 +24,8 @@ from app.services.decision_head import (ACTIONS, DATASET_VERSION, FEATURES, FEAT
 from app.services.tool_registry import RuleBasedDecisionPolicy, recommend_tools
 
 router=APIRouter(prefix="/decisions/learned",tags=["learned-decision"])
+DECISION_SNAPSHOT_CONTRACT = "decision-snapshot-v2"
+RESEARCH_SOURCE_POLICY = "verified-experiment-snapshot-v2"
 
 
 class CaseIn(BaseModel):
@@ -127,6 +129,164 @@ def _model_mode(row):
     return str(row.mode).upper()
 
 
+def _research_case_issue(db, case, *, verify_feedback=True):
+    """Return a reason when a Research label lacks a current, traceable source contract."""
+    if case.label_source != "HUMAN_REVIEWED_DECISION" or case.review_status != "ACCEPTED":
+        return "UNVERIFIED_RESEARCH_PROVENANCE"
+    if case.topic_id <= 0 or not case.reviewer or case.selected_action not in ACTIONS:
+        return "UNVERIFIED_RESEARCH_PROVENANCE"
+    if not db.get(ResearchTopic,case.topic_id):
+        return "UNVERIFIED_RESEARCH_PROVENANCE"
+    experiment = db.get(Experiment, case.experiment_id) if case.experiment_id else None
+    if not experiment:
+        return "RESEARCH_EXPERIMENT_REQUIRED"
+    if experiment.demo or experiment.topic_id != case.topic_id:
+        return "UNVERIFIED_RESEARCH_PROVENANCE"
+    if case.case_group_id != f"experiment-{experiment.id}":
+        return "UNVERIFIED_RESEARCH_PROVENANCE"
+    snapshot = db.get(DecisionSnapshot, case.snapshot_id) if case.snapshot_id else None
+    if not snapshot or snapshot.topic_id != case.topic_id or snapshot.mode != "RESEARCH":
+        return "UNVERIFIED_RESEARCH_PROVENANCE"
+    if snapshot.experiment_id != experiment.id or snapshot.decision_contract_version != DECISION_SNAPSHOT_CONTRACT:
+        return "UNVERIFIED_RESEARCH_PROVENANCE"
+    if snapshot.feature_schema_version != case.feature_schema_version or case.feature_schema_version != FEATURE_SCHEMA_VERSION:
+        return "UNVERIFIED_RESEARCH_PROVENANCE"
+    if (snapshot.model_run_id and not snapshot.raw_predicted_action) or not snapshot.suggested_action or not snapshot.snapshot_hash:
+        return "UNVERIFIED_RESEARCH_PROVENANCE"
+    provenance = case.provenance_json or {}
+    if provenance.get("snapshot_id") != snapshot.id or provenance.get("snapshot_hash") != snapshot.snapshot_hash:
+        return "UNVERIFIED_RESEARCH_PROVENANCE"
+    if (provenance.get("research_source_policy")!=RESEARCH_SOURCE_POLICY
+        or provenance.get("label_source")!="HUMAN_REVIEWED_DECISION"
+        or provenance.get("reviewer")!=case.reviewer
+        or provenance.get("reviewer_identity_status")!="SELF_REPORTED_NOT_AUTHENTICATED"):
+        return "UNVERIFIED_RESEARCH_PROVENANCE"
+    if case.state_json != snapshot.state_json or case.features_json.get("vector") != snapshot.feature_vector_json:
+        return "UNVERIFIED_RESEARCH_PROVENANCE"
+    if snapshot.state_json.get("topic_id") != case.topic_id or snapshot.state_json.get("experiment_id") != experiment.id:
+        return "UNVERIFIED_RESEARCH_PROVENANCE"
+    if _research_snapshot_issue(db,snapshot):
+        return "UNVERIFIED_RESEARCH_PROVENANCE"
+    if case.feedback_id is not None:
+        feedback = db.get(DecisionFeedback, case.feedback_id)
+        if not feedback or feedback.snapshot_id != snapshot.id or feedback.topic_id != case.topic_id:
+            return "UNVERIFIED_RESEARCH_PROVENANCE"
+        if (feedback.feedback_type not in {"ACCEPT", "CORRECT", "REJECT"}
+            or feedback.review_status!="RESEARCHER_REVIEWED" or not feedback.final_reviewed_action):
+            return "UNVERIFIED_RESEARCH_PROVENANCE"
+        if feedback.suggested_action != snapshot.suggested_action or feedback.final_reviewed_action != case.selected_action:
+            return "UNVERIFIED_RESEARCH_PROVENANCE"
+        if feedback.label_source != "HUMAN_REVIEWED_DECISION":
+            return "UNVERIFIED_RESEARCH_PROVENANCE"
+        model = db.get(DecisionModelRun, feedback.model_run_id)
+        if not model or model.topic_id != case.topic_id or _model_mode(model) != "RESEARCH":
+            return "UNVERIFIED_RESEARCH_PROVENANCE"
+        if verify_feedback:
+            latest = db.query(DecisionFeedback).filter_by(snapshot_id=snapshot.id, model_run_id=feedback.model_run_id).order_by(
+                DecisionFeedback.revision.desc(), DecisionFeedback.id.desc()).first()
+            if not latest or latest.id != feedback.id:
+                return "UNVERIFIED_RESEARCH_PROVENANCE"
+    elif (provenance.get("label_source") != "HUMAN_REVIEWED_DECISION"
+        or case.selected_action != snapshot.suggested_action):
+        # In particular, legacy EXPERT_ANNOTATION rows do not become verified
+        # merely because a reviewer name was typed into the old API.
+        return "UNVERIFIED_RESEARCH_PROVENANCE"
+    return None
+
+
+def _research_snapshot_issue(db, snapshot):
+    if not snapshot or snapshot.mode!="RESEARCH" or snapshot.decision_contract_version!=DECISION_SNAPSHOT_CONTRACT:
+        return "UNVERIFIED_RESEARCH_PROVENANCE"
+    experiment=db.get(Experiment,snapshot.experiment_id) if snapshot.experiment_id else None
+    if not experiment:
+        return "RESEARCH_EXPERIMENT_REQUIRED"
+    if experiment.demo or experiment.topic_id!=snapshot.topic_id:
+        return "UNVERIFIED_RESEARCH_PROVENANCE"
+    if snapshot.feature_schema_version!=FEATURE_SCHEMA_VERSION:
+        return "UNVERIFIED_RESEARCH_PROVENANCE"
+    if (snapshot.model_run_id and not snapshot.raw_predicted_action) or not snapshot.suggested_action:
+        return "UNVERIFIED_RESEARCH_PROVENANCE"
+    if snapshot.state_json.get("topic_id")!=snapshot.topic_id or snapshot.state_json.get("experiment_id")!=experiment.id:
+        return "UNVERIFIED_RESEARCH_PROVENANCE"
+    provenance=snapshot.provenance_json or {}
+    if provenance.get("decision_contract_version")!=DECISION_SNAPSHOT_CONTRACT:
+        return "UNVERIFIED_RESEARCH_PROVENANCE"
+    expected_hash=dataset_digest(_snapshot_contract_payload(
+        topic_id=snapshot.topic_id,experiment_id=snapshot.experiment_id,mode=snapshot.mode,
+        decision_timestamp=snapshot.decision_timestamp.isoformat(),state=snapshot.state_json,
+        features=snapshot.feature_vector_json,feature_schema_version=snapshot.feature_schema_version,
+        sources=provenance.get("snapshot_sources",{}),model_id=snapshot.model_run_id,
+        model_version=provenance.get("model_version"),raw_action=snapshot.raw_predicted_action,
+        final_action=snapshot.suggested_action,probabilities=snapshot.probabilities_json,
+        confidence=snapshot.confidence,calibration_status=snapshot.calibration_status,
+        ood_status=snapshot.ood_status,ood_reasons=snapshot.ood_reasons_json or [],
+        abstention_reason=snapshot.abstention_reason,safety_override=snapshot.safety_override,
+        safety_override_reason=snapshot.safety_override_reason))
+    return None if expected_hash==snapshot.snapshot_hash else "UNVERIFIED_RESEARCH_PROVENANCE"
+
+
+def _research_dataset_issue(db, dataset):
+    """Validate a frozen Research manifest before any future model fit/activation."""
+    manifest=dataset.manifest_json or {}
+    if dataset.mode != "RESEARCH" or manifest.get("research_source_policy") != RESEARCH_SOURCE_POLICY:
+        return "UNVERIFIED_RESEARCH_PROVENANCE"
+    expected_hash=dataset_digest({"topic_id":dataset.topic_id,"mode":dataset.mode,
+        "feature_schema_version":dataset.feature_schema_version,
+        "label_mapping_version":dataset.label_mapping_version,"manifest":manifest})
+    if expected_hash != dataset.dataset_hash:
+        return "UNVERIFIED_RESEARCH_PROVENANCE"
+    records=manifest.get("records")
+    if not isinstance(records,list) or not records:
+        return "UNVERIFIED_RESEARCH_PROVENANCE"
+    ids=[item.get("case_id") for item in records]
+    if any(not isinstance(value,int) for value in ids) or len(ids)!=len(set(ids)):
+        return "UNVERIFIED_RESEARCH_PROVENANCE"
+    cases={row.id:row for row in db.query(DecisionCase).filter(DecisionCase.id.in_(ids)).all()}
+    if set(cases)!=set(ids):
+        return "UNVERIFIED_RESEARCH_PROVENANCE"
+    snapshots={row.id:row for row in db.query(DecisionSnapshot).filter(DecisionSnapshot.id.in_([item.get("snapshot_id") for item in records])).all()}
+    for item in records:
+        case=cases[item["case_id"]]
+        if _research_case_issue(db,case) is not None:
+            return "UNVERIFIED_RESEARCH_PROVENANCE"
+        snapshot=snapshots.get(item.get("snapshot_id"))
+        expected_group=f"experiment-{case.experiment_id}"
+        if (not snapshot or snapshot.id!=case.snapshot_id or item.get("action")!=case.selected_action
+            or item.get("snapshot_hash")!=snapshot.snapshot_hash
+            or item.get("decision_contract_version")!=DECISION_SNAPSHOT_CONTRACT
+            or item.get("features")!=snapshot.feature_vector_json or item.get("state")!=snapshot.state_json
+            or item.get("case_group_id")!=expected_group):
+            return "UNVERIFIED_RESEARCH_PROVENANCE"
+    eval_ids=manifest.get("evaluation_case_ids",[])
+    if not eval_ids or len(eval_ids)!=len(set(eval_ids)) or not set(eval_ids)<=set(ids):
+        return "UNVERIFIED_RESEARCH_PROVENANCE"
+    eval_records=[item for item in records if item["case_id"] in set(eval_ids)]
+    if dataset_digest(eval_records)!=manifest.get("evaluation_hash"):
+        return "UNVERIFIED_RESEARCH_PROVENANCE"
+    return None
+
+
+def _research_model_source_issue(db, model):
+    provenance=model.provenance_json or {}
+    if provenance.get("research_source_policy")!=RESEARCH_SOURCE_POLICY:
+        return "UNVERIFIED_RESEARCH_PROVENANCE"
+    dataset_id=provenance.get("dataset_version_id")
+    if dataset_id is not None:
+        dataset=db.get(DecisionDatasetVersion,dataset_id)
+        if (not dataset or dataset.topic_id!=model.topic_id or dataset.mode!="RESEARCH"
+            or dataset.dataset_hash!=model.dataset_hash or _research_dataset_issue(db,dataset)):
+            return "UNVERIFIED_RESEARCH_PROVENANCE"
+        return None
+    case_ids=provenance.get("research_source_case_ids")
+    if not isinstance(case_ids,list) or not case_ids or len(case_ids)!=len(set(case_ids)):
+        return "UNVERIFIED_RESEARCH_PROVENANCE"
+    for case_id in case_ids:
+        case=db.get(DecisionCase,case_id)
+        if not case or case.topic_id!=model.topic_id or _research_case_issue(db,case):
+            return "UNVERIFIED_RESEARCH_PROVENANCE"
+    return None
+
+
 def _snapshot_sources(db,experiment_id,topic_id):
     if not experiment_id: return {"observation_ids":[],"analysis_ids":[],"simulation_ids":[],"optimization_model_ids":[]}
     return {
@@ -137,12 +297,34 @@ def _snapshot_sources(db,experiment_id,topic_id):
     }
 
 
+def _snapshot_contract_payload(*,topic_id,experiment_id,mode,decision_timestamp,state,features,
+        feature_schema_version,sources,model_id,model_version,raw_action,final_action,probabilities,
+        confidence,calibration_status,ood_status,ood_reasons,abstention_reason,safety_override,
+        safety_override_reason):
+    return {"topic_id":topic_id,"experiment_id":experiment_id,"mode":mode,
+        "decision_timestamp":decision_timestamp,"state":state,"features":features,
+        "feature_schema_version":feature_schema_version,"sources":sources,"model_id":model_id,
+        "model_version":model_version,"raw_predicted_action":raw_action,
+        "final_suggested_action":final_action,"probabilities":probabilities,"confidence":confidence,
+        "calibration_status":calibration_status,"ood_status":ood_status,"ood_reasons":ood_reasons,
+        "abstention_reason":abstention_reason,"safety_override":safety_override,
+        "safety_override_reason":safety_override_reason,
+        "decision_contract_version":DECISION_SNAPSHOT_CONTRACT}
+
+
 def _save_snapshot(db,topic_id,mode,state,model,result,*,experiment_id=None,source_case=None,existing=None):
     if existing:
         if existing.topic_id!=topic_id or existing.mode!=mode:
             raise HTTPException(409,detail={"code":"MODEL_DATASET_MODE_MISMATCH","message":"Snapshot and model dataset modes must match."})
         if model and existing.model_run_id not in (None,model.id):
             raise HTTPException(409,detail={"code":"SNAPSHOT_MODEL_MISMATCH","message":"This snapshot belongs to a different model recommendation."})
+        if model and existing.model_run_id == model.id and existing.decision_contract_version != DECISION_SNAPSHOT_CONTRACT:
+            raise HTTPException(409,detail={"code":"LEGACY_SNAPSHOT_REVIEW_REQUIRED","message":"This historical snapshot does not distinguish the raw prediction from the final safety-filtered recommendation. Create a new decision snapshot before recording feedback."})
+        if model and existing.model_run_id==model.id and (
+            existing.raw_predicted_action!=result.get("raw_predicted_action")
+            or existing.suggested_action!=result.get("action")
+        ):
+            raise HTTPException(409,detail={"code":"SNAPSHOT_RECOMMENDATION_MISMATCH","message":"The immutable snapshot action differs from the current model's final safe recommendation."})
         return existing
     now=datetime.now(timezone.utc).replace(tzinfo=None)
     sources=_snapshot_sources(db,experiment_id,topic_id)
@@ -153,14 +335,36 @@ def _save_snapshot(db,topic_id,mode,state,model,result,*,experiment_id=None,sour
         "source_case_id":source_case.id if source_case else state.get("decision_source_case_id"),
         "case_group_id":source_case.case_group_id if source_case else state.get("decision_case_group_id"),
         "historical_time_reconstruction":"NOT_AVAILABLE","future_state_reconstructed":False}
-    body={"topic_id":topic_id,"experiment_id":experiment_id,"mode":mode,"decision_timestamp":now.isoformat(),
-        "state":state,"features":feature_vector,"feature_schema_version":FEATURE_SCHEMA_VERSION,"sources":sources,
-        "model_id":model.id if model else None,"action":result["raw_predicted_action"],"probabilities":result.get("action_probabilities",{}),"ood_status":result.get("ood_status","UNKNOWN")}
+    raw_action=result.get("raw_predicted_action") or (result.get("action") if model else None)
+    final_action=result.get("action") or raw_action
+    safety_override=bool(raw_action and final_action and raw_action!=final_action)
+    safety_reason=result.get("safety_override_reason")
+    if safety_override and not safety_reason:
+        safety_reason=result.get("abstention_reason") or "; ".join(result.get("ood_reasons") or []) or "Safety policy changed the raw model prediction."
+    calibration_status=result.get("calibration_status") or ("CALIBRATED" if result.get("confidence_semantics")=="temperature_scaled_score" else "UNCALIBRATED" if result.get("confidence") is not None else "NOT_APPLICABLE")
+    probabilities=result.get("action_probabilities",{});confidence=result.get("confidence")
+    ood_status=result.get("ood_status","UNKNOWN");ood_reasons=result.get("ood_reasons",[])
+    abstention_reason=result.get("abstention_reason");model_version=model.model_version if model else result.get("model_version")
+    body=_snapshot_contract_payload(topic_id=topic_id,experiment_id=experiment_id,mode=mode,
+        decision_timestamp=now.isoformat(),state=state,features=feature_vector,
+        feature_schema_version=FEATURE_SCHEMA_VERSION,sources=sources,model_id=model.id if model else None,
+        model_version=model_version,raw_action=raw_action,final_action=final_action,
+        probabilities=probabilities,confidence=confidence,calibration_status=calibration_status,
+        ood_status=ood_status,ood_reasons=ood_reasons,abstention_reason=abstention_reason,
+        safety_override=safety_override,safety_override_reason=safety_reason)
+    provenance["decision_contract_version"]=DECISION_SNAPSHOT_CONTRACT
+    provenance["decision_kind"]="MODEL_RECOMMENDATION" if model else "RESEARCHER_REVIEWED_CASE"
+    provenance["model_version"]=model_version
+    provenance["snapshot_sources"]=sources
     row=DecisionSnapshot(id=str(uuid.uuid4()),topic_id=topic_id,experiment_id=experiment_id,
         method_version_id=state.get("method_version_id"),model_run_id=model.id if model else None,mode=mode,
         decision_timestamp=now,snapshot_timestamp=now,data_availability_timestamp=now,state_json=state,
-        feature_vector_json=feature_vector,suggested_action=result["raw_predicted_action"],
-        probabilities_json=result.get("action_probabilities",{}),ood_status=result.get("ood_status","UNKNOWN"),
+        feature_vector_json=feature_vector,suggested_action=final_action,raw_predicted_action=raw_action,
+        probabilities_json=result.get("action_probabilities",{}),confidence=result.get("confidence"),
+        calibration_status=calibration_status,ood_status=result.get("ood_status","UNKNOWN"),
+        ood_reasons_json=result.get("ood_reasons",[]),abstention_reason=result.get("abstention_reason"),
+        safety_override=safety_override,safety_override_reason=safety_reason,
+        decision_contract_version=DECISION_SNAPSHOT_CONTRACT,
         feature_schema_version=FEATURE_SCHEMA_VERSION,source_observation_ids_json=sources["observation_ids"],
         source_analysis_ids_json=sources["analysis_ids"],source_simulation_ids_json=sources["simulation_ids"],
         source_optimization_model_ids_json=sources["optimization_model_ids"],provenance_json=provenance,
@@ -177,6 +381,8 @@ def _resolve_model_state(db,payload,row):
             raise HTTPException(404,detail={"code":"DECISION_SNAPSHOT_NOT_FOUND","message":"Decision snapshot not found for this topic."})
         if snapshot.mode!=mode:
             raise HTTPException(409,detail={"code":"MODEL_DATASET_MODE_MISMATCH","message":"Model and snapshot dataset modes differ."})
+        if mode=="RESEARCH" and _research_snapshot_issue(db,snapshot):
+            raise HTTPException(409,detail={"code":"UNVERIFIED_RESEARCH_PROVENANCE","message":"This Research snapshot does not satisfy the verified experiment/source contract."})
         if snapshot.model_run_id not in (None,row.id):
             raise HTTPException(409,detail={"code":"SNAPSHOT_MODEL_MISMATCH","message":"Snapshot was created for another model recommendation."})
         return snapshot.state_json,snapshot.experiment_id,snapshot if snapshot.model_run_id==row.id else None
@@ -187,8 +393,10 @@ def _resolve_model_state(db,payload,row):
         expected="SYNTHETIC_SANDBOX" if mode=="SANDBOX" else None
         if mode=="SANDBOX" and (case.label_source!=expected or case.review_status!="SYNTHETIC_ONLY"):
             raise HTTPException(409,detail={"code":"MODEL_DATASET_MODE_MISMATCH","message":"Sandbox models accept only stored synthetic cases."})
-        if mode=="RESEARCH" and (case.label_source not in {"HUMAN_REVIEWED_DECISION","EXPERT_ANNOTATION"} or case.review_status!="ACCEPTED" or not case.snapshot_id):
-            raise HTTPException(409,detail={"code":"MODEL_DATASET_MODE_MISMATCH","message":"Research models require a reviewed research case with a decision-time snapshot."})
+        if mode=="RESEARCH" and case.label_source=="SYNTHETIC_SANDBOX":
+            raise HTTPException(409,detail={"code":"MODEL_DATASET_MODE_MISMATCH","message":"Research models cannot consume synthetic Sandbox cases."})
+        if mode=="RESEARCH" and _research_case_issue(db,case):
+            raise HTTPException(409,detail={"code":"UNVERIFIED_RESEARCH_PROVENANCE","message":"Research predictions require a case with a currently verified research source."})
         snapshot=db.get(DecisionSnapshot,case.snapshot_id) if case.snapshot_id else None
         if mode=="RESEARCH" and (not snapshot or snapshot.mode!="RESEARCH"):
             raise HTTPException(409,detail={"code":"MODEL_DATASET_MODE_MISMATCH","message":"Research case is missing a compatible snapshot."})
@@ -215,7 +423,14 @@ def _snapshot_out(row):
         "feature_schema_version":row.feature_schema_version,"feature_vector":row.feature_vector_json,"snapshot_hash":row.snapshot_hash,
         "source_observation_ids":row.source_observation_ids_json,"source_analysis_ids":row.source_analysis_ids_json,
         "source_simulation_ids":row.source_simulation_ids_json,"source_optimization_model_ids":row.source_optimization_model_ids_json,
-        "provenance":row.provenance_json,"suggested_action":row.suggested_action,"action_probabilities":row.probabilities_json,"ood_status":row.ood_status}
+        "provenance":row.provenance_json,"raw_predicted_action":row.raw_predicted_action,
+        "suggested_action":row.suggested_action,"final_suggested_action":row.suggested_action,
+        "action_probabilities":row.probabilities_json,"confidence":row.confidence,
+        "calibration_status":row.calibration_status,"ood_status":row.ood_status,
+        "ood_reasons":row.ood_reasons_json,"abstention_reason":row.abstention_reason,
+        "safety_override":row.safety_override,"safety_override_reason":row.safety_override_reason,
+        "model_version":(row.provenance_json or {}).get("model_version"),
+        "decision_contract_version":row.decision_contract_version}
 
 
 def _model_out(row):
@@ -233,7 +448,7 @@ def training_readiness(topic_id:int,db:Session=Depends(get_db)):
     latest={}
     for feedback in feedback_rows:latest.setdefault((feedback.snapshot_id,feedback.model_run_id),feedback)
     latest_eligible={row.id for row in latest.values() if row.feedback_type in {"ACCEPT","CORRECT","REJECT"} and row.final_reviewed_action}
-    human=[row for row in rows if row.label_source in {"HUMAN_REVIEWED_DECISION","EXPERT_ANNOTATION"} and row.review_status=="ACCEPTED" and (row.feedback_id is None or row.feedback_id in latest_eligible) and row.snapshot_id]
+    human=[row for row in rows if _research_case_issue(db,row) is None and (row.feedback_id is None or row.feedback_id in latest_eligible)]
     groups=len({row.case_group_id for row in human}); classes=sorted({row.selected_action for row in human})
     action_groups={action:len({row.case_group_id for row in human if row.selected_action==action}) for action in classes}
     ready=groups>=20 and len(classes)>=2 and all(count>=2 for count in action_groups.values())
@@ -247,15 +462,24 @@ def training_readiness(topic_id:int,db:Session=Depends(get_db)):
 @router.post("/cases")
 def create_case(payload:CaseIn,db:Session=Depends(get_db)):
     _topic(db,payload.topic_id)
+    if payload.label_source == "EXPERT_ANNOTATION":
+        raise HTTPException(422,detail={"code":"UNVERIFIED_RESEARCH_PROVENANCE","message":"Independent expert annotations require a verifiable document/source contract, which is not available in this endpoint."})
+    if payload.experiment_id is None:
+        raise HTTPException(422,detail={"code":"RESEARCH_EXPERIMENT_REQUIRED","message":"Research decision labels must be linked to a non-demo experiment."})
+    experiment=db.get(Experiment,payload.experiment_id)
+    if not experiment:
+        raise HTTPException(422,detail={"code":"RESEARCH_EXPERIMENT_REQUIRED","message":"The referenced research experiment does not exist."})
+    if experiment.demo or experiment.topic_id!=payload.topic_id:
+        raise HTTPException(422,detail={"code":"UNVERIFIED_RESEARCH_PROVENANCE","message":"Research decision labels require a non-demo experiment belonging to the selected topic."})
     state=_state(db,payload.topic_id,payload.experiment_id,payload.scientific_state)
     try: features=encode_state(state).tolist()
     except DecisionInputError as exc: raise HTTPException(422,str(exc)) from exc
-    snapshot=_save_snapshot(db,payload.topic_id,"RESEARCH",state,None,{"raw_predicted_action":payload.selected_action},experiment_id=payload.experiment_id)
+    snapshot=_save_snapshot(db,payload.topic_id,"RESEARCH",state,None,{"action":payload.selected_action},experiment_id=payload.experiment_id)
     group=f"experiment-{payload.experiment_id}" if payload.experiment_id else payload.case_group_id or f"case-{uuid.uuid4()}"
     row=DecisionCase(topic_id=payload.topic_id,experiment_id=payload.experiment_id,snapshot_id=snapshot.id,case_group_id=group,state_json=state,
         features_json={"vector":features,"feature_names":list(FEATURES)},feature_schema_version=FEATURE_SCHEMA_VERSION,
         candidate_actions_json=list(ACTIONS),selected_action=payload.selected_action,label_source=payload.label_source,reviewer=payload.reviewer.strip(),review_status="ACCEPTED",
-        provenance_json={"label_source":payload.label_source,"reviewer":payload.reviewer.strip(),"reviewer_identity_status":"SELF_REPORTED_NOT_AUTHENTICATED","opinion":payload.opinion.strip(),"decision_timestamp":snapshot.decision_timestamp.isoformat(),"feature_extraction_timestamp":snapshot.snapshot_timestamp.isoformat(),"snapshot_id":snapshot.id},dataset_version=DATASET_VERSION,created_at=datetime.now(timezone.utc).replace(tzinfo=None))
+        provenance_json={"label_source":payload.label_source,"reviewer":payload.reviewer.strip(),"reviewer_identity_status":"SELF_REPORTED_NOT_AUTHENTICATED","opinion":payload.opinion.strip(),"decision_timestamp":snapshot.decision_timestamp.isoformat(),"feature_extraction_timestamp":snapshot.snapshot_timestamp.isoformat(),"snapshot_id":snapshot.id,"snapshot_hash":snapshot.snapshot_hash,"research_source_policy":RESEARCH_SOURCE_POLICY},dataset_version=DATASET_VERSION,created_at=datetime.now(timezone.utc).replace(tzinfo=None))
     db.add(row);db.commit();db.refresh(row)
     return {"case_id":row.id,"snapshot_id":snapshot.id,"snapshot_hash":snapshot.snapshot_hash,"topic_id":row.topic_id,"label_source":row.label_source,"review_status":row.review_status,"case_group_id":row.case_group_id,"feature_schema_version":row.feature_schema_version}
 
@@ -282,7 +506,11 @@ def train(payload:TrainIn,db:Session=Depends(get_db)):
     _topic(db,payload.topic_id)
     rows=db.query(DecisionCase).filter(DecisionCase.topic_id==payload.topic_id).all()
     if payload.mode=="sandbox": rows=[row for row in rows if row.label_source=="SYNTHETIC_SANDBOX" and row.review_status=="SYNTHETIC_ONLY"]
-    else: rows=[row for row in rows if row.label_source in {"HUMAN_REVIEWED_DECISION","EXPERT_ANNOTATION"} and row.review_status=="ACCEPTED"]
+    else:
+        research_candidates=[row for row in rows if row.label_source in {"HUMAN_REVIEWED_DECISION","EXPERT_ANNOTATION"}]
+        rows=[row for row in research_candidates if _research_case_issue(db,row) is None]
+        if research_candidates and not rows:
+            raise HTTPException(409,detail={"code":"UNVERIFIED_RESEARCH_PROVENANCE","message":"No stored Research case satisfies the verified experiment/source contract."})
     groups={row.case_group_id for row in rows}; labels=[row.selected_action for row in rows]
     min_groups=24 if payload.mode=="sandbox" else 20
     action_groups={action:len({row.case_group_id for row in rows if row.selected_action==action}) for action in set(labels)}
@@ -314,6 +542,10 @@ def train(payload:TrainIn,db:Session=Depends(get_db)):
             "case_ids":[row.id for row in rows],"label_sources":sorted({row.label_source for row in rows}),"review_statuses":sorted({row.review_status for row in rows}),
             "group_split":"stratified_by_case_group","training_case_ids":[rows[i].id for i in fit_ix],"calibration_case_ids":[rows[i].id for i in cal_ix],"validation_case_ids":[rows[i].id for i in valid_ix],
             "no_pseudo_labels":True,"shadow_mode_only":True}
+        if payload.mode=="research":
+            provenance.update({"research_source_policy":RESEARCH_SOURCE_POLICY,
+                "research_source_case_ids":[row.id for row in rows],
+                "research_snapshot_hashes":sorted({db.get(DecisionSnapshot,row.snapshot_id).snapshot_hash for row in rows})})
         run=DecisionModelRun(topic_id=payload.topic_id,mode=payload.mode,status="COMPLETED",dataset_hash=digest,model_version=MODEL_VERSION,
             feature_schema_version=FEATURE_SCHEMA_VERSION,dataset_version=DATASET_VERSION,model_json=model.to_dict(),metrics_json=eval_metrics,provenance_json=provenance,created_at=datetime.now(timezone.utc).replace(tzinfo=None))
         db.add(run);db.commit();db.refresh(run)
@@ -443,11 +675,13 @@ def build_dataset(payload:DatasetBuildIn,db:Session=Depends(get_db)):
         rows=[row for row in rows if row.label_source in {"HUMAN_REVIEWED_DECISION","EXPERT_ANNOTATION"} and row.review_status=="ACCEPTED" and row.snapshot_id]
         # Eligibility is explicit from the final action and feedback type.
         rows=[case for case in rows if case.feedback_id is None or case.feedback_id in latest_feedback_ids]
-        snapshots={item.id:item for item in db.query(DecisionSnapshot).filter(DecisionSnapshot.id.in_([row.snapshot_id for row in rows if row.snapshot_id])).all()}
-        rows=[row for row in rows if row.snapshot_id in snapshots and snapshots[row.snapshot_id].mode=="RESEARCH"]
-        experiments={item.id:item for item in db.query(Experiment).filter(Experiment.id.in_([row.experiment_id for row in rows if row.experiment_id])).all()}
-        rows=[row for row in rows if row.experiment_id is None or (row.experiment_id in experiments and experiments[row.experiment_id].topic_id==payload.topic_id and not experiments[row.experiment_id].demo)]
-    if not rows: raise HTTPException(409,detail={"code":"INSUFFICIENT_REVIEWED_DECISIONS" if mode=="RESEARCH" else "INSUFFICIENT_SANDBOX_CASES","message":"No eligible, snapshot-backed decision cases are available."})
+        rows=[row for row in rows if _research_case_issue(db,row) is None]
+    if not rows:
+        has_unverified_research=mode=="RESEARCH" and db.query(DecisionCase).filter(
+            DecisionCase.topic_id==payload.topic_id,
+            DecisionCase.label_source.in_(["HUMAN_REVIEWED_DECISION","EXPERT_ANNOTATION"])).first() is not None
+        code="UNVERIFIED_RESEARCH_PROVENANCE" if has_unverified_research else "INSUFFICIENT_REVIEWED_DECISIONS" if mode=="RESEARCH" else "INSUFFICIENT_SANDBOX_CASES"
+        raise HTTPException(409,detail={"code":code,"message":"No eligible cases have a verified Research source and decision snapshot." if has_unverified_research else "No eligible, snapshot-backed decision cases are available."})
     snapshots={item.id:item for item in db.query(DecisionSnapshot).filter(DecisionSnapshot.id.in_([row.snapshot_id for row in rows if row.snapshot_id])).all()}
     records=[]
     for row in rows:
@@ -460,7 +694,9 @@ def build_dataset(payload:DatasetBuildIn,db:Session=Depends(get_db)):
             "case_group_id":group,"features":vector,"state":state,"action":row.selected_action,
             "label_source":row.label_source,"review_status":row.review_status,
             "reviewer_identity_status":(row.provenance_json or {}).get("reviewer_identity_status","NOT_AUTHENTICATED"),
-            "provenance":row.provenance_json or {}})
+            "provenance":row.provenance_json or {},
+            "snapshot_hash":snapshots[row.snapshot_id].snapshot_hash if mode=="RESEARCH" else None,
+            "decision_contract_version":snapshots[row.snapshot_id].decision_contract_version if mode=="RESEARCH" else None})
     if len(records)<2: raise HTTPException(409,detail={"code":"INSUFFICIENT_REVIEWED_DECISIONS" if mode=="RESEARCH" else "INSUFFICIENT_SANDBOX_CASES","message":"At least two eligible decision cases are required."})
     record_ids={item["case_id"] for item in records}
     previous=db.query(DecisionDatasetVersion).filter_by(topic_id=payload.topic_id,mode=mode).order_by(DecisionDatasetVersion.id.desc()).first()
@@ -482,8 +718,8 @@ def build_dataset(payload:DatasetBuildIn,db:Session=Depends(get_db)):
             raise HTTPException(409,detail={"code":"INSUFFICIENT_REVIEWED_DECISIONS" if mode=="RESEARCH" else "INSUFFICIENT_SANDBOX_CASES","message":str(exc)}) from exc
         frozen_eval_ids=[records[i]["case_id"] for i in eval_ix]
         frozen_group_ids=sorted({records[i]["case_group_id"] for i in eval_ix})
-    eval_hash=dataset_digest([item for item in records if item["case_id"] in set(frozen_eval_ids)])
     records=sorted(records,key=lambda x:(x["case_group_id"],x["case_id"]))
+    eval_hash=dataset_digest([item for item in records if item["case_id"] in set(frozen_eval_ids)])
     action_distribution={action:sum(item["action"]==action for item in records) for action in ACTIONS}
     missingness={"missing_feature_count_cases":sum(bool(item["state"].get("state_field_missing_count",0)) for item in records),
         "without_authenticated_reviewer":sum(item["reviewer_identity_status"]!="AUTHENTICATED" for item in records if mode=="RESEARCH")}
@@ -492,6 +728,7 @@ def build_dataset(payload:DatasetBuildIn,db:Session=Depends(get_db)):
         "no_pseudo_labels":True,"reviewer_identity_is_self_reported":mode=="RESEARCH"}
     manifest={"records":records,"evaluation_case_ids":frozen_eval_ids,"evaluation_group_ids":frozen_group_ids,"evaluation_hash":eval_hash,
         "excluded_training_group_ids":frozen_group_ids,"split_policy":"immutable_group_holdout_v1"}
+    if mode=="RESEARCH": manifest["research_source_policy"]=RESEARCH_SOURCE_POLICY
     digest=dataset_digest({"topic_id":payload.topic_id,"mode":mode,"feature_schema_version":FEATURE_SCHEMA_VERSION,
         "label_mapping_version":"decision-actions-v1","manifest":manifest})
     existing=db.query(DecisionDatasetVersion).filter_by(topic_id=payload.topic_id,mode=mode,dataset_hash=digest).first()
@@ -523,12 +760,20 @@ def create_feedback(payload:FeedbackIn,db:Session=Depends(get_db)):
     if not model or model.topic_id!=snapshot.topic_id: raise HTTPException(404,detail={"code":"DECISION_MODEL_NOT_FOUND","message":"Model not found for this snapshot topic."})
     if snapshot.model_run_id!=model.id or snapshot.mode!=_model_mode(model):
         raise HTTPException(409,detail={"code":"MODEL_DATASET_MODE_MISMATCH","message":"Feedback must refer to the exact model and mode that produced the snapshot."})
+    if snapshot.decision_contract_version != DECISION_SNAPSHOT_CONTRACT or not snapshot.raw_predicted_action:
+        raise HTTPException(409,detail={"code":"LEGACY_SNAPSHOT_REVIEW_REQUIRED","message":"This historical snapshot does not preserve separate raw and final actions. It is retained as-is and cannot create a new training label."})
+    if _model_mode(model)=="RESEARCH":
+        source_issue=_research_snapshot_issue(db,snapshot)
+        if source_issue:
+            raise HTTPException(422,detail={"code":source_issue,"message":"Research feedback requires a contract-compliant snapshot linked to a verified non-demo experiment."})
     final_action=payload.final_reviewed_action
     if payload.feedback_type=="ACCEPT":
         if final_action not in (None,snapshot.suggested_action): raise HTTPException(422,"Accept feedback must keep the suggested action.")
         final_action=snapshot.suggested_action
     elif payload.feedback_type=="CORRECT":
         if not final_action or final_action==snapshot.suggested_action: raise HTTPException(422,"Correct feedback requires a different final action.")
+    elif payload.feedback_type=="REJECT" and final_action==snapshot.suggested_action:
+        raise HTTPException(422,"Rejected feedback must omit a training action or provide a different corrected action.")
     elif payload.feedback_type=="UNSURE" and final_action:
         raise HTTPException(422,"Unsure feedback cannot contain a training label.")
     previous=db.query(DecisionFeedback).filter_by(snapshot_id=snapshot.id,model_run_id=model.id).order_by(DecisionFeedback.revision.desc()).first()
@@ -554,9 +799,11 @@ def create_feedback(payload:FeedbackIn,db:Session=Depends(get_db)):
             feature_schema_version=snapshot.feature_schema_version,candidate_actions_json=list(ACTIONS),selected_action=final_action,
             label_source=label_source,reviewer=payload.reviewer.strip(),review_status="SYNTHETIC_ONLY" if synthetic else "ACCEPTED",
             provenance_json={"label_source":label_source,"reviewer_identity_status":"SELF_REPORTED_NOT_AUTHENTICATED",
+                "reviewer":payload.reviewer.strip(),
                 "reviewed_feedback_id":feedback.id,"feedback_type":payload.feedback_type,"model_id":model.id,
                 "model_version":model.model_version,"snapshot_id":snapshot.id,"snapshot_hash":snapshot.snapshot_hash,
-                "not_authenticated_expert_truth":True,"decision_time_snapshot":True},
+                "not_authenticated_expert_truth":True,"decision_time_snapshot":True,
+                **({"label_source":"HUMAN_REVIEWED_DECISION","research_source_policy":RESEARCH_SOURCE_POLICY} if not synthetic else {})},
             dataset_version=DATASET_VERSION,created_at=datetime.now(timezone.utc).replace(tzinfo=None))
         db.add(case)
     db.commit();db.refresh(feedback)
@@ -571,6 +818,8 @@ def create_feedback(payload:FeedbackIn,db:Session=Depends(get_db)):
 def retrain(payload:RetrainIn,db:Session=Depends(get_db)):
     dataset=db.get(DecisionDatasetVersion,payload.dataset_version_id)
     if not dataset: raise HTTPException(404,detail={"code":"DECISION_DATASET_NOT_FOUND","message":"Decision dataset version not found."})
+    if dataset.mode=="RESEARCH" and _research_dataset_issue(db,dataset):
+        raise HTTPException(409,detail={"code":"UNVERIFIED_RESEARCH_PROVENANCE","message":"This frozen Research dataset predates or fails the verified experiment/source contract and cannot be used for new training."})
     records=dataset.manifest_json.get("records",[]);eval_ids=list(dataset.manifest_json.get("evaluation_case_ids",[]))
     eval_set=set(eval_ids);eval_records=[item for item in records if item["case_id"] in eval_set]
     if len(eval_records)!=len(eval_ids) or not eval_records:
@@ -630,6 +879,9 @@ def retrain(payload:RetrainIn,db:Session=Depends(get_db)):
             "evaluation_case_ids":eval_ids,"validation_case_ids":eval_ids,"evaluation_group_ids":sorted(eval_groups),"evaluation_hash":eval_hash,
             "group_split":"frozen_group_holdout_v1","evaluation_case_count":len(eval_ids),"no_pseudo_labels":True,"shadow_mode_only":True,
             "reviewer_identity_note":"Self-reported identity; not authenticated." if dataset.mode=="RESEARCH" else "Synthetic fixture only."}
+        if dataset.mode=="RESEARCH":
+            provenance["research_source_policy"]=RESEARCH_SOURCE_POLICY
+            provenance["research_source_case_ids"]=[item["case_id"] for item in records]
         row=DecisionModelRun(topic_id=dataset.topic_id,mode=dataset.mode,status="EVALUATED",dataset_hash=dataset.dataset_hash,
             model_version=f"{MODEL_VERSION}+run-{run_number}",feature_schema_version=dataset.feature_schema_version,
             dataset_version=dataset.dataset_version,model_json=model.to_dict(),metrics_json=metrics,provenance_json=provenance,
@@ -734,6 +986,8 @@ def _set_active_shadow(db,topic_id,mode,model,comparison,reviewer,reason,action)
         raise HTTPException(409,detail={"code":"MODEL_NOT_EVALUATED_FOR_PROMOTION","message":"A frozen evaluation result is required before activation."})
     if model.topic_id!=topic_id or model.mode.upper()!=mode or not (model.provenance_json or {}).get("evaluation_hash"):
         raise HTTPException(409,detail={"code":"MODEL_DATASET_MODE_MISMATCH","message":"Only evaluated models with the same topic and dataset mode can be activated."})
+    if mode=="RESEARCH" and _research_model_source_issue(db,model):
+        raise HTTPException(409,detail={"code":"UNVERIFIED_RESEARCH_PROVENANCE","message":"This Research model has no verifiable, contract-compliant experiment source and cannot be activated."})
     if active: active.model_run_id=model.id;active.updated_at=datetime.now(timezone.utc).replace(tzinfo=None)
     else:
         active=DecisionActiveShadowModel(topic_id=topic_id,mode=mode,model_run_id=model.id,updated_at=datetime.now(timezone.utc).replace(tzinfo=None));db.add(active)

@@ -347,7 +347,16 @@ def infer_safe(model: LearnedDecisionHead, state: dict) -> dict:
     elif int(state.get("pending_review_count",0) or 0)>0: action="REQUEST_REVIEW"; abstention=None
     elif confidence < .45: action="ABSTAIN"; abstention="Model confidence is below the review threshold."
     else: action=predicted; abstention=None
+    override_reason=None
+    if action!=predicted:
+        if ood!="IN_DISTRIBUTION": override_reason="OOD safety policy: "+("; ".join(reasons) or "state is outside the supported training range")
+        elif int(state.get("missing_required_information_count",0) or 0)>0: override_reason="Required experimental information is missing."
+        elif int(state.get("pending_review_count",0) or 0)>0: override_reason="Existing measurements or records require researcher review."
+        elif confidence < .45: override_reason="Confidence is below the configured 0.45 review threshold."
+        else: override_reason="Safety policy changed the raw model prediction."
     return {"action":action,"raw_predicted_action":predicted,"action_probabilities":{name:float(probs[i]) for i,name in enumerate(ACTIONS)},
             "confidence":confidence,"confidence_semantics":"temperature_scaled_score" if model.calibrated else "uncalibrated_softmax_score",
-            "ood_status":ood,"ood_reasons":reasons,"abstention_reason":abstention,"inference_latency_ms":latency,
+            "calibration_status":"CALIBRATED" if model.calibrated else "UNCALIBRATED",
+            "ood_status":ood,"ood_reasons":reasons,"abstention_reason":abstention,
+            "safety_override":action!=predicted,"safety_override_reason":override_reason,"inference_latency_ms":latency,
             "mode":"SHADOW_ONLY","workflow_triggered":False,"model_version":MODEL_VERSION}

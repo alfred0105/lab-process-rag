@@ -471,8 +471,18 @@ class DecisionSnapshot(Base):
     state_json: Mapped[dict] = mapped_column(JSON)
     feature_vector_json: Mapped[list] = mapped_column(JSON)
     suggested_action: Mapped[str] = mapped_column(String(40))
+    # Added in 0011. NULL identifies historical snapshots whose action semantics
+    # cannot be reconstructed without rewriting immutable records.
+    raw_predicted_action: Mapped[str | None] = mapped_column(String(40), nullable=True)
     probabilities_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    calibration_status: Mapped[str | None] = mapped_column(String(50), nullable=True)
     ood_status: Mapped[str] = mapped_column(String(30), default="UNKNOWN")
+    ood_reasons_json: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    abstention_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    safety_override: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    safety_override_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    decision_contract_version: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
     feature_schema_version: Mapped[str] = mapped_column(String(40))
     source_observation_ids_json: Mapped[list] = mapped_column(JSON, default=list)
     source_analysis_ids_json: Mapped[list] = mapped_column(JSON, default=list)

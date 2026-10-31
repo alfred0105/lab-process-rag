@@ -61,12 +61,15 @@ def test_legacy_sqlite_schema_upgrades_twice_without_duplicate_columns(tmp_path)
     assert review_columns["analysis_run_id"]["nullable"] is True
     assert review_columns["observation_id"]["nullable"] is True
     with engine.connect() as connection:
-        assert connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one()=="0010_decision_feedback_learning"
+        assert connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one()=="0011_decision_snapshot_safety_contract"
         assert connection.exec_driver_sql("SELECT parameter_id FROM scientific_observations WHERE id=7").scalar_one()=="temperature"
         assert connection.exec_driver_sql("SELECT reviewer FROM measurement_review_events WHERE id=9").scalar_one()=="old reviewer"
     assert any(index["name"]=="uq_simulation_run_idempotency_key" and index["unique"] for index in inspector.get_indexes("simulation_runs"))
     assert "scientific_data_audit_events" in inspector.get_table_names()
     assert {"snapshot_id","feedback_id"}<={column["name"] for column in inspector.get_columns("decision_cases")}
+    snapshot_columns={column["name"] for column in inspector.get_columns("decision_snapshots")}
+    assert {"raw_predicted_action","confidence","calibration_status","ood_reasons_json",
+        "abstention_reason","safety_override","safety_override_reason","decision_contract_version"}<=snapshot_columns
     assert {"decision_snapshots","decision_feedback","decision_dataset_versions","decision_model_comparisons","decision_active_shadow_models","decision_model_activation_events"}<=set(inspector.get_table_names())
     case_fks={fk["name"] for fk in inspector.get_foreign_keys("decision_cases")}
     assert {"fk_decision_cases_snapshot_id","fk_decision_cases_feedback_id"}<=case_fks
