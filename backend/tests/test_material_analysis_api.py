@@ -97,7 +97,24 @@ def test_analysis_api_persists_original_and_mask_with_provenance(tmp_path, monke
             assert xrd_reanalyzed.status_code==200,xrd_reanalyzed.text
             assert xrd_reanalyzed.json()["id"]!=xrd_first.json()["id"]
             assert xrd_reanalyzed.json()["result"]["analysis_provenance"]["parameters"]["xrd_x_unit"]=="d_angstrom"
+            converted=client.post(f"/api/analysis/runs/{xrd_first.json()['id']}/convert-axis?topic_id={topic_id}",data={"target_axis":"q_angstrom^-1","wavelength_angstrom":"1.5406"})
+            assert converted.status_code==200,converted.text
+            converted_json=converted.json()
+            assert converted_json["id"] not in {xrd_first.json()["id"],xrd_reanalyzed.json()["id"]}
+            assert converted_json["result"]["x_unit"]=="q_angstrom^-1"
+            assert converted_json["result"]["analysis_provenance"]["derived_from_analysis_run_id"]==xrd_first.json()["id"]
+            assert converted_json["result"]["analysis_provenance"]["parameters"]["wavelength_angstrom"]==1.5406
+            assert xrd_first.json()["result"]["x_unit"]=="2theta_deg"
+            converted_repeat=client.post(f"/api/analysis/runs/{xrd_first.json()['id']}/convert-axis?topic_id={topic_id}",data={"target_axis":"q_angstrom^-1","wavelength_angstrom":"1.5406"})
+            assert converted_repeat.status_code==200 and converted_repeat.json()["id"]==converted_json["id"]
+            converted_other_wavelength=client.post(f"/api/analysis/runs/{xrd_first.json()['id']}/convert-axis?topic_id={topic_id}",data={"target_axis":"q_angstrom^-1","wavelength_angstrom":"1.78897"})
+            assert converted_other_wavelength.status_code==200 and converted_other_wavelength.json()["id"]!=converted_json["id"]
+            missing_wavelength=client.post(f"/api/analysis/runs/{xrd_first.json()['id']}/convert-axis?topic_id={topic_id}",data={"target_axis":"d_angstrom"})
+            assert missing_wavelength.status_code==422
+            assert client.post(f"/api/analysis/runs/{converted_json['id']}/convert-axis?topic_id={second_topic['id']}",data={"target_axis":"d_angstrom"}).status_code==404
             assert any(row["id"]==xrd_first.json()["id"] for row in client.get(f"/api/analysis/runs?topic_id={topic_id}").json())
+            assert any(row["id"]==converted_json["id"] for row in client.get(f"/api/analysis/runs?topic_id={topic_id}").json())
+            assert [item["x"] for item in converted_json["result"]["pattern_preview"]]==sorted(item["x"] for item in converted_json["result"]["pattern_preview"])
             from app.db.models import MaterialAnalysisRun
             legacy=TestSession();legacy_run=legacy.get(MaterialAnalysisRun,xrd_first.json()["id"])
             import copy

@@ -33,7 +33,7 @@ from app.services.simulation.spin_coating import estimate_spin_coated_film
 from app.services.simulation.film_postprocess import solvent_catalog, simulate_film_drying, simulate_thermal_cycle
 from app.services.simulation.coating_prefill import apply_gemma_coating_map, make_gemma_mapping_record
 from app.services.llm import AISettings, LLMUnavailable, configured_provider, inference_semaphore
-from app.services.material_analysis.service import AnalysisInputError, sha256 as sha256_bytes
+from app.services.material_analysis.service import AnalysisInputError, sha256 as sha256_bytes, convert_xrd_result_axis
 from app.services.artifacts import artifact_manifest, read_verified_artifact
 from app.services.tool_adapters import MaterialAnalysisAdapter, PHREEQCAdapter
 from app.services.material_analysis.phase_match import ReferenceDatabaseUnavailable, match_xrd_phases
@@ -635,6 +635,60 @@ def _analysis_file(db:Session,run_id:int,topic_id:int,artifact:bool):
     except (OSError,ValueError) as exc:
         raise HTTPException(409,"Analysis artifact failed its integrity check") from exc
     return path,verified,manifest
+
+@router.post("/analysis/runs/{run_id}/convert-axis")
+def convert_analysis_xrd_axis(
+    run_id:int,
+    topic_id:int=Query(...,gt=0),
+    target_axis:str=Form(...),
+    wavelength_angstrom:float|None=Form(None),
+    db:Session=Depends(get_db),
+):
+    """Persist an immutable, provenance-linked XRD coordinate conversion."""
+    source=_analysis_run_for_topic(db,run_id,topic_id)
+    if not source: raise HTTPException(404,"Analysis run not found")
+    if source.modality.lower()!="xrd" or source.analysis_status!="completed":
+        raise HTTPException(422,"Axis conversion requires a completed XRD analysis")
+    _analysis_file(db,run_id,topic_id,False)  # Verify the retained source file before deriving a new run.
+    source_result=source.result_json or {}
+    provenance=source_result.get("analysis_provenance") or {}
+    source_axis=source_result.get("x_unit") or (provenance.get("parameters") or {}).get("xrd_x_unit")
+    try:
+        converted=convert_xrd_result_axis(source_result,source_axis,target_axis,wavelength_angstrom)
+    except (AnalysisInputError,TypeError,ValueError) as exc:
+        raise HTTPException(422,str(exc)) from exc
+    definition=ToolRegistry().get(source.tool_id)
+    if not definition: raise HTTPException(409,"The source XRD analysis tool is no longer registered")
+    converted_parameters={"xrd_source_axis":source_axis,"xrd_target_axis":target_axis,
+        "wavelength_angstrom":converted["axis_conversion"]["wavelength_angstrom"]}
+    for existing in db.query(MaterialAnalysisRun).filter_by(topic_id=topic_id,experiment_id=source.experiment_id,
+            modality="xrd",sha256=source.sha256,analysis_status="completed").order_by(MaterialAnalysisRun.id.desc()).all():
+        existing_provenance=(existing.result_json or {}).get("analysis_provenance") or {}
+        if (existing_provenance.get("derived_from_analysis_run_id")==source.id
+                and existing_provenance.get("algorithm_version")==definition.version
+                and existing_provenance.get("parameters")==converted_parameters):
+            return serialize_analysis(existing)
+    new_key=uuid.uuid4().hex
+    converted_provenance={**provenance,
+        "analysis_run_key":new_key,
+        "source_type":provenance.get("source_type","LAB_RESULT"),
+        "parent_data_ids":list(dict.fromkeys([*(provenance.get("parent_data_ids") or []),f"analysis-run:{source.id}"])),
+        "tool_id":source.tool_id,"tool_version":definition.version,"algorithm_version":definition.version,
+        "parameters":converted_parameters,
+        "validation":{ "valid":True,"status":"VALIDATED","checks":["finite coordinates","physical Bragg-law domain","source axis matches saved result"] },
+        "review_status":"COMPUTED","derived_from_analysis_run_id":source.id}
+    converted["analysis_provenance"]=converted_provenance
+    converted["review_required"]=True
+    item=MaterialAnalysisRun(topic_id=source.topic_id,experiment_id=source.experiment_id,
+        process_step_id=source.process_step_id,result_key=f"{source.result_key or 'xrd'}:{target_axis}:{new_key[:8]}",
+        modality="xrd",tool_id=source.tool_id,filename=source.filename,sha256=source.sha256,
+        original_path=source.original_path,artifact_path=None,result_json=converted,analysis_status="completed")
+    db.add(item)
+    try:
+        db.commit();db.refresh(item)
+    except Exception:
+        db.rollback();raise
+    return serialize_analysis(item)
 
 @router.post("/analysis/pending")
 async def save_pending_analysis(

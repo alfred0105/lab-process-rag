@@ -4,7 +4,45 @@ import numpy as np
 from PIL import Image
 import pytest
 
-from app.services.material_analysis.service import AnalysisInputError, analyze
+from app.services.material_analysis.service import AnalysisInputError, analyze, convert_xrd_axis, convert_xrd_result_axis
+
+
+def test_xrd_axis_conversions_round_trip_against_bragg_law():
+    wavelength = 1.5406
+    angles = [20.0, 35.25, 61.4]
+    q = convert_xrd_axis(angles, "2theta_deg", "q_angstrom^-1", wavelength)
+    assert q == pytest.approx([4 * np.pi * np.sin(np.deg2rad(v / 2)) / wavelength for v in angles])
+    assert convert_xrd_axis(q, "q_angstrom^-1", "2theta_deg", wavelength) == pytest.approx(angles)
+    d = convert_xrd_axis(angles, "2theta_deg", "d_angstrom", wavelength)
+    assert d == pytest.approx(wavelength / (2 * np.sin(np.deg2rad(np.array(angles) / 2))))
+    assert convert_xrd_axis(d, "d_angstrom", "2theta_deg", wavelength) == pytest.approx(angles)
+    assert convert_xrd_axis(q, "q_angstrom^-1", "d_angstrom") == pytest.approx(2 * np.pi / np.array(q))
+    assert convert_xrd_axis(convert_xrd_axis(q, "q_angstrom^-1", "d_angstrom"), "d_angstrom", "q_angstrom^-1") == pytest.approx(q)
+
+
+@pytest.mark.parametrize("values,source,target,wavelength,message", [
+    ([20], "2theta_deg", "q_angstrom^-1", None, "wavelength"),
+    ([0], "q_angstrom^-1", "d_angstrom", None, "greater than zero"),
+    ([-1], "d_angstrom", "q_angstrom^-1", None, "greater than zero"),
+    ([180], "2theta_deg", "q_angstrom^-1", 1.54, "strictly between"),
+    ([1], "d_angstrom", "2theta_deg", -1, "wavelength"),
+    ([float("nan")], "q_angstrom^-1", "d_angstrom", None, "finite"),
+    ([100], "q_angstrom^-1", "2theta_deg", 1.54, "physical inverse-Bragg"),
+])
+def test_xrd_axis_conversion_rejects_missing_or_nonphysical_inputs(values, source, target, wavelength, message):
+    with pytest.raises(AnalysisInputError, match=message):
+        convert_xrd_axis(values, source, target, wavelength)
+
+
+def test_xrd_axis_converted_result_preserves_intensity_and_declares_transform():
+    source = {"x_unit":"2theta_deg","observed_peaks":[{"x":30.0,"intensity":5.0}],
+        "pattern_preview":[{"x":30.0,"intensity":5.0}]}
+    converted = convert_xrd_result_axis(source,"2theta_deg","q_angstrom^-1",1.5406)
+    assert source["x_unit"] == "2theta_deg"  # source result is immutable
+    assert converted["x_unit"] == "q_angstrom^-1"
+    assert converted["observed_peaks"][0]["intensity"] == 5.0
+    assert converted["observed_peaks"][0]["x"] == pytest.approx(4*np.pi*np.sin(np.deg2rad(15))/1.5406)
+    assert converted["axis_conversion"]["wavelength_angstrom"] == 1.5406
 
 
 def test_xrd_reports_measured_peaks_without_claiming_phase_identity():

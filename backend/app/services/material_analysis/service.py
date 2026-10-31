@@ -16,6 +16,71 @@ class AnalysisInputError(ValueError):
     """Raised when a file cannot safely be interpreted by a pilot analyzer."""
 
 
+XRD_AXES = {"2theta_deg", "d_angstrom", "q_angstrom^-1"}
+
+
+def convert_xrd_axis(values: list[float], source_axis: str, target_axis: str, wavelength_angstrom: float | None = None) -> list[float]:
+    """Convert XRD coordinates using Bragg's law; never infer a wavelength.
+
+    `2theta_deg` is the full detector angle. d-spacing is Å and q is Å⁻¹.
+    """
+    if source_axis not in XRD_AXES or target_axis not in XRD_AXES:
+        raise AnalysisInputError("XRD axis must be 2theta_deg, d_angstrom, or q_angstrom^-1.")
+    if not all(math.isfinite(value) for value in values):
+        raise AnalysisInputError("XRD coordinates must be finite numbers.")
+    if source_axis == target_axis:
+        return [float(value) for value in values]
+    needs_wavelength = source_axis == "2theta_deg" or target_axis == "2theta_deg"
+    if needs_wavelength and (wavelength_angstrom is None or not math.isfinite(wavelength_angstrom) or wavelength_angstrom <= 0):
+        raise AnalysisInputError("A positive calibrated wavelength in angstroms is required for conversions involving 2theta.")
+
+    def to_q(value: float) -> float:
+        if source_axis == "q_angstrom^-1":
+            if value <= 0: raise AnalysisInputError("q must be greater than zero to convert to d-spacing.")
+            return value
+        if source_axis == "d_angstrom":
+            if value <= 0: raise AnalysisInputError("d-spacing must be greater than zero.")
+            return 2 * math.pi / value
+        if not 0 < value < 180: raise AnalysisInputError("2theta must be strictly between 0 and 180 degrees.")
+        return 4 * math.pi * math.sin(math.radians(value / 2)) / float(wavelength_angstrom)
+
+    output: list[float] = []
+    for value in values:
+        q = to_q(float(value))
+        if target_axis == "q_angstrom^-1":
+            converted = q
+        elif target_axis == "d_angstrom":
+            converted = 2 * math.pi / q
+        else:
+            argument = q * float(wavelength_angstrom) / (4 * math.pi)
+            if not 0 < argument < 1:
+                raise AnalysisInputError("Converted coordinate is outside the physical inverse-Bragg domain (0 < sin(theta) < 1).")
+            converted = math.degrees(2 * math.asin(argument))
+        if not math.isfinite(converted) or converted <= 0:
+            raise AnalysisInputError("XRD conversion produced a non-physical coordinate.")
+        output.append(converted)
+    return output
+
+
+def convert_xrd_result_axis(result: dict, source_axis: str, target_axis: str, wavelength_angstrom: float | None = None) -> dict:
+    """Return an axis-converted copy of a peak/curve result, preserving input."""
+    if result.get("x_unit") != source_axis:
+        raise AnalysisInputError("Declared source axis does not match the saved XRD result.")
+    converted = dict(result)
+    for collection_name in ("pattern_preview", "observed_peaks"):
+        collection = result.get(collection_name)
+        if collection is not None:
+            xs = convert_xrd_axis([float(item["x"]) for item in collection], source_axis, target_axis, wavelength_angstrom)
+            converted[collection_name] = sorted(
+                [{**item, "x": x} for item, x in zip(collection, xs)], key=lambda item: item["x"]
+            )
+    converted["x_unit"] = target_axis
+    converted["axis_conversion"] = {"source_axis": source_axis, "target_axis": target_axis,
+        "wavelength_angstrom": wavelength_angstrom if source_axis != target_axis and "2theta_deg" in {source_axis, target_axis} else None,
+        "equations": "q=4πsin(θ)/λ; d=λ/(2sin(θ)); q=2π/d; θ=(2θ)/2"}
+    return converted
+
+
 @dataclass(frozen=True)
 class AnalysisOutput:
     tool_id: str
