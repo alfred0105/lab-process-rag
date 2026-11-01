@@ -12,9 +12,10 @@ from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.db.models import (CampaignEvent, CampaignObservation, Experiment, ExperimentCampaign,
-    OptimizationModelRun, OptimizationRecommendationRun, ResearchTopic, ScientificObservation,
+    MaterialAnalysisRun, OptimizationModelRun, OptimizationRecommendationRun, ResearchTopic, ScientificObservation,
     WorkflowNode, WorkflowRun)
 from app.services.decision_head import FeatureExtractor
+from app.services.campaign_decision_runtime import run_learned_decision
 from app.services.optimization.gpbo import GaussianProcess, acquisition, branin, dataset_hash
 from app.services.scientific_data import _UNITS
 from app.services.tool_registry import ResultValidator, RuleBasedDecisionPolicy, ToolRegistry, ValidationGate
@@ -43,6 +44,7 @@ class CampaignCreate(BaseModel):
     experiment_id: int | None = Field(default=None, gt=0)
     method_version_id: int | None = Field(default=None, gt=0)
     mode: Literal["sandbox", "research"] = "sandbox"
+    decision_mode: Literal["RULE_BASED", "JEV_SHADOW", "JEV_SANDBOX"] | None = None
     goal: str = Field(min_length=3, max_length=1000)
     target_property: str = Field(min_length=1, max_length=200)
     direction: Literal["maximize", "minimize"]
@@ -169,9 +171,68 @@ def _decision(db: Session, item: ExperimentCampaign, *, pending_reviews: int = 0
             "tool_id": "experiment.data_quality.v1", "scientific_state": scientific_state,
             "decision_features": feature_vector, "validation_gate": gate,
             "reason": policy_decision.get("reason", "Validate the recorded process data before optimization."), "workflow_triggered": False}
-    return {"action": "OPTIMIZE", "policy": "campaign_optimizer_ready_v1",
+    rule_decision = {"action": "OPTIMIZE", "policy": "campaign_optimizer_ready_v1",
         "scientific_state": scientific_state, "decision_features": feature_vector,
         "reason": "Required campaign fields and objective bounds are present.", "workflow_triggered": False}
+    decision_mode = (item.decision_json or {}).get("decision_mode", "RULE_BASED")
+    learned = run_learned_decision({**scientific_state,
+        "quality_result": (item.decision_json or {}).get("quality_result"),
+        "method_version_id": item.method_version_id,
+        "optimization_ready": item.mode == "SANDBOX" or len(_campaign_observations(db, item)) >= 3},
+        mode=decision_mode, campaign_mode=item.mode)
+    if decision_mode == "JEV_SHADOW":
+        return {**rule_decision, "decision_source": "RULE_BASED_WITH_JEV_SHADOW",
+            "decision_mode": decision_mode, "jev": learned,
+            "raw_predicted_action": learned.get("raw_predicted_action"),
+            "final_safe_action": rule_decision["action"],
+            "fallback_reason": learned.get("fallback_reason")}
+    if decision_mode == "JEV_SANDBOX" and learned.get("decision_source") == "JEV":
+        action = learned.get("final_safe_action")
+        if pending_reviews:
+            action = "REQUEST_REVIEW"
+        elif action == "ANALYZE":
+            completed = set((item.decision_json or {}).get("completed_tool_ids", []))
+            goal = f"{item.goal} {item.target_property}".casefold()
+            aliases = {"xrd": ("xrd", "diffraction", "회절"), "afm": ("afm", "roughness", "거칠기"),
+                "sem": ("sem", "tem", "microscopy", "현미경", "입자")}
+            runs = (db.query(MaterialAnalysisRun).filter_by(topic_id=item.topic_id,
+                experiment_id=item.experiment_id, analysis_status="completed").order_by(MaterialAnalysisRun.id.desc()).all()
+                if item.experiment_id else [])
+            def rank(run):
+                matches = aliases.get(run.modality.casefold(), ())
+                return (0 if any(term in goal for term in matches) else 1, -run.id)
+            selected = next((run for run in sorted(runs, key=rank)
+                if run.tool_id not in completed and (tool := registry.get(run.tool_id)) is not None
+                and tool.category == "analysis" and tool.connected
+                and ResultValidator.validate(tool, run.result_json or {}).get("valid")), None)
+            if selected:
+                learned["selected_tool_id"] = selected.tool_id
+                learned["tool_readiness"] = "READY"
+                learned["analysis_run_id"] = selected.id
+            else:
+                action = "REQUEST_INFORMATION"
+                learned["fallback_reason"] = "NO_COMPATIBLE_REGISTERED_ANALYSIS"
+                learned["missing_inputs"] = ["저장된 XRD, AFM 또는 SEM/TEM 분석 결과"]
+        elif action == "SIMULATE":
+            action = "REQUEST_INFORMATION"
+            learned["fallback_reason"] = "NO_COMPATIBLE_CAMPAIGN_SIMULATION_INPUTS"
+            learned["missing_inputs"] = ["시뮬레이터가 요구하는 명시적 입력과 연구자 승인"]
+        elif action not in {"OPTIMIZE", "REQUEST_INFORMATION", "REQUEST_REVIEW", "ABSTAIN"}:
+            action = "ABSTAIN"
+            learned["fallback_reason"] = "UNSUPPORTED_CAMPAIGN_ACTION"
+        return {**rule_decision, "action": action, "policy": "Phase6HybridRuntime",
+            "reason": learned.get("reason") or ("A compatible registered measurement analysis is available." if action == "ANALYZE" else None), "decision_mode": decision_mode,
+            "decision_source": learned.get("decision_source"), "jev": learned,
+            "tool_id": learned.get("selected_tool_id"),
+            "raw_predicted_action": learned.get("raw_predicted_action"),
+            "final_safe_action": action, "model_version": learned.get("model_version"),
+            "confidence": learned.get("confidence"), "ood_status": learned.get("ood_status"),
+            "requires_review": learned.get("requires_review"),
+            "fallback_reason": learned.get("fallback_reason")}
+    return {**rule_decision, "reason": learned.get("reason") if learned.get("fallback_reason") else rule_decision["reason"],
+        "decision_mode": decision_mode,
+        "decision_source": learned.get("decision_source", "RULE_BASED"), "jev": learned,
+        "raw_predicted_action": None, "final_safe_action": rule_decision["action"]}
 
 
 def _campaign_observations(db: Session, item: ExperimentCampaign):
@@ -309,7 +370,7 @@ def _run_campaign_quality(db: Session, item: ExperimentCampaign, key: str):
             item.current_workflow_id = workflow.id
             item.state = "RUNNING_ANALYSIS"
             item.selected_action = "ANALYZE"
-            item.decision_json = {"action": "ANALYZE", "policy": "RuleBasedDecisionPolicy",
+            item.decision_json = {**(item.decision_json or {}), "action": "ANALYZE", "policy": "RuleBasedDecisionPolicy",
                 "tool_id": tool.tool_id, "source_type": "LAB_RECORD", "workflow_id": workflow.id,
                 "reason": "Campaign routed a read-only record quality check to the existing durable worker.",
                 "workflow_triggered": True}
@@ -333,7 +394,7 @@ def _run_campaign_quality(db: Session, item: ExperimentCampaign, key: str):
     validation = ResultValidator.validate(tool, result)
     if not validation["valid"]:
         raise HTTPException(422, {"reason": "campaign_quality_result_invalid", "validation": validation})
-    item.decision_json = {"action": "ANALYZE", "policy": "RuleBasedDecisionPolicy", "tool_id": tool.tool_id,
+    item.decision_json = {**(item.decision_json or {}), "action": "ANALYZE", "policy": "RuleBasedDecisionPolicy", "tool_id": tool.tool_id,
         "result": result, "quality_result": result, "validation": validation, "workflow_triggered": False,
         "scientific_state": {"campaign_id": item.id, "topic_id": item.topic_id,
             "experiment_id": item.experiment_id, "mode": item.mode, "conditions": record["steps"]}}
@@ -342,6 +403,154 @@ def _run_campaign_quality(db: Session, item: ExperimentCampaign, key: str):
     _event(db, item.id, "TOOL_COMPLETED", "COMPLETED", key, {"tool_id": tool.tool_id,
         "result": result, "validation": validation})
     return result
+
+
+def _queue_campaign_analysis(db: Session, item: ExperimentCampaign, tool_id: str, key: str):
+    """Queue a compatible, already uploaded instrument result via the durable Worker."""
+    tool = ToolRegistry().get(tool_id)
+    if not tool or tool.category != "analysis" or not tool.connected:
+        raise HTTPException(422, detail={"code": "CAMPAIGN_TOOL_UNAVAILABLE", "message": "The selected analysis tool is not connected."})
+    completed_ids = set((item.decision_json or {}).get("completed_tool_ids", []))
+    run = (db.query(MaterialAnalysisRun).filter_by(topic_id=item.topic_id, experiment_id=item.experiment_id,
+        tool_id=tool_id, analysis_status="completed").order_by(MaterialAnalysisRun.id.desc()).first())
+    if not run:
+        item.state = "WAITING_FOR_REVIEW"; item.selected_action = "REQUEST_INFORMATION"
+        item.decision_json = {**(item.decision_json or {}), "action": "REQUEST_INFORMATION",
+            "final_safe_action": "REQUEST_INFORMATION", "missing_inputs": list(tool.required_inputs),
+            "reason": f"{tool.name}가 필요하지만 호환되는 저장 측정 결과가 없습니다."}
+        _event(db, item.id, "TOOL_INPUT_REQUIRED", item.state, key,
+            {"tool_id": tool_id, "missing_inputs": list(tool.required_inputs)})
+        return False
+    if tool_id in completed_ids:
+        item.state = "WAITING_FOR_REVIEW"; item.selected_action = "REQUEST_REVIEW"
+        item.decision_json = {**(item.decision_json or {}), "action": "REQUEST_REVIEW",
+            "final_safe_action": "REQUEST_REVIEW", "reason": "이 분석 도구는 이번 캠페인에서 이미 검토했습니다. 추가 입력이나 연구자 검토가 필요합니다."}
+        _event(db, item.id, "TOOL_REVIEW_REQUIRED", item.state, key, {"tool_id": tool_id, "reason": "already_executed"})
+        return False
+    validation = ResultValidator.validate(tool, run.result_json or {})
+    if not validation.get("valid"):
+        item.state = "WAITING_FOR_REVIEW"; item.selected_action = "REQUEST_REVIEW"
+        item.decision_json = {**(item.decision_json or {}), "action": "REQUEST_REVIEW",
+            "final_safe_action": "REQUEST_REVIEW", "reason": "저장된 측정 분석 결과가 도구 출력 검증을 통과하지 못했습니다.",
+            "validation": validation}
+        _event(db, item.id, "TOOL_RESULT_REJECTED", item.state, key, {"tool_id": tool_id, "analysis_run_id": run.id, "validation": validation})
+        return False
+    gate = ValidationGate.validate({"readiness": "READY", "execution_policy": "read_only"})
+    if not gate["allowed"]:
+        item.state = "FAILED"; item.selected_action = "ABSTAIN"
+        _event(db, item.id, "TOOL_GATE_BLOCKED", item.state, key, {"tool_id": tool_id, "gate": gate})
+        return False
+    flow = WorkflowRun(topic_id=item.topic_id, experiment_id=item.experiment_id, goal=item.goal,
+        status="QUEUED", graph_json={"nodes": [{"key": "campaign_analysis", "tool_id": tool_id,
+            "depends_on": [], "inputs": {"analysis_run_id": run.id}}]}, created_at=datetime.utcnow())
+    db.add(flow); db.flush()
+    node = WorkflowNode(workflow_id=flow.id, node_key="campaign_analysis", tool_id=tool_id,
+        dependency_keys=[], input_json={"analysis_run_id": run.id}, created_at=datetime.utcnow(), max_attempts=2)
+    db.add(node); db.flush()
+    item.current_workflow_id = flow.id; item.state = "RUNNING_ANALYSIS"; item.selected_action = "ANALYZE"
+    item.decision_json = {**(item.decision_json or {}), "action": "ANALYZE", "tool_id": tool_id,
+        "analysis_run_id": run.id, "workflow_id": flow.id, "workflow_status": "QUEUED",
+        "tool_readiness": "READY", "workflow_triggered": True}
+    _event(db, item.id, "TOOL_QUEUED", "QUEUED", key,
+        {"tool_id": tool_id, "analysis_run_id": run.id, "workflow_id": flow.id,
+         "source_sha256": run.sha256, "source_type": "ANALYSIS_OUTPUT"})
+    return True
+
+
+def advance_campaign_from_worker(db: Session, workflow_id: int) -> bool:
+    """Consume a completed Campaign Worker exactly once and continue safe steps.
+
+    This runs only after the existing durable Worker commits its result. It can
+    validate and optimize automatically, but always stops at researcher review.
+    """
+    item = db.query(ExperimentCampaign).filter_by(current_workflow_id=workflow_id).first()
+    if not item or item.state != "RUNNING_ANALYSIS":
+        return False
+    event_key = f"campaign-worker-complete:{workflow_id}"
+    if db.query(CampaignEvent).filter_by(campaign_id=item.id, idempotency_key=event_key).first():
+        return False
+    flow = db.get(WorkflowRun, workflow_id)
+    if not flow:
+        return False
+    if flow.status in {"FAILED", "TIMED_OUT", "CANCELLED", "BLOCKED", "REQUIRES_REVIEW"}:
+        if flow.status == "REQUIRES_REVIEW":
+            item.state = "WAITING_FOR_REVIEW"; item.selected_action = "REQUEST_REVIEW"
+        else:
+            item.state = "FAILED"
+        item.decision_json = {**(item.decision_json or {}), "workflow_status": flow.status,
+            "final_safe_action": "REQUEST_REVIEW" if item.state == "WAITING_FOR_REVIEW" else "ABSTAIN",
+            "reason": flow.error_text or "Campaign Worker stopped; inspect the recorded workflow result."}
+        _event(db, item.id, "WORKER_STOPPED", item.state, event_key,
+            {"workflow_id": workflow_id, "workflow_status": flow.status, "error": flow.error_text})
+        item.updated_at = datetime.utcnow(); db.commit()
+        return True
+    if flow.status != "COMPLETED":
+        return False
+    node_result = next((node for node in (flow.result_json or {}).get("nodes", [])
+        if node.get("key") in {"validate_record", "campaign_analysis"}), {})
+    result = node_result.get("output") or {}
+    completed_tool_id = node_result.get("tool_id") or "experiment.data_quality.v1"
+    tool = ToolRegistry().get(completed_tool_id)
+    output_payload = result.get("result") if completed_tool_id != "experiment.data_quality.v1" else result
+    validation = ResultValidator.validate(tool, output_payload or {}) if tool else {"valid": False, "reason": "tool_missing"}
+    if not validation.get("valid"):
+        item.state = "FAILED"
+        item.decision_json = {**(item.decision_json or {}), "result": result, "validation": validation,
+            "workflow_status": flow.status, "final_safe_action": "ABSTAIN"}
+        _event(db, item.id, "TOOL_RESULT_REJECTED", "FAILED", event_key,
+            {"workflow_id": workflow_id, "validation": validation})
+        item.updated_at = datetime.utcnow(); db.commit()
+        return True
+    existing_decision = item.decision_json or {}
+    completed_ids = list(existing_decision.get("completed_tool_ids", []))
+    if completed_tool_id not in completed_ids:
+        completed_ids.append(completed_tool_id)
+    item.decision_json = {**existing_decision, "result": result,
+        "tool_result": output_payload, "quality_result": result if completed_tool_id == "experiment.data_quality.v1" else existing_decision.get("quality_result"),
+        "completed_tool_ids": completed_ids, "validation": validation, "workflow_status": flow.status}
+    if completed_tool_id == "experiment.data_quality.v1" and int(result.get("issue_count", 0)) > 0:
+        item.state = "WAITING_FOR_REVIEW"; item.selected_action = "REQUEST_REVIEW"
+        item.decision_json = {**item.decision_json, "action": "REQUEST_REVIEW",
+            "final_safe_action": "REQUEST_REVIEW",
+            "reason": "Record validation found missing or incomplete process entries; correct or review them before optimization."}
+        _event(db, item.id, "TOOL_REQUIRES_REVIEW", item.state, event_key,
+            {"workflow_id": workflow_id, "result": result, "validation": validation})
+        item.updated_at = datetime.utcnow(); db.commit()
+        return True
+    item.state = "OPTIMIZING"
+    pending = db.query(CampaignObservation).filter_by(campaign_id=item.id, review_status="PENDING").count()
+    decision = _decision(db, item, pending_reviews=pending)
+    item.selected_action = decision["action"]
+    item.decision_json = {**item.decision_json, **decision, "result": result,
+        "quality_result": item.decision_json.get("quality_result"), "validation": validation, "workflow_id": workflow_id,
+        "workflow_status": flow.status, "synthetic_data_isolated": item.mode == "SANDBOX"}
+    if decision["action"] == "ANALYZE":
+        _queue_campaign_analysis(db, item, decision.get("tool_id", ""), event_key)
+    elif decision["action"] == "OPTIMIZE":
+        try:
+            candidate, model_run, recommendation, d_hash = _fit_and_recommend(db, item)
+        except HTTPException as exc:
+            item.state = "FAILED" if exc.status_code >= 500 else "WAITING_FOR_REVIEW"
+            item.selected_action = "REQUEST_INFORMATION"
+            item.decision_json = {**item.decision_json, "action": "REQUEST_INFORMATION",
+                "final_safe_action": "REQUEST_INFORMATION", "reason": str(exc.detail),
+                "missing_inputs": [str(exc.detail)]}
+            _event(db, item.id, "OPTIMIZATION_BLOCKED", item.state, event_key, {"detail": exc.detail})
+            item.updated_at = datetime.utcnow(); db.commit()
+            return True
+        item.current_model_run_id = model_run.id; item.current_recommendation_id = recommendation.id
+        item.candidate_json = candidate
+        item.review_status = "PENDING_RESEARCHER_REVIEW"; item.state = "WAITING_FOR_REVIEW"
+        _event(db, item.id, "CANDIDATE_PROPOSED", item.state, event_key,
+            {"candidate": candidate, "model_run_id": model_run.id,
+             "recommendation_id": recommendation.id, "dataset_hash": d_hash,
+             "source_type": candidate["source_type"], "approval_required": True,
+             "worker_auto_advance": True})
+    elif decision["action"] != "ANALYZE":
+        item.state = "WAITING_FOR_REVIEW" if decision["action"] in {"REQUEST_REVIEW", "REQUEST_INFORMATION"} else "FAILED"
+        _event(db, item.id, "DECISION_STOPPED", item.state, event_key, decision)
+    item.updated_at = datetime.utcnow(); db.commit()
+    return True
 
 
 @router.post("", status_code=201)
@@ -363,13 +572,17 @@ def create_campaign(payload: CampaignCreate, db: Session = Depends(get_db)):
             raise HTTPException(422, detail={"code": "UNVERIFIED_RESEARCH_PROVENANCE", "message": "Research campaign must reference a non-demo experiment in this topic and the matching Method Version."})
         if len(payload.variables) < 1:
             raise HTTPException(422, "At least one controllable variable is required.")
+        if payload.decision_mode == "JEV_SANDBOX":
+            raise HTTPException(422, detail={"code": "JEV_SANDBOX_RESEARCH_FORBIDDEN", "message": "JEV Sandbox routing is limited to isolated synthetic campaigns."})
     elif payload.target_property.casefold() != "branin" or [x.id for x in payload.variables] != ["x1", "x2"]:
         raise HTTPException(422, detail={"code": "SANDBOX_OBJECTIVE_UNSUPPORTED", "message": "The first sandbox campaign uses the labeled Branin benchmark with x1 and x2."})
+    decision_mode = payload.decision_mode or ("JEV_SANDBOX" if payload.mode == "sandbox" else "RULE_BASED")
     item = ExperimentCampaign(topic_id=payload.topic_id, experiment_id=payload.experiment_id,
         method_version_id=payload.method_version_id, mode=payload.mode.upper(), goal=payload.goal.strip(),
         target_property=payload.target_property.strip(), direction=payload.direction,
         variables_json=[x.model_dump() for x in payload.variables], fixed_conditions_json=payload.fixed_conditions,
         max_iterations=payload.max_iterations, state="CREATED", created_at=datetime.utcnow(), updated_at=datetime.utcnow())
+    item.decision_json = {"decision_mode": decision_mode}
     db.add(item); db.flush()
     _event(db, item.id, "CAMPAIGN_CREATED", "CREATED", payload.idempotency_key,
         {"mode": item.mode, "goal": item.goal, "target_property": item.target_property,
@@ -477,6 +690,8 @@ def advance_campaign(campaign_id: int, topic_id: int, payload: IdempotentAction,
     elif decision["action"] in {"ABSTAIN", "REQUEST_DATA"}:
         item.state = "FAILED"
         _event(db, item.id, "DECISION_STOPPED", item.state, payload.idempotency_key, decision)
+    elif decision["action"] == "ANALYZE":
+        _queue_campaign_analysis(db, item, decision.get("tool_id", ""), payload.idempotency_key)
     elif decision["action"] == "OPTIMIZE":
         try:
             candidate, model_run, recommendation, d_hash = _fit_and_recommend(db, item)

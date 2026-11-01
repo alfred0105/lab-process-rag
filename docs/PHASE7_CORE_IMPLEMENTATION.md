@@ -1,9 +1,9 @@
 # Phase 7 Core Implementation
 
-## Status
+## Status (Phase 7 Final Core Integration)
 
-- `PHASE_7_CORE_IMPLEMENTED`: implemented for the single-campaign core path.
-- `PHASE_7_CORE_SMOKE_TESTED`: verified. The campaign integration test, full backend suite, and frontend production build pass on this commit.
+- `PHASE_7_CORE_IMPLEMENTED`: persistent Campaign now invokes the existing Phase 6 decision runtime in the explicitly selected Sandbox/Shadow mode, routes compatible existing instrument results through the Registry and Durable Worker, and consumes Worker completion in the backend.
+- `PHASE_7_CORE_SMOKE_TESTED`: verified by the Campaign API → data-quality Worker → JEV action → registered XRD result → XRD Worker → GP/EI → researcher review → feedback → next-candidate integration test. Full regression/build evidence is updated with the final commit.
 - `PHASE_7_EXTENSION_PENDING`: multi-objective campaigns, additional campaign tool types, richer Research feedback entry, and trained JEV campaign routing remain future work.
 - `EXTERNAL_SCIENTIFIC_VALIDATION_PENDING`: Branin is a software-only synthetic benchmark; this implementation does not establish scientific validity or improved laboratory outcomes.
 
@@ -12,8 +12,8 @@
 The new persistent Campaign API and page connect these existing parts:
 
 1. Research goal and target configuration are stored in `experiment_campaigns`.
-2. A compact typed campaign state is converted to the existing decision feature contract. The current campaign router uses the existing safe `RuleBasedDecisionPolicy` for the initial read-only data-quality action and a deterministic route to GP optimization after validation. The campaign path does **not** claim to run a trained JEV model; Phase 5/6 learned runtime activation is not required for this loop and remains a follow-up integration.
-3. When a non-demo experiment is linked, `experiment.data_quality.v1` is queued through the existing durable `WorkflowRun` / `WorkflowNode` store and executed by the existing Worker. Results are checked with `ResultValidator` before the controller advances.
+2. Campaign decision mode is `RULE_BASED`, `JEV_SHADOW`, or isolated `JEV_SANDBOX`. The adapter converts only persisted campaign counters into the Phase 6 ScientificState V2 contract; absent measurement, chemistry, provenance, and evidence remain unknown. `JEV_SHADOW` records the learned prediction while RuleBased retains the action. `JEV_SANDBOX` can route only supported Sandbox actions. Runtime, artifact, schema, prediction, or OOD failures are marked as RuleBased fallback and never labeled as JEV decisions. Research defaults to RuleBased; `JEV_SANDBOX` is rejected for Research.
+3. When a non-demo experiment is linked, `experiment.data_quality.v1` is queued through the existing durable `WorkflowRun` / `WorkflowNode` store and executed by the existing Worker. Worker completion invokes the Campaign controller, which validates the result and progresses without an API advance request. When JEV selects `ANALYZE`, only an already stored, compatible XRD/AFM/SEM/TEM run from the linked experiment can be chosen; its registered result is passed through the same Worker and validated. Missing/incompatible input stops for researcher information. PHREEQC simulation action currently stops for explicit simulation inputs and approval; it is not auto-executed by Campaign.
 4. GP/Expected Improvement generates one bounded candidate. The persisted candidate includes source IDs/type, uncertainty, model/recommendation IDs, an explicit pending approval state, and a `prediction_is_not_measurement` marker.
 5. Candidate approval only enters `WAITING_FOR_RESULT`; it never starts equipment. Reject and revision requests require a new explicit advance.
 6. Sandbox uses deterministic Branin observations in a campaign-local table. New synthetic feedback is held pending review and only accepted rows enter that Campaign's next GP fit. No synthetic feedback is written to `ScientificObservation`.
@@ -28,13 +28,13 @@ For Research, variable rows use `id,name,unit,minimum,maximum` and target `id` v
 
 ## Verification
 
-The integration test creates a Campaign, queues and runs the real local data-quality Worker, validates the result, fits GP/BO, creates a pending candidate, approves it, submits and reviews Sandbox feedback, advances to the next candidate, and checks idempotency and source separation. `cd backend && .venv/bin/pytest -q` passed **264 tests**; `cd frontend && npm run build` passed. Existing deprecation warnings remain. See `backend/tests/test_phase7_campaign_loop.py`.
+The Phase 7 final integration test creates a Campaign, runs the data-quality Worker, applies an explicit JEV prediction fixture to select a previously saved XRD output through the allowlisted Registry, runs the XRD Worker, validates its result, automatically advances to GP/EI, then exercises candidate approval, feedback review, the next candidate, idempotency, and Sandbox/Research separation. The local checkpoint was also invoked directly; its current synthetic-only artifact marked this sparse Campaign state `POTENTIAL_OOD`, so the adapter correctly selected RuleBased fallback. `cd backend && .venv/bin/pytest -q` passed **269 tests**; `cd frontend && npm run build` passed; `cd frontend && npm run test:e2e` passed **6 tests**. Existing deprecation warnings remain. See `backend/tests/test_phase7_campaign_loop.py` and `backend/tests/test_campaign_decision_runtime.py`.
 
 ## Limits and next work
 
 - No instrument control, experiment execution, or approval bypass exists.
-- The current actual analysis step is read-only experiment-record data quality. Instrument analysis and simulations remain available through their existing workflows but are not dynamically chained by Campaign yet.
-- The learned JEV/COMBO-C model is not invoked by the Campaign path; the recorded feature vector and decision-policy adapter boundary are present, with the safe rule policy used today.
+- Campaign can dynamically route the registered data-quality check and a compatible, previously saved instrument analysis (XRD/AFM/SEM/TEM) through the existing Worker. It does not re-run raw instrument analysis automatically or dynamically execute PHREEQC; the latter still needs its explicit input and human-review workflow.
+- The Campaign invokes the actual Phase 6 shared-transformer decision runtime and reuses its local checkpoint/artifact. Current artifact is trained on synthetic Sandbox cases and is explicitly marked synthetically trained/unvalidated; an OOD Campaign state falls back to RuleBased, as observed in the local smoke. This does not validate scientific decision accuracy.
 - Research recommendations require at least three distinct eligible accepted records and bounds in the configured variable order. More robust cross-run association of the approved candidate with execution results is needed for multi-step methods.
 - Synthetic Branin feedback demonstrates software plumbing only. It is not laboratory data, a material prediction, or evidence that a proposed real experiment will succeed.
 - Authentication, multi-user authorization, richer constraints, multi-objective closed-loop optimization, restart/failure stress testing, and external scientific validation are not claimed complete.

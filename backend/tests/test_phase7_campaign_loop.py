@@ -4,7 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.db.database import Base, get_db
-from app.db.models import CampaignObservation, Experiment, ProcessStep, ProcessVariable, ResearchTopic, ScientificObservation
+from app.db.models import CampaignObservation, Experiment, MaterialAnalysisRun, ProcessStep, ProcessVariable, ResearchTopic, ScientificObservation
 from app.main import app
 from app.services.optimization.gpbo import branin
 from app import worker
@@ -34,7 +34,23 @@ def test_phase7_sandbox_campaign_completes_reviewed_loop_and_executes_worker(tmp
         step = ProcessStep(experiment_id=experiment.id, name="Mixing", order_index=0)
         db.add(step); db.flush()
         db.add(ProcessVariable(process_step_id=step.id, name="stir_speed", value="500", unit="rpm"))
+        analysis = MaterialAnalysisRun(topic_id=topic.id, experiment_id=experiment.id, modality="xrd",
+            tool_id="xrd.local_peaks.v1", filename="fixture.csv", sha256="a"*64,
+            original_path="/unused/already-analyzed.csv", result_json={"x_unit":"2theta_deg",
+                "observed_peaks":[{"x":31.7,"intensity":100.0}], "interpretation_limit":"peaks only"},
+            analysis_status="completed")
+        db.add(analysis)
         db.commit(); topic_id, experiment_id = topic.id, experiment.id; db.close()
+
+        from app.api import campaigns as campaign_api
+        predictions = iter(["ANALYZE", "OPTIMIZE", "OPTIMIZE"])
+        def fake_jev(_state, *, mode, campaign_mode):
+            action = next(predictions)
+            return {"raw_predicted_action": action, "final_safe_action": action,
+                "decision_source": "JEV", "model_version": "test-checkpoint-v1", "confidence": 0.91,
+                "ood_status": "IN_DISTRIBUTION_BY_CALIBRATION_THRESHOLD", "reason": f"test {action}",
+                "requires_review": False, "fallback_reason": None, "runtime_status": "COMPLETED"}
+        monkeypatch.setattr(campaign_api, "run_learned_decision", fake_jev)
 
         client = TestClient(app)
         created = client.post("/api/campaigns", json={
@@ -51,13 +67,19 @@ def test_phase7_sandbox_campaign_completes_reviewed_loop_and_executes_worker(tmp
         queued = client.post(f"/api/campaigns/{campaign_id}/advance?topic_id={topic_id}", json={"idempotency_key": "phase7-advance-1"})
         assert queued.status_code == 200 and queued.json()["state"] == "RUNNING_ANALYSIS"
         assert worker.run_once("phase7-test-worker") is True
-        optimized = client.post(f"/api/campaigns/{campaign_id}/advance?topic_id={topic_id}", json={"idempotency_key": "phase7-advance-2"})
-        assert optimized.status_code == 200, optimized.text
-        campaign = optimized.json()
+        campaign = client.get(f"/api/campaigns/{campaign_id}?topic_id={topic_id}").json()
+        assert campaign["state"] == "RUNNING_ANALYSIS", campaign
+        assert campaign["decision"]["tool_id"] == "xrd.local_peaks.v1"
+        assert worker.run_once("phase7-test-worker") is True
+        campaign = client.get(f"/api/campaigns/{campaign_id}?topic_id={topic_id}").json()
         assert campaign["state"] == "WAITING_FOR_REVIEW", campaign
         assert campaign["decision"]["workflow_status"] == "COMPLETED"
         assert campaign["decision"]["validation"]["valid"] is True
         assert campaign["selected_action"] == "OPTIMIZE"
+        assert campaign["decision"]["decision_source"] == "JEV"
+        assert campaign["decision"]["model_version"] == "test-checkpoint-v1"
+        assert any(event["type"] == "TOOL_QUEUED" and event["details"].get("tool_id") == "xrd.local_peaks.v1" for event in campaign["history"])
+        assert any(event["type"] == "CANDIDATE_PROPOSED" and event["details"].get("worker_auto_advance") is True for event in campaign["history"])
         assert campaign["candidate"]["approval_status"] == "PENDING_RESEARCHER_REVIEW"
         assert campaign["candidate"]["prediction_is_not_measurement"] is True
 

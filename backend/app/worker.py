@@ -299,6 +299,22 @@ def _validate_persisted_simulation_source(db, typed, workflow):
     return math.isclose(float(value),float(typed.get("value")),rel_tol=1e-12,abs_tol=1e-15)
 
 
+def _sync_campaign_after_worker(node_id: int) -> None:
+    """Let a Campaign consume the durable workflow result without API polling."""
+    db = SessionLocal()
+    try:
+        node = db.get(WorkflowNode, node_id)
+        if not node:
+            return
+        from app.api.campaigns import advance_campaign_from_worker
+        advance_campaign_from_worker(db, node.workflow_id)
+    except Exception:
+        log.exception("Campaign auto-advance failed for workflow node %s", node_id)
+        db.rollback()
+    finally:
+        db.close()
+
+
 def _execute_node(node_id:int,worker_id:str,generation:int,lease:Lease):
     db=SessionLocal()
     try:
@@ -453,6 +469,9 @@ def _execute_node(node_id:int,worker_id:str,generation:int,lease:Lease):
         if current.tool_id.startswith(("xrd.","afm.","microscopy.")) and isinstance(output,object) and hasattr(output,"tool_id"):
             analysis=db.get(MaterialAnalysisRun,int(current.input_json["analysis_run_id"]))
             _persist_analysis(db,current,output,analysis,workflow)
+        elif current.tool_id.startswith(("xrd.","afm.","microscopy.")):
+            current.output_json={**(output or {}),"source_type":"ANALYSIS_OUTPUT","typed_outputs":{}}
+            current.result_type=result_type or "analysis_run"
         elif current.tool_id.startswith("phreeqc."):
             if simulation_reserved:
                 simulation=db.query(SimulationRun).filter_by(id=simulation_run_id,status="running",worker_id=worker_id,lease_generation=generation).first()
@@ -493,6 +512,7 @@ def _execute_node(node_id:int,worker_id:str,generation:int,lease:Lease):
         current.error_text="Resolve or acknowledge recorded data-quality issues before dependent analysis." if quality_needs_review else ""
         current.worker_id=None; current.lease_expires_at=None; current.heartbeat_at=utcnow(); current.finished_at=utcnow()
         db.flush(); _refresh_workflow(db,current.workflow_id); db.commit()
+        _sync_campaign_after_worker(node_id)
     except JobCancelled:
         db.rollback(); _finish_node(node_id,worker_id,generation,"CANCELLED","CANCEL_REQUESTED","Worker observed cancellation.")
     except Exception as exc:
@@ -500,6 +520,7 @@ def _execute_node(node_id:int,worker_id:str,generation:int,lease:Lease):
         code="LEASE_LOST" if str(exc)=="LEASE_LOST" else "WORKFLOW_NODE_FAILED"
         terminal="TIMED_OUT" if isinstance(exc,JobTimedOut) else "FAILED"
         _finish_node(node_id,worker_id,generation,terminal,"EXECUTION_TIMEOUT" if terminal=="TIMED_OUT" else code,str(exc)[:4000])
+        _sync_campaign_after_worker(node_id)
         log.exception("Workflow node %s failed",node_id)
     finally: db.close()
 
