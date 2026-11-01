@@ -1,0 +1,204 @@
+{
+  "status": "SYNTHETIC_COMBINATION_DIAGNOSTIC_ONLY",
+  "model_revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+  "dataset_hash": "2a3d38579c456d183f411aab41d9afa9bfe9183d9f950af4baba7c637f0d137d",
+  "split_counts": {
+    "fit": 1920,
+    "router_fit": 384,
+    "calibration": 384,
+    "policy_selection": 384,
+    "risk_certification": 384,
+    "frozen_evaluation": 384
+  },
+  "split_independence_checked": true,
+  "risk_target": 0.2,
+  "minimum_exits": 24,
+  "candidate_combinations": [
+    {
+      "id": "BASELINE",
+      "head": "linear_hidden",
+      "router": "max_softmax",
+      "layer_agreement": false,
+      "thresholds": {
+        "7": 0.3860785663127899,
+        "14": 0.30152538418769836,
+        "21": 0.26802849769592285
+      },
+      "policy_selection": {
+        "count": 384,
+        "early_exit_count": 380,
+        "errors": 67,
+        "observed_risk": 0.1763157894736842,
+        "wilson_upper_95": 0.21781654856351526,
+        "passed": false
+      },
+      "full_depth_frozen_metrics": {
+        "count": 384,
+        "accuracy": 0.875,
+        "macro_f1": 0.8487097520980799
+      }
+    },
+    {
+      "id": "COMBO-A",
+      "head": "linear_hidden",
+      "router": "pabee",
+      "layer_agreement": true,
+      "thresholds": {
+        "7": 0.3860785663127899,
+        "14": 0.30152538418769836,
+        "21": 0.26802849769592285
+      },
+      "policy_selection": {
+        "count": 384,
+        "early_exit_count": 371,
+        "errors": 34,
+        "observed_risk": 0.09164420485175202,
+        "wilson_upper_95": 0.12533560774553362,
+        "passed": true
+      },
+      "full_depth_frozen_metrics": {
+        "count": 384,
+        "accuracy": 0.875,
+        "macro_f1": 0.8487097520980799
+      }
+    },
+    {
+      "id": "COMBO-B",
+      "head": "class_balanced_hidden",
+      "router": "max_softmax",
+      "layer_agreement": false,
+      "thresholds": {
+        "7": 0.4764060974121094,
+        "14": 0.3637334406375885,
+        "21": 0.3759894073009491
+      },
+      "policy_selection": {
+        "count": 384,
+        "early_exit_count": 380,
+        "errors": 70,
+        "observed_risk": 0.18421052631578946,
+        "wilson_upper_95": 0.22628043658912586,
+        "passed": false
+      },
+      "full_depth_frozen_metrics": {
+        "count": 384,
+        "accuracy": 0.8541666666666666,
+        "macro_f1": 0.8383931905839708
+      }
+    },
+    {
+      "id": "COMBO-C",
+      "head": "fusion",
+      "router": "eefp",
+      "layer_agreement": false,
+      "thresholds": {
+        "7": 0.975710173594662,
+        "14": 0.9920501397805855,
+        "21": 0.9989636134746904
+      },
+      "policy_selection": {
+        "count": 384,
+        "early_exit_count": 380,
+        "errors": 44,
+        "observed_risk": 0.11578947368421053,
+        "wilson_upper_95": 0.1518746618057696,
+        "passed": true
+      },
+      "full_depth_frozen_metrics": {
+        "count": 384,
+        "accuracy": 0.8880208333333334,
+        "macro_f1": 0.8658302163578884
+      }
+    },
+    {
+      "id": "COMBO-D",
+      "head": "class_balanced_fusion",
+      "router": "eefp",
+      "layer_agreement": true,
+      "thresholds": {
+        "7": null,
+        "14": 0.9685932165421317,
+        "21": 0.9960911300929381
+      },
+      "policy_selection": {
+        "count": 384,
+        "early_exit_count": 375,
+        "errors": 40,
+        "observed_risk": 0.10666666666666667,
+        "wilson_upper_95": 0.1419941597667407,
+        "passed": true
+      },
+      "full_depth_frozen_metrics": {
+        "count": 384,
+        "accuracy": 0.8776041666666666,
+        "macro_f1": 0.8589233831630384
+      }
+    },
+    {
+      "id": "COMBO-E",
+      "head": "distilled_hidden",
+      "router": "max_softmax",
+      "layer_agreement": false,
+      "thresholds": {
+        "7": 0.4416540265083313,
+        "14": 0.3240306079387665,
+        "21": 0.28625571727752686
+      },
+      "policy_selection": {
+        "count": 384,
+        "early_exit_count": 380,
+        "errors": 73,
+        "observed_risk": 0.19210526315789472,
+        "wilson_upper_95": 0.23471808501241498,
+        "passed": false
+      },
+      "full_depth_frozen_metrics": {
+        "count": 384,
+        "accuracy": 0.875,
+        "macro_f1": 0.8487097520980799
+      }
+    }
+  ],
+  "selection_protocol": "Thresholds fit on calibration; all six candidates compared on policy_selection; one policy certified once on independent risk_certification; frozen test descriptive only.",
+  "ood_gate": {
+    "enabled": true,
+    "calibration_quantile": 0.95,
+    "thresholds": {
+      "7": 1.7761263847351074,
+      "14": 1.7321606874465942,
+      "21": 1.4837182760238647,
+      "28": 1.5614371299743652
+    }
+  },
+  "selected_on_policy_selection": "COMBO-C",
+  "independent_risk_certification": {
+    "candidate": "COMBO-C",
+    "count": 384,
+    "early_exit_count": 381,
+    "errors": 52,
+    "observed_risk": 0.13648293963254593,
+    "wilson_upper_95": 0.1746019740277389,
+    "exact_binomial_upper_95": 0.16883913665960357,
+    "target_risk": 0.2,
+    "minimum_early_exits": 24,
+    "passed": true
+  },
+  "frozen_evaluation_of_selected_policy": {
+    "count": 384,
+    "early_exit_count": 383,
+    "mean_layers_offline_estimate": 7.583333333333333,
+    "routed_metrics": {
+      "count": 384,
+      "accuracy": 0.8645833333333334,
+      "macro_f1": 0.8232516719921555
+    },
+    "used_for_selection_or_certification": false
+  },
+  "status_boundary": "Synthetic labels only. This report cannot authorize research-mode Early Exit, real lab decisions, or model promotion.",
+  "limitations": [
+    "No empirical laboratory labels",
+    "Synthetic rules with override",
+    "No real adaptive decoder execution in this combination script",
+    "Structured-feature causal shortcut risk remains synthetic-contract specific"
+  ]
+}

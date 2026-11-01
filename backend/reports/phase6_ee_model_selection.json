@@ -363,8 +363,10 @@
     }
   ],
   "selected_candidate": {
-    "router": "pabee",
-    "head": "linear_ce hidden-state"
+    "combo": "COMBO-C",
+    "head": "fusion",
+    "router": "eefp",
+    "basis": "policy-selection only; separate synthetic certification; not production eligible"
   },
   "promotion_status": "SHADOW_ONLY",
   "phase6_status": "IN_PROGRESS",
@@ -385,5 +387,23 @@
     "target_risk": 0.2,
     "minimum_exit_count": 24,
     "passed": true
+  },
+  "combination_comparison": {
+    "report": "phase6_ee_combinations.json",
+    "status": "SYNTHETIC_COMBINATION_DIAGNOSTIC_ONLY",
+    "selected_on_policy_selection": "COMBO-C",
+    "independent_synthetic_risk_certification": {
+      "candidate": "COMBO-C",
+      "count": 384,
+      "early_exit_count": 381,
+      "errors": 52,
+      "observed_risk": 0.13648293963254593,
+      "wilson_upper_95": 0.1746019740277389,
+      "exact_binomial_upper_95": 0.16883913665960357,
+      "target_risk": 0.2,
+      "minimum_early_exits": 24,
+      "passed": true
+    },
+    "production_promotion": "NOT_ELIGIBLE_SYNTHETIC_LABELS_ONLY"
   }
 }

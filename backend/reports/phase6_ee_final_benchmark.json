@@ -353,5 +353,22 @@
     ],
     "early_exit_latency": "NOT_MEASURED; the only statistically passing policy is certified on synthetic sandbox labels and is ineligible under the research safety boundary"
   },
-  "external_scientific_validation": "NOT_AVAILABLE; no human-reviewed lab dataset"
+  "external_scientific_validation": "NOT_AVAILABLE; no human-reviewed lab dataset",
+  "integrated_combinations": {
+    "report": "phase6_ee_combinations.json",
+    "selected_on_policy_selection": "COMBO-C",
+    "synthetic_certificate": {
+      "candidate": "COMBO-C",
+      "count": 384,
+      "early_exit_count": 381,
+      "errors": 52,
+      "observed_risk": 0.13648293963254593,
+      "wilson_upper_95": 0.1746019740277389,
+      "exact_binomial_upper_95": 0.16883913665960357,
+      "target_risk": 0.2,
+      "minimum_early_exits": 24,
+      "passed": true
+    },
+    "production_early_exit_enabled": false
+  }
 }

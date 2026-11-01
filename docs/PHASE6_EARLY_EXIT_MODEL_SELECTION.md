@@ -18,3 +18,9 @@
 정책 선택 표본에서 selection Wilson upper ≤0.20과 최소 24개 exit 조건을 충족한 PABEE가 selection Wilson 기준을 만족했고 EEFP는 통과하지 못했다. PABEE는 적격 후보 중 가장 많은 exit를 보였다. 단 하나만 위험 인증 표본에서 검사했다. OOD rejection 포함 인증 결과는 377/384 exit, 46 errors, Wilson upper 0.1589, exact-binomial upper 0.1533으로 synthetic 기준은 통과했다. 이는 synthetic Sandbox 입력에 대한 `SYNTHETIC_RISK_CONTROLLED_EXIT_ONLY`다. 실제 Qwen hook benchmark는 full-depth만 측정했으며 adaptive skip은 실행하지 않았다. 합성 산출물은 research mode에서 exit할 수 없으므로 production 선택 후보는 `없음`이며 routing은 계속 28층 full-depth다. 최종 고정 정책과 분할 hash는 machine-readable report를 참조한다.
 
 **미완료:** COMBO-A~E 전 조합 비교/선정, 선택된 정책의 실제 adaptive decoder-loop 실행, 실제 layer-skip·p50/p95 비교, review된 lab label 및 recipe-shift 인증. 따라서 프로젝트의 조기 종료 승격과 Phase 6 완료는 허용하지 않는다.
+
+## 통합 후보 선택 결과 — 2026-11-01
+
+추가로 BASELINE과 COMBO-A~E를 policy-selection split에서 직접 비교했다. COMBO-C(구조화 특징 Fusion + EEFP)가 적격 후보 중 선택되어 384개 독립 synthetic risk-certification 사례에서 381 exit / 52 errors, Wilson 상한 17.46%, exact-binomial 상한 16.88%를 기록했다. frozen synthetic split의 offline 추정은 383/384 exit, 평균 7.58/28층, Macro F1 0.8233이다. 기계 판독 결과는 `backend/reports/phase6_ee_combinations.json`과 `phase6_ee_model_selection.json`에 있다.
+
+이는 합성 workflow label 계약상 결과이며 실제 연구실 판단 위험 인증이 아니다. `phase6_hybrid.py`의 production router는 이 조합을 실행하지 않고 조기 종료도 기본 비활성화 상태다. 따라서 실제 최종 채택은 없으며 Production은 계속 full-depth로 처리한다. Phase 6은 `IN_PROGRESS`, Phase 7은 `NOT_STARTED`다.

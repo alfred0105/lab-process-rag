@@ -5,6 +5,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import phase6_ee_research as ee
+import phase6_ee_combo_comparison as combos
 
 
 def test_independent_split_groups_are_disjoint():
@@ -41,3 +42,22 @@ def test_exit_router_falls_back_to_final_layer_without_valid_threshold():
     prediction, exits = ee._route(probs, (7, 14, 21, 28), {7: None, 14: None, 21: None})
     assert exits.tolist() == [28]
     assert prediction.tolist() == [1]
+
+
+def test_combo_router_rejects_ood_exit_and_falls_back_to_full_depth():
+    probs = {7: np.array([[.99, .01]]), 14: np.array([[.99, .01]]),
+             21: np.array([[.99, .01]]), 28: np.array([[.01, .99]])}
+    ood = {layer: {"selection": np.array([True])} for layer in combos.LAYERS}
+    prediction, exits = combos._route({layer: {"selection": p} for layer, p in probs.items()},
+        "selection", {7: .9, 14: .9, 21: .9}, "max_softmax", np.array([1]), np.array([0]), ood=ood)
+    assert exits.tolist() == [28]
+    assert prediction.tolist() == [1]
+
+
+def test_combo_calibration_keeps_minimum_sample_and_fixed_risk_target():
+    y = np.array([0, 1] * 30)
+    probs = {layer: {"calibration": np.tile([.99, .01], (60, 1))} for layer in combos.LAYERS}
+    thresholds = combos._calibrate(probs, y, np.arange(60), "max_softmax")
+    assert thresholds[7] is None
+    assert combos.TARGET_RISK == .20
+    assert combos.MIN_EXITS == 24
