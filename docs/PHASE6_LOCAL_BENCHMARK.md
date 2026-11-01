@@ -6,3 +6,8 @@
 ## Early-exit closure update — 2026-11-01
 
 The grouped 480-case diagnostic is recorded in `backend/reports/phase6_early_exit_diagnostics.json`. No architecture passed the separate sequential controller bound, so no candidate early-exit latency benchmark was eligible. Production inference remains full-depth and no speedup is claimed.
+
+
+## Early Exit benchmark addendum — 2026-11-01
+
+`backend/scripts/phase6_ee_runtime_benchmark.py` measured real full-depth Qwen3-0.6B on MPS FP16, revision `c1899de289a04d12100db370d81485cdf75e47ca`: 471 input tokens, 3 warmups, 30 synchronized runs, hooks confirmed all 28 decoder layers on every run. The latest batch p50/p95 were 84.69/96.54ms; three batches ranged 84.69–120.89ms p50 and 91.46–145.16ms p95. No adaptive runtime measurement was made because the candidate was only certified on synthetic Sandbox labels and cannot exit in the Research safety path. Thus no speedup is claimed.

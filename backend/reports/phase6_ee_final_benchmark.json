@@ -1,0 +1,357 @@
+{
+  "status": "SYNTHETIC_RISK_CONTROLLED_EXIT_ONLY",
+  "model": {
+    "id": "Qwen/Qwen3-0.6B",
+    "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+    "device": "mps",
+    "precision": "torch.float16",
+    "layers": 28,
+    "hidden_size": 1024
+  },
+  "dataset_hash": "2a3d38579c456d183f411aab41d9afa9bfe9183d9f950af4baba7c637f0d137d",
+  "split_counts": {
+    "fit": {
+      "count": 1920,
+      "groups": 1920,
+      "class_distribution": {
+        "REQUEST_INFORMATION": 238,
+        "ANALYZE": 217,
+        "SIMULATE": 319,
+        "OPTIMIZE": 69,
+        "REQUEST_REVIEW": 845,
+        "ABSTAIN": 232
+      }
+    },
+    "router_fit": {
+      "count": 384,
+      "groups": 384,
+      "class_distribution": {
+        "REQUEST_INFORMATION": 54,
+        "ANALYZE": 48,
+        "SIMULATE": 66,
+        "OPTIMIZE": 15,
+        "REQUEST_REVIEW": 167,
+        "ABSTAIN": 34
+      }
+    },
+    "calibration": {
+      "count": 384,
+      "groups": 384,
+      "class_distribution": {
+        "REQUEST_INFORMATION": 62,
+        "ANALYZE": 47,
+        "SIMULATE": 55,
+        "OPTIMIZE": 16,
+        "REQUEST_REVIEW": 165,
+        "ABSTAIN": 39
+      }
+    },
+    "policy_selection": {
+      "count": 384,
+      "groups": 384,
+      "class_distribution": {
+        "REQUEST_INFORMATION": 52,
+        "ANALYZE": 44,
+        "SIMULATE": 69,
+        "OPTIMIZE": 12,
+        "REQUEST_REVIEW": 168,
+        "ABSTAIN": 39
+      }
+    },
+    "risk_certification": {
+      "count": 384,
+      "groups": 384,
+      "class_distribution": {
+        "REQUEST_INFORMATION": 57,
+        "ANALYZE": 45,
+        "SIMULATE": 72,
+        "OPTIMIZE": 18,
+        "REQUEST_REVIEW": 145,
+        "ABSTAIN": 47
+      }
+    },
+    "frozen_evaluation": {
+      "count": 384,
+      "groups": 384,
+      "class_distribution": {
+        "REQUEST_INFORMATION": 43,
+        "ANALYZE": 41,
+        "SIMULATE": 63,
+        "OPTIMIZE": 17,
+        "REQUEST_REVIEW": 172,
+        "ABSTAIN": 48
+      }
+    }
+  },
+  "cache": {
+    "key": "a12a10d387026909a6c381033c2bbd4eccb30f226de216d548d872b17c7a0575",
+    "reused": true,
+    "path": "/Users/hyunsu/.cache/lab-process-rag/phase6-ee-research-a12a10d387026909a6c381033c2bbd4eccb30f226de216d548d872b17c7a0575.npz",
+    "bytes": 37166800,
+    "extraction_seconds": 0.0
+  },
+  "selected_policy": {
+    "router": "pabee",
+    "thresholds": {
+      "7": null,
+      "14": 0.44425147771835327,
+      "21": 0.26802849769592285
+    },
+    "selection": {
+      "selection_exits": 370,
+      "selection_errors": 34,
+      "selection_risk": 0.0918918918918919,
+      "wilson_upper_95": 0.1256669595802069,
+      "selection_gate_passed": true
+    },
+    "independent_risk_certification": {
+      "count": 384,
+      "early_exit_count": 377,
+      "errors": 46,
+      "observed_risk": 0.1220159151193634,
+      "wilson_upper_95": 0.15892102315340395,
+      "exact_binomial_upper_95": 0.15330827456480903,
+      "target_risk": 0.2,
+      "minimum_exit_count": 24,
+      "passed": true
+    },
+    "frozen_evaluation": {
+      "count": 384,
+      "early_exit_count": 373,
+      "early_exit_rate": 0.9713541666666666,
+      "mean_executed_layers": 15.421875,
+      "routed_metrics": {
+        "count": 384,
+        "accuracy": 0.8776041666666666,
+        "balanced_accuracy": 0.8584798583516094,
+        "macro_f1": 0.8445942572672444,
+        "per_class": {
+          "REQUEST_INFORMATION": {
+            "precision": 0.7674418604651163,
+            "recall": 0.7674418604651163,
+            "f1": 0.7674418604651163,
+            "support": 43
+          },
+          "ANALYZE": {
+            "precision": 0.8367346938775511,
+            "recall": 1.0,
+            "f1": 0.9111111111111111,
+            "support": 41
+          },
+          "SIMULATE": {
+            "precision": 0.8266666666666667,
+            "recall": 0.9841269841269841,
+            "f1": 0.8985507246376812,
+            "support": 63
+          },
+          "OPTIMIZE": {
+            "precision": 0.8333333333333334,
+            "recall": 0.8823529411764706,
+            "f1": 0.8571428571428571,
+            "support": 17
+          },
+          "REQUEST_REVIEW": {
+            "precision": 0.9573170731707317,
+            "recall": 0.9127906976744186,
+            "f1": 0.9345238095238095,
+            "support": 172
+          },
+          "ABSTAIN": {
+            "precision": 0.8285714285714286,
+            "recall": 0.6041666666666666,
+            "f1": 0.6987951807228916,
+            "support": 48
+          }
+        }
+      },
+      "full_depth_metrics": {
+        "count": 384,
+        "accuracy": 0.875,
+        "balanced_accuracy": 0.8558343557061069,
+        "macro_f1": 0.8487097520980799,
+        "per_class": {
+          "REQUEST_INFORMATION": {
+            "precision": 0.7674418604651163,
+            "recall": 0.7674418604651163,
+            "f1": 0.7674418604651163,
+            "support": 43
+          },
+          "ANALYZE": {
+            "precision": 0.8367346938775511,
+            "recall": 1.0,
+            "f1": 0.9111111111111111,
+            "support": 41
+          },
+          "SIMULATE": {
+            "precision": 0.8243243243243243,
+            "recall": 0.9682539682539683,
+            "f1": 0.8905109489051095,
+            "support": 63
+          },
+          "OPTIMIZE": {
+            "precision": 0.9375,
+            "recall": 0.8823529411764706,
+            "f1": 0.9090909090909091,
+            "support": 17
+          },
+          "REQUEST_REVIEW": {
+            "precision": 0.9515151515151515,
+            "recall": 0.9127906976744186,
+            "f1": 0.9317507418397626,
+            "support": 172
+          },
+          "ABSTAIN": {
+            "precision": 0.7837837837837838,
+            "recall": 0.6041666666666666,
+            "f1": 0.6823529411764706,
+            "support": 48
+          }
+        }
+      }
+    }
+  },
+  "actual_runtime_layer_skip": {
+    "status": "NOT_RUN_SYNTHETIC_ONLY_POLICY_NOT_PRODUCTION_ELIGIBLE",
+    "full_depth_hook_evidence": true,
+    "note": "Sandbox-generated scenario labels cannot authorize research early exit. Existing safety boundary is preserved; only full-depth real Qwen inference was timed."
+  },
+  "runtime_latency": {
+    "status": "MEASURED_FULL_DEPTH_BASELINE_ONLY",
+    "model_revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+    "device": "mps",
+    "precision": "torch.float16",
+    "warmup_runs": 3,
+    "measured_runs": 30,
+    "p50_latency_ms": 84.69356199930189,
+    "p95_latency_ms": 96.53510394346084,
+    "min_latency_ms": 83.50491599412635,
+    "max_latency_ms": 99.87254200677853,
+    "input_token_count": 471,
+    "mean_executed_layers": 28.0,
+    "hook_evidence_all_layers_executed": true,
+    "per_run_evidence": [
+      {
+        "executed_layers_reported": 28,
+        "decoder_hook_invocations": 28
+      },
+      {
+        "executed_layers_reported": 28,
+        "decoder_hook_invocations": 28
+      },
+      {
+        "executed_layers_reported": 28,
+        "decoder_hook_invocations": 28
+      },
+      {
+        "executed_layers_reported": 28,
+        "decoder_hook_invocations": 28
+      },
+      {
+        "executed_layers_reported": 28,
+        "decoder_hook_invocations": 28
+      },
+      {
+        "executed_layers_reported": 28,
+        "decoder_hook_invocations": 28
+      },
+      {
+        "executed_layers_reported": 28,
+        "decoder_hook_invocations": 28
+      },
+      {
+        "executed_layers_reported": 28,
+        "decoder_hook_invocations": 28
+      },
+      {
+        "executed_layers_reported": 28,
+        "decoder_hook_invocations": 28
+      },
+      {
+        "executed_layers_reported": 28,
+        "decoder_hook_invocations": 28
+      },
+      {
+        "executed_layers_reported": 28,
+        "decoder_hook_invocations": 28
+      },
+      {
+        "executed_layers_reported": 28,
+        "decoder_hook_invocations": 28
+      },
+      {
+        "executed_layers_reported": 28,
+        "decoder_hook_invocations": 28
+      },
+      {
+        "executed_layers_reported": 28,
+        "decoder_hook_invocations": 28
+      },
+      {
+        "executed_layers_reported": 28,
+        "decoder_hook_invocations": 28
+      },
+      {
+        "executed_layers_reported": 28,
+        "decoder_hook_invocations": 28
+      },
+      {
+        "executed_layers_reported": 28,
+        "decoder_hook_invocations": 28
+      },
+      {
+        "executed_layers_reported": 28,
+        "decoder_hook_invocations": 28
+      },
+      {
+        "executed_layers_reported": 28,
+        "decoder_hook_invocations": 28
+      },
+      {
+        "executed_layers_reported": 28,
+        "decoder_hook_invocations": 28
+      },
+      {
+        "executed_layers_reported": 28,
+        "decoder_hook_invocations": 28
+      },
+      {
+        "executed_layers_reported": 28,
+        "decoder_hook_invocations": 28
+      },
+      {
+        "executed_layers_reported": 28,
+        "decoder_hook_invocations": 28
+      },
+      {
+        "executed_layers_reported": 28,
+        "decoder_hook_invocations": 28
+      },
+      {
+        "executed_layers_reported": 28,
+        "decoder_hook_invocations": 28
+      },
+      {
+        "executed_layers_reported": 28,
+        "decoder_hook_invocations": 28
+      },
+      {
+        "executed_layers_reported": 28,
+        "decoder_hook_invocations": 28
+      },
+      {
+        "executed_layers_reported": 28,
+        "decoder_hook_invocations": 28
+      },
+      {
+        "executed_layers_reported": 28,
+        "decoder_hook_invocations": 28
+      },
+      {
+        "executed_layers_reported": 28,
+        "decoder_hook_invocations": 28
+      }
+    ],
+    "early_exit_latency": "NOT_MEASURED; the only statistically passing policy is certified on synthetic sandbox labels and is ineligible under the research safety boundary"
+  },
+  "external_scientific_validation": "NOT_AVAILABLE; no human-reviewed lab dataset"
+}

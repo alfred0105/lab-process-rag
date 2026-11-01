@@ -1,0 +1,670 @@
+{
+  "status": "SYNTHETIC_DATA_AUDIT_ONLY",
+  "sizes": [
+    {
+      "sample_count": 480,
+      "class_distribution": {
+        "REQUEST_INFORMATION": 57,
+        "ANALYZE": 54,
+        "SIMULATE": 82,
+        "OPTIMIZE": 23,
+        "REQUEST_REVIEW": 210,
+        "ABSTAIN": 54
+      },
+      "scenario_family_distribution": {
+        "measurement_data_scarce": {
+          "ABSTAIN": 14,
+          "SIMULATE": 6,
+          "REQUEST_INFORMATION": 7,
+          "ANALYZE": 8,
+          "REQUEST_REVIEW": 5
+        },
+        "analysis_needed": {
+          "REQUEST_REVIEW": 9,
+          "ANALYZE": 20,
+          "REQUEST_INFORMATION": 7,
+          "SIMULATE": 3,
+          "ABSTAIN": 1
+        },
+        "simulation_ready": {
+          "ABSTAIN": 6,
+          "REQUEST_REVIEW": 8,
+          "ANALYZE": 5,
+          "SIMULATE": 17,
+          "REQUEST_INFORMATION": 4
+        },
+        "optimization_ready": {
+          "OPTIMIZE": 23,
+          "REQUEST_REVIEW": 7,
+          "REQUEST_INFORMATION": 7,
+          "SIMULATE": 2,
+          "ANALYZE": 1
+        },
+        "researcher_review": {
+          "REQUEST_REVIEW": 39,
+          "ABSTAIN": 1
+        },
+        "incomplete_provenance": {
+          "REQUEST_REVIEW": 39,
+          "ABSTAIN": 1
+        },
+        "unit_mismatch": {
+          "REQUEST_REVIEW": 36,
+          "ABSTAIN": 4
+        },
+        "high_uncertainty": {
+          "REQUEST_REVIEW": 39,
+          "ABSTAIN": 1
+        },
+        "multiple_tools_available": {
+          "REQUEST_INFORMATION": 6,
+          "SIMULATE": 20,
+          "REQUEST_REVIEW": 9,
+          "ABSTAIN": 5
+        },
+        "contradictory_readiness": {
+          "ANALYZE": 10,
+          "ABSTAIN": 11,
+          "REQUEST_INFORMATION": 12,
+          "REQUEST_REVIEW": 7
+        },
+        "partial_missingness": {
+          "REQUEST_REVIEW": 7,
+          "REQUEST_INFORMATION": 9,
+          "ANALYZE": 10,
+          "SIMULATE": 5,
+          "ABSTAIN": 9
+        },
+        "unseen_condition_combination": {
+          "SIMULATE": 29,
+          "REQUEST_REVIEW": 5,
+          "REQUEST_INFORMATION": 5,
+          "ABSTAIN": 1
+        }
+      },
+      "duplicate_canonical_states": 0,
+      "conflicting_duplicate_labels": 0,
+      "group_count": 480,
+      "group_ids_unique_per_case": true,
+      "feature_shortcut_screen": {
+        "high_purity_low_cardinality_features": [
+          {
+            "feature_index": 0,
+            "dominant_label_purity": 1.0
+          },
+          {
+            "feature_index": 44,
+            "dominant_label_purity": 1.0
+          },
+          {
+            "feature_index": 46,
+            "dominant_label_purity": 0.95
+          },
+          {
+            "feature_index": 47,
+            "dominant_label_purity": 0.975
+          },
+          {
+            "feature_index": 119,
+            "dominant_label_purity": 0.975
+          },
+          {
+            "feature_index": 125,
+            "dominant_label_purity": 0.96875
+          },
+          {
+            "feature_index": 127,
+            "dominant_label_purity": 0.975
+          },
+          {
+            "feature_index": 128,
+            "dominant_label_purity": 0.975
+          },
+          {
+            "feature_index": 133,
+            "dominant_label_purity": 0.975
+          }
+        ],
+        "note": "Exploratory univariate screen only; absence does not prove no multivariate leakage."
+      },
+      "label_generation_audit": {
+        "source": "phase5_stage3._scenario deterministic rules over generated state plus independent 8% override to REQUEST_REVIEW or ABSTAIN",
+        "human_reviewed": false,
+        "is_empirical_scientific_ground_truth": false,
+        "synthetic_provenance_is_part_of_model_input": false
+      }
+    },
+    {
+      "sample_count": 1920,
+      "class_distribution": {
+        "REQUEST_INFORMATION": 220,
+        "ANALYZE": 228,
+        "SIMULATE": 333,
+        "OPTIMIZE": 71,
+        "REQUEST_REVIEW": 850,
+        "ABSTAIN": 218
+      },
+      "scenario_family_distribution": {
+        "measurement_data_scarce": {
+          "ABSTAIN": 39,
+          "SIMULATE": 23,
+          "REQUEST_INFORMATION": 28,
+          "ANALYZE": 37,
+          "REQUEST_REVIEW": 33
+        },
+        "analysis_needed": {
+          "REQUEST_REVIEW": 32,
+          "ANALYZE": 79,
+          "REQUEST_INFORMATION": 30,
+          "SIMULATE": 15,
+          "ABSTAIN": 4
+        },
+        "simulation_ready": {
+          "ABSTAIN": 28,
+          "REQUEST_REVIEW": 30,
+          "ANALYZE": 12,
+          "SIMULATE": 64,
+          "REQUEST_INFORMATION": 26
+        },
+        "optimization_ready": {
+          "OPTIMIZE": 71,
+          "REQUEST_REVIEW": 32,
+          "REQUEST_INFORMATION": 26,
+          "SIMULATE": 7,
+          "ANALYZE": 8,
+          "ABSTAIN": 16
+        },
+        "researcher_review": {
+          "REQUEST_REVIEW": 154,
+          "ABSTAIN": 6
+        },
+        "incomplete_provenance": {
+          "REQUEST_REVIEW": 156,
+          "ABSTAIN": 4
+        },
+        "unit_mismatch": {
+          "REQUEST_REVIEW": 150,
+          "ABSTAIN": 10
+        },
+        "high_uncertainty": {
+          "REQUEST_REVIEW": 152,
+          "ABSTAIN": 8
+        },
+        "multiple_tools_available": {
+          "REQUEST_INFORMATION": 25,
+          "SIMULATE": 88,
+          "REQUEST_REVIEW": 33,
+          "ABSTAIN": 14
+        },
+        "contradictory_readiness": {
+          "ANALYZE": 52,
+          "ABSTAIN": 50,
+          "REQUEST_INFORMATION": 33,
+          "REQUEST_REVIEW": 25
+        },
+        "partial_missingness": {
+          "REQUEST_REVIEW": 27,
+          "REQUEST_INFORMATION": 27,
+          "ANALYZE": 40,
+          "SIMULATE": 29,
+          "ABSTAIN": 37
+        },
+        "unseen_condition_combination": {
+          "SIMULATE": 107,
+          "REQUEST_REVIEW": 26,
+          "REQUEST_INFORMATION": 25,
+          "ABSTAIN": 2
+        }
+      },
+      "duplicate_canonical_states": 0,
+      "conflicting_duplicate_labels": 0,
+      "group_count": 1920,
+      "group_ids_unique_per_case": true,
+      "feature_shortcut_screen": {
+        "high_purity_low_cardinality_features": [
+          {
+            "feature_index": 46,
+            "dominant_label_purity": 0.9583333333333334
+          },
+          {
+            "feature_index": 47,
+            "dominant_label_purity": 0.96875
+          },
+          {
+            "feature_index": 119,
+            "dominant_label_purity": 0.9625
+          },
+          {
+            "feature_index": 125,
+            "dominant_label_purity": 0.9617224880382775
+          },
+          {
+            "feature_index": 127,
+            "dominant_label_purity": 0.975
+          },
+          {
+            "feature_index": 128,
+            "dominant_label_purity": 0.975
+          },
+          {
+            "feature_index": 133,
+            "dominant_label_purity": 0.975
+          }
+        ],
+        "note": "Exploratory univariate screen only; absence does not prove no multivariate leakage."
+      },
+      "label_generation_audit": {
+        "source": "phase5_stage3._scenario deterministic rules over generated state plus independent 8% override to REQUEST_REVIEW or ABSTAIN",
+        "human_reviewed": false,
+        "is_empirical_scientific_ground_truth": false,
+        "synthetic_provenance_is_part_of_model_input": false
+      }
+    },
+    {
+      "sample_count": 3840,
+      "class_distribution": {
+        "REQUEST_INFORMATION": 506,
+        "ANALYZE": 442,
+        "SIMULATE": 644,
+        "OPTIMIZE": 147,
+        "REQUEST_REVIEW": 1662,
+        "ABSTAIN": 439
+      },
+      "scenario_family_distribution": {
+        "measurement_data_scarce": {
+          "ABSTAIN": 83,
+          "SIMULATE": 50,
+          "REQUEST_INFORMATION": 61,
+          "ANALYZE": 68,
+          "REQUEST_REVIEW": 58
+        },
+        "analysis_needed": {
+          "REQUEST_REVIEW": 45,
+          "ANALYZE": 162,
+          "REQUEST_INFORMATION": 64,
+          "SIMULATE": 41,
+          "ABSTAIN": 8
+        },
+        "simulation_ready": {
+          "ABSTAIN": 53,
+          "REQUEST_REVIEW": 47,
+          "ANALYZE": 20,
+          "SIMULATE": 132,
+          "REQUEST_INFORMATION": 68
+        },
+        "optimization_ready": {
+          "OPTIMIZE": 147,
+          "REQUEST_REVIEW": 57,
+          "REQUEST_INFORMATION": 60,
+          "SIMULATE": 10,
+          "ANALYZE": 18,
+          "ABSTAIN": 28
+        },
+        "researcher_review": {
+          "REQUEST_REVIEW": 308,
+          "ABSTAIN": 12
+        },
+        "incomplete_provenance": {
+          "REQUEST_REVIEW": 307,
+          "ABSTAIN": 13
+        },
+        "unit_mismatch": {
+          "REQUEST_REVIEW": 302,
+          "ABSTAIN": 18
+        },
+        "high_uncertainty": {
+          "REQUEST_REVIEW": 309,
+          "ABSTAIN": 11
+        },
+        "multiple_tools_available": {
+          "REQUEST_INFORMATION": 60,
+          "SIMULATE": 173,
+          "REQUEST_REVIEW": 65,
+          "ABSTAIN": 22
+        },
+        "contradictory_readiness": {
+          "ANALYZE": 98,
+          "ABSTAIN": 104,
+          "REQUEST_INFORMATION": 68,
+          "REQUEST_REVIEW": 50
+        },
+        "partial_missingness": {
+          "REQUEST_REVIEW": 56,
+          "REQUEST_INFORMATION": 63,
+          "ANALYZE": 76,
+          "SIMULATE": 51,
+          "ABSTAIN": 74
+        },
+        "unseen_condition_combination": {
+          "SIMULATE": 187,
+          "REQUEST_REVIEW": 58,
+          "REQUEST_INFORMATION": 62,
+          "ABSTAIN": 13
+        }
+      },
+      "duplicate_canonical_states": 0,
+      "conflicting_duplicate_labels": 0,
+      "group_count": 3840,
+      "group_ids_unique_per_case": true,
+      "feature_shortcut_screen": {
+        "high_purity_low_cardinality_features": [
+          {
+            "feature_index": 46,
+            "dominant_label_purity": 0.9552083333333333
+          },
+          {
+            "feature_index": 47,
+            "dominant_label_purity": 0.9609375
+          },
+          {
+            "feature_index": 119,
+            "dominant_label_purity": 0.9625
+          },
+          {
+            "feature_index": 125,
+            "dominant_label_purity": 0.9574209245742092
+          },
+          {
+            "feature_index": 127,
+            "dominant_label_purity": 0.959375
+          },
+          {
+            "feature_index": 128,
+            "dominant_label_purity": 0.959375
+          },
+          {
+            "feature_index": 133,
+            "dominant_label_purity": 0.959375
+          }
+        ],
+        "note": "Exploratory univariate screen only; absence does not prove no multivariate leakage."
+      },
+      "label_generation_audit": {
+        "source": "phase5_stage3._scenario deterministic rules over generated state plus independent 8% override to REQUEST_REVIEW or ABSTAIN",
+        "human_reviewed": false,
+        "is_empirical_scientific_ground_truth": false,
+        "synthetic_provenance_is_part_of_model_input": false
+      }
+    }
+  ],
+  "dataset_hash": "2a3d38579c456d183f411aab41d9afa9bfe9183d9f950af4baba7c637f0d137d",
+  "split_counts": {
+    "fit": {
+      "count": 1920,
+      "groups": 1920,
+      "class_distribution": {
+        "REQUEST_INFORMATION": 238,
+        "ANALYZE": 217,
+        "SIMULATE": 319,
+        "OPTIMIZE": 69,
+        "REQUEST_REVIEW": 845,
+        "ABSTAIN": 232
+      }
+    },
+    "router_fit": {
+      "count": 384,
+      "groups": 384,
+      "class_distribution": {
+        "REQUEST_INFORMATION": 54,
+        "ANALYZE": 48,
+        "SIMULATE": 66,
+        "OPTIMIZE": 15,
+        "REQUEST_REVIEW": 167,
+        "ABSTAIN": 34
+      }
+    },
+    "calibration": {
+      "count": 384,
+      "groups": 384,
+      "class_distribution": {
+        "REQUEST_INFORMATION": 62,
+        "ANALYZE": 47,
+        "SIMULATE": 55,
+        "OPTIMIZE": 16,
+        "REQUEST_REVIEW": 165,
+        "ABSTAIN": 39
+      }
+    },
+    "policy_selection": {
+      "count": 384,
+      "groups": 384,
+      "class_distribution": {
+        "REQUEST_INFORMATION": 52,
+        "ANALYZE": 44,
+        "SIMULATE": 69,
+        "OPTIMIZE": 12,
+        "REQUEST_REVIEW": 168,
+        "ABSTAIN": 39
+      }
+    },
+    "risk_certification": {
+      "count": 384,
+      "groups": 384,
+      "class_distribution": {
+        "REQUEST_INFORMATION": 57,
+        "ANALYZE": 45,
+        "SIMULATE": 72,
+        "OPTIMIZE": 18,
+        "REQUEST_REVIEW": 145,
+        "ABSTAIN": 47
+      }
+    },
+    "frozen_evaluation": {
+      "count": 384,
+      "groups": 384,
+      "class_distribution": {
+        "REQUEST_INFORMATION": 43,
+        "ANALYZE": 41,
+        "SIMULATE": 63,
+        "OPTIMIZE": 17,
+        "REQUEST_REVIEW": 172,
+        "ABSTAIN": 48
+      }
+    }
+  },
+  "split_hashes": {
+    "fit": "20fe14e180028ec21c6bc7efea847bb45245631f1a4b3d4bd0d6c10e16d08dae",
+    "router_fit": "cb7ab6a81013fba66c4b4193b38c7598b5fc85af49d2a1b5259a9657a2811497",
+    "calibration": "6d46b07a2838826c2987be2c15c02eee737ebeda11c9b8b93237f0bbbc217336",
+    "policy_selection": "5c9310865c88bed5f9c3faf75c9f38ff467b84626be45ec8ba5db7597cfd32ad",
+    "risk_certification": "4579844ad38a98cf0900b3d38c88724092b64994e7c4e152c2c74d947619f10a",
+    "frozen_evaluation": "7c84c060dd4a6691faf8d714387cc46f9461f60e3f9b52da14bcf420d78b360e"
+  },
+  "split_overlap_checked": true,
+  "cross_recipe_family_holdout": {
+    "held_out_families": [
+      "unit_mismatch",
+      "unseen_condition_combination"
+    ],
+    "train_count": 3200,
+    "target_count": 640,
+    "target_class_distribution": {
+      "REQUEST_INFORMATION": 62,
+      "ANALYZE": 0,
+      "SIMULATE": 187,
+      "OPTIMIZE": 0,
+      "REQUEST_REVIEW": 360,
+      "ABSTAIN": 31
+    },
+    "status": "SYNTHETIC_FAMILY_SHIFT_ONLY",
+    "layers": {
+      "7": {
+        "count": 640,
+        "accuracy": 0.3671875,
+        "balanced_accuracy": 0.4334339600943017,
+        "macro_f1": 0.24972947681033206,
+        "per_class": {
+          "REQUEST_INFORMATION": {
+            "precision": 0.6382978723404256,
+            "recall": 0.4838709677419355,
+            "f1": 0.5504587155963303,
+            "support": 62
+          },
+          "ANALYZE": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "SIMULATE": {
+            "precision": 0.6178571428571429,
+            "recall": 0.9251336898395722,
+            "f1": 0.7408993576017131,
+            "support": 187
+          },
+          "OPTIMIZE": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "REQUEST_REVIEW": {
+            "precision": 0.5581395348837209,
+            "recall": 0.06666666666666667,
+            "f1": 0.11910669975186104,
+            "support": 360
+          },
+          "ABSTAIN": {
+            "precision": 0.052980132450331126,
+            "recall": 0.25806451612903225,
+            "f1": 0.08791208791208792,
+            "support": 31
+          }
+        }
+      },
+      "14": {
+        "count": 640,
+        "accuracy": 0.5640625,
+        "balanced_accuracy": 0.5404193740057118,
+        "macro_f1": 0.2999433665914936,
+        "per_class": {
+          "REQUEST_INFORMATION": {
+            "precision": 0.24056603773584906,
+            "recall": 0.8225806451612904,
+            "f1": 0.3722627737226277,
+            "support": 62
+          },
+          "ANALYZE": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "SIMULATE": {
+            "precision": 0.8651162790697674,
+            "recall": 0.9946524064171123,
+            "f1": 0.9253731343283582,
+            "support": 187
+          },
+          "OPTIMIZE": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "REQUEST_REVIEW": {
+            "precision": 0.9253731343283582,
+            "recall": 0.34444444444444444,
+            "f1": 0.5020242914979757,
+            "support": 360
+          },
+          "ABSTAIN": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 31
+          }
+        }
+      },
+      "21": {
+        "count": 640,
+        "accuracy": 0.315625,
+        "balanced_accuracy": 0.5547632396066932,
+        "macro_f1": 0.23666321600962936,
+        "per_class": {
+          "REQUEST_INFORMATION": {
+            "precision": 0.36585365853658536,
+            "recall": 0.967741935483871,
+            "f1": 0.5309734513274337,
+            "support": 62
+          },
+          "ANALYZE": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "SIMULATE": {
+            "precision": 0.859504132231405,
+            "recall": 0.5561497326203209,
+            "f1": 0.6753246753246753,
+            "support": 187
+          },
+          "OPTIMIZE": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "REQUEST_REVIEW": {
+            "precision": 0.9473684210526315,
+            "recall": 0.05,
+            "f1": 0.09498680738786279,
+            "support": 360
+          },
+          "ABSTAIN": {
+            "precision": 0.06535947712418301,
+            "recall": 0.6451612903225806,
+            "f1": 0.11869436201780416,
+            "support": 31
+          }
+        }
+      },
+      "28": {
+        "count": 640,
+        "accuracy": 0.415625,
+        "balanced_accuracy": 0.4997549019607843,
+        "macro_f1": 0.2758494941114915,
+        "per_class": {
+          "REQUEST_INFORMATION": {
+            "precision": 0.28717948717948716,
+            "recall": 0.9032258064516129,
+            "f1": 0.4357976653696498,
+            "support": 62
+          },
+          "ANALYZE": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "SIMULATE": {
+            "precision": 0.9016393442622951,
+            "recall": 0.8823529411764706,
+            "f1": 0.8918918918918919,
+            "support": 187
+          },
+          "OPTIMIZE": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "REQUEST_REVIEW": {
+            "precision": 0.9333333333333333,
+            "recall": 0.11666666666666667,
+            "f1": 0.2074074074074074,
+            "support": 360
+          },
+          "ABSTAIN": {
+            "precision": 0.15789473684210525,
+            "recall": 0.0967741935483871,
+            "f1": 0.12,
+            "support": 31
+          }
+        }
+      }
+    }
+  },
+  "provenance_note": "The generator cycles 12 scenario families by row index and labels from synthetic rules with random override. Unique case group IDs do not make cases empirically independent; family-held-out scores are more conservative but still synthetic."
+}

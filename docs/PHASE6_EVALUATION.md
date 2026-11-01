@@ -6,3 +6,8 @@
 ## Closure diagnostic update (2026-11-01)
 
 The expanded 480-case grouped synthetic experiment is diagnostic only. Linear, MLP and regularized MLP heads at seven candidate layers were evaluated with separate calibration, controller and frozen groups; all policies failed the predeclared sequential risk bound, leaving authorized early-exit rate at 0% and execution at 28/28 layers. The old 120-case benchmark above is retained as historical evidence. Current results are in `backend/reports/phase6_early_exit_diagnostics.json` and `phase6_early_exit_final.json`.
+
+
+## Early Exit expanded evaluation — 2026-11-01
+
+Expanded split hashes, class counts, family-held-out diagnostic, selection and one-policy independent risk certificate are in `backend/reports/phase6_ee_dataset_audit.json` and `phase6_ee_router_comparison.json`. PABEE's synthetic certificate passed with 377 exits/46 errors (Wilson upper 0.1589; exact upper 0.1533); frozen offline macro F1 was 0.8446 versus 0.8487 full-depth. Since this dataset is rule-generated, this result is only a synthetic software-policy test, not scientific validation. Router method frozen scores are descriptive and were not used for policy selection.

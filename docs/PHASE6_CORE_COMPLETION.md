@@ -50,3 +50,10 @@ The detailed register remains in `docs/MASTER_ROADMAP.md`. No blanket promotion 
 - No synthetic head is promoted to production.
 - Phase 7 remains `NOT_STARTED`.
 - Phase 8 remains `NOT_STARTED`.
+
+
+## Early Exit research update — 2026-11-01
+
+Expanded synthetic experiment: 480/1,920/3,840 cases, six disjoint partitions at N=3,840, class-balanced/effective-number/fusion/MLP/distillation head candidates, five routers, family-held-out diagnostic and OOD rejection. PABEE was selected for certification; 377/384 synthetic certificate cases exited, 46 errors, Wilson upper 0.1589 and exact upper 0.1533, meeting the software experiment's 0.20 threshold. On frozen synthetic data, offline mean depth was 15.42/28 and macro F1 0.8446 versus full-depth 0.8487. This statistical result does not authorize research use: all targets came from generated synthetic rule contracts, no reviewed laboratory labels exist, and no adaptive decoder loop was timed.
+
+Actual local Qwen3-0.6B revision `c1899de289a04d12100db370d81485cdf75e47ca` full-depth benchmark: MPS FP16, 471 input tokens, 3 warmups, 30 synchronized repetitions, hooks verified 28/28 layers each time, latest batch p50 84.69ms and p95 96.54ms (three batches ranged 84.69–120.89ms p50 and 91.46–145.16ms p95). Adaptive p50/p95 and actual layer skipping remain unmeasured. Phase 6 stays `IN_PROGRESS`, Phase 7 `NOT_STARTED`; the roadmap retains COMBO-A~E integration, real data validation and adaptive runtime proof as open requirements.

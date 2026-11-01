@@ -10,3 +10,8 @@
 ## Closure diagnostic (2026-11-01)
 
 A separate diagnostic trained Linear, MLP and regularized MLP heads on the same pinned frozen Qwen backbone, using group-disjoint fit/calibration/controller/frozen sets (288/72/48/72) and layers 7/10/14/18/21/24/28. Synthetic-only comparisons are in `backend/reports/phase6_early_exit_diagnostics.json`; none of the head/layer sequential policies passed the controller risk bound. These diagnostic heads were not promoted and production artifacts were not changed.
+
+
+## Expanded early-exit training experiment — 2026-11-01
+
+See `PHASE6_EARLY_EXIT_EXPERIMENTS.md` and `backend/scripts/phase6_ee_research.py`. All normalizers fit on the 1,920-case fit partition. Tested hidden-only, ScientificState-only, concatenated feature fusion, class/effective-number weights, balanced random oversampling and a torch linear student trained with hard-label CE plus deep-teacher KL on router-fit cases unseen by the teacher. Generated labels remain synthetic and no artifact is promoted. Optional contrastive and explicit multiplicative-gate heads are not included.
