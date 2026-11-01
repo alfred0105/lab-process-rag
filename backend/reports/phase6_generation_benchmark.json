@@ -3,19 +3,19 @@
   "decision_only": {
     "generated_tokens": 0,
     "generation_called": false,
-    "decision_latency_ms": 109.4997079926543
+    "decision_latency_ms": 86.84983299463056
   },
   "conditional_explanation": {
     "generated_tokens": 0,
     "generation_latency_ms": 0.0,
-    "cache_reuse_status": "GENERATION_SKIPPED_NO_VALIDATED_EVIDENCE",
+    "cache_reuse_status": "GENERATION_SKIPPED_UNVERIFIED_SANDBOX",
     "kv_cache_bytes": 0,
-    "text": "검증된 인용 근거가 없어 설명 생성을 보류했습니다. 필요한 논문 또는 검토된 분석 결과를 연결해 주세요."
+    "text": "샌드박스 입력만으로는 연구 설명을 생성하지 않습니다. 실제 연구 기록과 서버 검증 논문 근거를 연결해 주세요."
   },
   "raw_lm_runtime_smoke_non_scientific": {
     "generated_tokens": 2,
-    "latency_ms": 103.27525000320747,
-    "kv_cache_bytes": 15597568,
+    "latency_ms": 132.58879199565854,
+    "kv_cache_bytes": 18923520,
     "text": "OK"
   },
   "cache_policy": "Decision early-exit state is not a complete KV cache. When no validated evidence exists, explanation generation is skipped. If supported evidence exists, the implementation uses full-depth prefill fallback followed by per-token KV reuse.",

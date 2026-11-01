@@ -1,0 +1,31 @@
+{
+  "status": "PASS_SOFTWARE_INTEGRATION_ONLY",
+  "scope": "SYNTHETIC_FIXTURE_NOT_LAB_OR_SCIENTIFIC_VALIDATION",
+  "model_id": "Qwen/Qwen3-0.6B",
+  "model_revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+  "context_adapter_version": "scientific-state-canonical-v2",
+  "actual_checkpoint_loaded": true,
+  "api_path": "Research API → DB-built ScientificState → topic-scoped DB EvidenceChunk → decision head → locked explanation prompt → actual LM generation",
+  "source_state": {
+    "schema_version": "scientific-state-v2",
+    "evidence_count": 0,
+    "source_record_count": 1
+  },
+  "raw_action": "ANALYZE",
+  "final_safe_action": "ABSTAIN",
+  "generation_tokens": 81,
+  "generation_status": "GENERATION_REJECTED_MISSING_EXPLANATION_OR_CITATION",
+  "generation_validation_status": "GENERATION_REJECTED_MISSING_EXPLANATION_OR_CITATION",
+  "generated_output_accepted": false,
+  "explanation_evidence_count": 1,
+  "citation_validation": "accepted only when structured output echoes the locked action and exact DB-resolved citation; otherwise safe fallback",
+  "cache_bytes": 103907328,
+  "workflow_triggered": false,
+  "elapsed_ms": 3401.7401250021067,
+  "access_control_limitation": "TOPIC_SCOPED_NO_AUTHENTICATED_USER_IDENTITY",
+  "limitations": [
+    "All database rows and PDF excerpt in this isolated test are fabricated test fixtures.",
+    "No scientific content validity or real laboratory decision accuracy is established.",
+    "The application currently has topic scoping but no authenticated user identity/authorization layer."
+  ]
+}

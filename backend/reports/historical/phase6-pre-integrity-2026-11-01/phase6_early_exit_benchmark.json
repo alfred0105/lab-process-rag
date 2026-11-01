@@ -1,0 +1,57 @@
+{
+  "status": "MEASURED_LOCAL_SYNTHETIC_SOFTWARE_ONLY",
+  "device": "mps",
+  "precision": "torch.float16",
+  "eligible_valid_cases": 19,
+  "blocked_invalid_input_count": 5,
+  "early_exit_cases": 19,
+  "early_executed_layers": [
+    28,
+    28,
+    28,
+    28,
+    28,
+    28,
+    28,
+    28,
+    28,
+    28,
+    28,
+    28,
+    28,
+    28,
+    28,
+    28,
+    28,
+    28,
+    28
+  ],
+  "early_exit_rate": 0.0,
+  "mean_layers_early": 28,
+  "mean_layers_full": 28,
+  "layer_fraction_saved_estimate": 0.0,
+  "early_raw_action_metrics": {
+    "count": 19,
+    "accuracy": 0.21052631578947367,
+    "macro_f1": 0.057971014492753624
+  },
+  "full_depth_raw_action_metrics": {
+    "count": 19,
+    "accuracy": 0.21052631578947367,
+    "macro_f1": 0.057971014492753624
+  },
+  "early_latency_ms": {
+    "p50": 107.3878750030417,
+    "p95": 122.9517833024145
+  },
+  "full_depth_latency_ms": {
+    "p50": 107.48949999106117,
+    "p95": 110.86725479835876
+  },
+  "actual_layer_skipping": false,
+  "early_full_decision_equivalent": true,
+  "limitations": [
+    "One warm local process; at most 24 cases.",
+    "Layer fraction is a proxy, not measured FLOPs."
+  ]
+}

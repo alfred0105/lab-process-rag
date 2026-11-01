@@ -1,0 +1,23 @@
+{
+  "status": "PARTIAL_NO_CALIBRATED_EARLY_EXIT",
+  "base_revision": "b4b797b5b65d5d8e97a6813919492936303795ec",
+  "model_id": "Qwen/Qwen3-0.6B",
+  "model_revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+  "context_adapter_version": "scientific-state-canonical-v2",
+  "dataset_label": "SYNTHETIC_SANDBOX_NOT_SCIENTIFIC_VALIDATION",
+  "training_count": 72,
+  "calibration_count": 24,
+  "evaluation_count": 24,
+  "runtime_valid_input_count": 19,
+  "layer_calibration": {
+    "7": {"accuracy": 0.375, "macro_f1": 0.1621376811594203, "threshold": null},
+    "14": {"accuracy": 0.3333333333333333, "macro_f1": 0.14444444444444446, "threshold": null},
+    "21": {"accuracy": 0.5416666666666666, "macro_f1": 0.30354449472096534, "threshold": null},
+    "28": {"accuracy": 0.5, "macro_f1": 0.2954248366013072, "threshold": null}
+  },
+  "structural_test": {"status": "PASS_STRUCTURAL_ONLY_NOT_CALIBRATED", "forced_test_threshold": 0.0, "actual_layer_forward_calls": 7, "exit_layer": 7, "model_layer_count": 28, "omitted_calls": 21},
+  "real_calibrated_result": {"early_exit_count": 0, "exit_rate": 0.0, "mean_executed_layers": 28, "layers_saved_estimate": 0.0, "layer_fraction_is_flops": false},
+  "latency_ms": {"early_p50": 87.83404200221412, "early_p95": 92.43422499712322, "full_depth_p50": 87.41379198909272, "full_depth_p95": 90.09275809075916},
+  "decision_match_early_vs_full": true,
+  "limitations": ["Synthetic calibration only.", "No early-exit threshold met the fail-closed risk policy.", "Structural skipping does not establish calibrated safety or speedup."]
+}

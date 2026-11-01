@@ -1,0 +1,19 @@
+{
+  "status": "PARTIAL_PHASE6_INTEGRITY_GATES",
+  "base_revision": "b4b797b5b65d5d8e97a6813919492936303795ec",
+  "repository": "alfred0105/lab-process-rag",
+  "model": {"id": "Qwen/Qwen3-0.6B", "revision": "c1899de289a04d12100db370d81485cdf75e47ca", "adapter_version": "scientific-state-canonical-v2", "artifact_version": 2},
+  "fixes": {
+    "FIX-P6-001": {"status": "VERIFIED_SOFTWARE_CONTEXT_CONTRACT", "training_inference_token_equality": true, "identity_outcome_leakage_test": true, "unit_invariance_test": true, "old_artifact_archived_and_rejected": true, "retraining": "PASS actual Qwen hidden states; synthetic rows"},
+    "FIX-P6-002": {"status": "PARTIAL", "explicit_research_sandbox_modes": true, "client_research_state_rejected": true, "research_provenance_and_quality_gate": true, "citation_ids_server_resolved_and_topic_scoped": true, "self_reported_supported_evidence_rejected": true, "authenticated_user_authorization": false, "sandbox_arbitrary_state_explicit_and_unverified": true},
+    "FIX-P6-003": {"status": "PARTIAL", "final_safe_action_locked_in_context": true, "output_action_and_citation_validator": true, "actual_qwen_generation": "81 tokens generated in isolated synthetic DB integration", "accepted_generated_explanation": false, "safe_fallback": true, "workflow_triggered": false, "full_prefill_and_kv_cache": "measured in isolated synthetic fixture; scientific output rejected"},
+    "FIX-P6-004": {"status": "PARTIAL", "structural_actual_layer_skip": "7 of 28 layers called; 21 omitted at forced test-only threshold", "calibrated_exit_thresholds": {"7": null, "14": null, "21": null}, "calibrated_exit_rate": 0.0, "mean_runtime_layers": 28, "compute_savings_verified": false}
+  },
+  "training_counts": {"total": 120, "fit": 72, "calibration": 24, "evaluation": 24, "group_overlap": false},
+  "evaluation_final_layer": {"accuracy": 0.5, "macro_f1": 0.2954248366013072, "synthetic_only": true},
+  "local_environment": {"python": "3.12.14", "torch": "2.15.0", "device": "mps", "precision": "torch.float16", "model_load_ms": 1748.5916250006994, "mps_driver_allocated_after_run_bytes": 3574267904, "process_peak_rss_bytes": 3617243136, "quantization": "not measured/supported in this configured backend"},
+  "reports": ["phase6_context_alignment.json", "phase6_generation_validation.json", "phase6_early_exit_revalidation.json", "phase6_decision_benchmark.json", "phase6_early_exit_benchmark.json", "phase6_generation_benchmark.json", "phase6_memory_latency.json"],
+  "verification": {"phase6_focused_tests": "17 passed", "backend_full_suite": "243 passed, 353 warnings in 45.44s", "frontend_build": "PASS; tsc -b and Vite 6.4.5, 1760 modules", "browser_e2e": "6 passed in 44.6s", "github_actions": "PENDING until pushed commit completes"},
+  "official_status": {"phase6": "IN_PROGRESS", "phase7": "NOT_STARTED", "external_scientific_validation": "EXTERNAL_VALIDATION_PENDING"},
+  "limitations": ["No reviewed scientific decision dataset was available.", "No authenticated user authorization layer exists.", "Actual generated explanation failed exact JSON citation contract and fell back.", "No calibrated real early exit or efficiency improvement was observed."]
+}

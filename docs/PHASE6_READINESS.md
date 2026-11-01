@@ -1,6 +1,6 @@
 # Phase 6 Readiness Contract (Phase 5 Stage 4 output)
 
-**Phase 6 status: `IN_PROGRESS`.** This readiness contract remains the boundary reference. A local Qwen3 shared-backbone path, learned sandbox heads, conditional generation and API/UI wiring now exist; see [`PHASE6_ARCHITECTURE.md`](PHASE6_ARCHITECTURE.md). Early-exit savings, complete performance comparison, full integration regression and research-label accuracy remain unverified. No autonomous tool execution is implemented.
+**Phase 6 status: `IN_PROGRESS`.** The 2026-11-01 integrity fix now aligns training and inference through one canonical context adapter, scopes citation lookup to stored topic documents, requires explicit Research/Sandbox modes, and locks generated explanation JSON to the server-final action. The actual checkpoint integration used isolated synthetic fixture rows; it generated tokens but rejected the explanation because the model did not satisfy the required explanation/citation schema. No scientific validity is implied. Calibrated early exit remains 0%; the application lacks authenticated user identity/authorization, and the decision head remains synthetically trained. See [`PHASE6_INTEGRITY_CLOSURE.md`](PHASE6_INTEGRITY_CLOSURE.md). Phase 6 stays `IN_PROGRESS`; no autonomous tool execution is implemented.
 
 ## Input: `ScientificRepresentation`
 
