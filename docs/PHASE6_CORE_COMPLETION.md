@@ -18,7 +18,8 @@ This document separates verified software behavior from scientific validity. All
 
 - Backend: `248 passed`; 357 warnings, predominantly existing SQLAlchemy `datetime.utcnow()` deprecations plus dependency deprecations.
 - Frontend production build: passed (TypeScript + Vite, 1,760 modules).
-- Browser E2E: see final verification report for current run result.
+- Browser E2E: `6 passed` locally (46.4 s) and in GitHub Actions.
+- GitHub Actions: [run 41263699260](https://github.com/alfred0105/lab-process-rag/actions/runs/41263699260), implementation commit `189fbf0235e78c655e6e9af10d49f803d9a3edfa`; backend, frontend and browser E2E jobs passed.
 - Actual checkpoint integration: see `backend/reports/phase6_generation_validation.json`; synthetic DB/PDF fixtures only; workflow trigger remained false.
 - Full early-exit metrics: `backend/reports/phase6_early_exit_diagnostics.json` and `backend/reports/phase6_early_exit_final.json`.
 - Access boundary evidence: `backend/reports/phase6_access_security.json`.
