@@ -13,7 +13,7 @@
   "evaluation_final_layer": {"accuracy": 0.5, "macro_f1": 0.2954248366013072, "synthetic_only": true},
   "local_environment": {"python": "3.12.14", "torch": "2.15.0", "device": "mps", "precision": "torch.float16", "model_load_ms": 1748.5916250006994, "mps_driver_allocated_after_run_bytes": 3574267904, "process_peak_rss_bytes": 3617243136, "quantization": "not measured/supported in this configured backend"},
   "reports": ["phase6_context_alignment.json", "phase6_generation_validation.json", "phase6_early_exit_revalidation.json", "phase6_decision_benchmark.json", "phase6_early_exit_benchmark.json", "phase6_generation_benchmark.json", "phase6_memory_latency.json"],
-  "verification": {"phase6_focused_tests": "17 passed", "backend_full_suite": "243 passed, 353 warnings in 45.44s", "frontend_build": "PASS; tsc -b and Vite 6.4.5, 1760 modules", "browser_e2e": "6 passed in 44.6s", "github_actions": "PENDING until pushed commit completes"},
+  "verification": {"phase6_focused_tests": "17 passed", "backend_full_suite": "243 passed, 353 warnings in 45.44s", "frontend_build": "PASS; tsc -b and Vite 6.4.5, 1760 modules", "browser_e2e": "6 passed in 44.6s", "github_actions": {"result": "SUCCESS", "run_id": 41260871411, "url": "https://github.com/alfred0105/lab-process-rag/actions/runs/41260871411", "tested_commit": "911a5a6"}},
   "official_status": {"phase6": "IN_PROGRESS", "phase7": "NOT_STARTED", "external_scientific_validation": "EXTERNAL_VALIDATION_PENDING"},
   "limitations": ["No reviewed scientific decision dataset was available.", "No authenticated user authorization layer exists.", "Actual generated explanation failed exact JSON citation contract and fell back.", "No calibrated real early exit or efficiency improvement was observed."]
 }

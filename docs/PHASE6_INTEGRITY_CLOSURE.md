@@ -78,7 +78,7 @@ Research citation은 `EvidenceChunk`와 `Paper`에서 DB 조회하며 선택 top
 
 ## 테스트 및 미완료 항목
 
-Phase 6 focused tests: 17 passed. 전체 backend suite: **243 passed, 353 warnings (45.44s)**. Frontend production build: **PASS** (TypeScript와 Vite 6.4.5, 1,760 modules). Browser E2E: **6 passed (44.6s)**. Backend suite에는 migration regression 및 Phase 5/6 회귀 테스트가 포함됐다. 실제 모델 통합 스크립트 `backend/scripts/validate_phase6_integrity.py` 성공: generation 호출/토큰·KV 기록·workflow 미실행 확인, 출력 검증은 안전하게 거부됨. GitHub Actions는 push 후 실행 결과를 추가한다.
+Phase 6 focused tests: 17 passed. 전체 backend suite: **243 passed, 353 warnings (45.44s)**. Frontend production build: **PASS** (TypeScript와 Vite 6.4.5, 1,760 modules). Browser E2E: **6 passed (44.6s)**. Backend suite에는 migration regression 및 Phase 5/6 회귀 테스트가 포함됐다. 실제 모델 통합 스크립트 `backend/scripts/validate_phase6_integrity.py` 성공: generation 호출/토큰·KV 기록·workflow 미실행 확인, 출력 검증은 안전하게 거부됨. 구현 커밋 `911a5a6`의 GitHub Actions [run 41260871411](https://github.com/alfred0105/lab-process-rag/actions/runs/41260871411)에서 backend, frontend, browser-e2e 세 작업 모두 성공했다.
 
 | Gate | 상태 |
 |---|---|
@@ -92,6 +92,6 @@ Phase 6 focused tests: 17 passed. 전체 backend suite: **243 passed, 353 warnin
 
 ## Push / CI 기록
 
-최신 변경의 커밋 및 GitHub Actions 결과는 원격 push가 완료된 뒤 기록한다. 로컬 검증 결과와 GitHub CI 상태는 구분한다.
+구현 커밋 `911a5a6`를 `main`에 push했고 해당 커밋의 GitHub Actions 세 작업이 모두 성공했다. 이 CI는 구현 변경을 검증한다. 후속 문서 커밋은 이 검증된 코드 변경에 테스트 보고와 CI 결과를 덧붙인다.
 
 Phase 7 autonomous experiment loop는 시작하지 않았다.
