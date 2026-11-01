@@ -1,0 +1,304 @@
+{
+  "status": "PARTIAL_NO_SAFE_CALIBRATED_EARLY_EXIT",
+  "model": {
+    "id": "Qwen/Qwen3-0.6B",
+    "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+    "device": "mps",
+    "precision": "torch.float16",
+    "model_load_seconds": 3.7292217500071274,
+    "layers": 28,
+    "hidden_size": 1024
+  },
+  "dataset": {
+    "samples": 480,
+    "hash": "f88e970b24482878818b0f54bd348d900d19c153a034290fdd949cc1ef40b5be",
+    "label_scope": "synthetic scenario contracts only",
+    "class_distribution": {
+      "REQUEST_INFORMATION": 57,
+      "ANALYZE": 54,
+      "SIMULATE": 82,
+      "OPTIMIZE": 23,
+      "REQUEST_REVIEW": 210,
+      "ABSTAIN": 54
+    },
+    "splits": {
+      "fit": {
+        "count": 288,
+        "groups": 288,
+        "class_distribution": {
+          "REQUEST_INFORMATION": 42,
+          "ANALYZE": 34,
+          "SIMULATE": 51,
+          "OPTIMIZE": 14,
+          "REQUEST_REVIEW": 122,
+          "ABSTAIN": 25
+        }
+      },
+      "calibration": {
+        "count": 72,
+        "groups": 72,
+        "class_distribution": {
+          "REQUEST_INFORMATION": 8,
+          "ANALYZE": 9,
+          "SIMULATE": 10,
+          "OPTIMIZE": 1,
+          "REQUEST_REVIEW": 35,
+          "ABSTAIN": 9
+        }
+      },
+      "controller_validation": {
+        "count": 48,
+        "groups": 48,
+        "class_distribution": {
+          "REQUEST_INFORMATION": 3,
+          "ANALYZE": 4,
+          "SIMULATE": 11,
+          "OPTIMIZE": 2,
+          "REQUEST_REVIEW": 21,
+          "ABSTAIN": 7
+        }
+      },
+      "frozen_evaluation": {
+        "count": 72,
+        "groups": 72,
+        "class_distribution": {
+          "REQUEST_INFORMATION": 4,
+          "ANALYZE": 7,
+          "SIMULATE": 10,
+          "OPTIMIZE": 6,
+          "REQUEST_REVIEW": 32,
+          "ABSTAIN": 13
+        }
+      }
+    }
+  },
+  "comparison": {
+    "architectures": [
+      "linear",
+      "mlp",
+      "mlp_regularized"
+    ],
+    "layers": [
+      7,
+      10,
+      14,
+      18,
+      21,
+      24,
+      28
+    ],
+    "controller_validation": [
+      {
+        "architecture": "linear",
+        "count": 48,
+        "early_exit_count": 20,
+        "early_exit_errors": 1,
+        "wilson_upper_95": 0.23613589351256678,
+        "target_risk": 0.2,
+        "policy_allowed": false,
+        "minimum_covered": 24
+      },
+      {
+        "architecture": "mlp",
+        "count": 48,
+        "early_exit_count": 18,
+        "early_exit_errors": 2,
+        "wilson_upper_95": 0.3280024486660421,
+        "target_risk": 0.2,
+        "policy_allowed": false,
+        "minimum_covered": 24
+      },
+      {
+        "architecture": "mlp_regularized",
+        "count": 48,
+        "early_exit_count": 16,
+        "early_exit_errors": 2,
+        "wilson_upper_95": 0.3602333143674828,
+        "target_risk": 0.2,
+        "policy_allowed": false,
+        "minimum_covered": 24
+      }
+    ]
+  },
+  "selected_head": null,
+  "selected_exit_layers": [],
+  "calibration_protocol": "Fit/calibration/controller/frozen evaluation are group-disjoint (288/72/48/72). Per-layer temperature and selective-risk thresholds were calibrated without frozen evaluation. Sequential policy acceptance requires at least 24 controller exits and Wilson upper 95% risk <=0.20.",
+  "frozen_evaluation": [
+    {
+      "architecture": "linear",
+      "count": 72,
+      "early_exit_count": 0,
+      "early_exit_rate": 0.0,
+      "mean_executed_layers": 28.0,
+      "layer_fraction_saved_estimate": 0.0,
+      "exit_layer_distribution": {
+        "7": 0,
+        "10": 0,
+        "14": 0,
+        "18": 0,
+        "21": 0,
+        "24": 0,
+        "28": 72
+      },
+      "routed_metrics": {
+        "count": 72,
+        "accuracy": 0.4861111111111111,
+        "balanced_accuracy": 0.35267857142857145,
+        "macro_f1": 0.270026525198939,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.42857142857142855,
+          "SIMULATE": 1.0,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 0.6875,
+          "ABSTAIN": 0.0
+        }
+      },
+      "full_depth_metrics": {
+        "count": 72,
+        "accuracy": 0.4861111111111111,
+        "balanced_accuracy": 0.35267857142857145,
+        "macro_f1": 0.270026525198939,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.42857142857142855,
+          "SIMULATE": 1.0,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 0.6875,
+          "ABSTAIN": 0.0
+        }
+      }
+    },
+    {
+      "architecture": "mlp",
+      "count": 72,
+      "early_exit_count": 0,
+      "early_exit_rate": 0.0,
+      "mean_executed_layers": 28.0,
+      "layer_fraction_saved_estimate": 0.0,
+      "exit_layer_distribution": {
+        "7": 0,
+        "10": 0,
+        "14": 0,
+        "18": 0,
+        "21": 0,
+        "24": 0,
+        "28": 72
+      },
+      "routed_metrics": {
+        "count": 72,
+        "accuracy": 0.4444444444444444,
+        "balanced_accuracy": 0.28125,
+        "macro_f1": 0.1871868670717408,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 1.0,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 0.6875,
+          "ABSTAIN": 0.0
+        }
+      },
+      "full_depth_metrics": {
+        "count": 72,
+        "accuracy": 0.4444444444444444,
+        "balanced_accuracy": 0.28125,
+        "macro_f1": 0.1871868670717408,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 1.0,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 0.6875,
+          "ABSTAIN": 0.0
+        }
+      }
+    },
+    {
+      "architecture": "mlp_regularized",
+      "count": 72,
+      "early_exit_count": 0,
+      "early_exit_rate": 0.0,
+      "mean_executed_layers": 28.0,
+      "layer_fraction_saved_estimate": 0.0,
+      "exit_layer_distribution": {
+        "7": 0,
+        "10": 0,
+        "14": 0,
+        "18": 0,
+        "21": 0,
+        "24": 0,
+        "28": 72
+      },
+      "routed_metrics": {
+        "count": 72,
+        "accuracy": 0.4722222222222222,
+        "balanced_accuracy": 0.22291666666666665,
+        "macro_f1": 0.16666666666666666,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.4,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 0.9375,
+          "ABSTAIN": 0.0
+        }
+      },
+      "full_depth_metrics": {
+        "count": 72,
+        "accuracy": 0.4722222222222222,
+        "balanced_accuracy": 0.22291666666666665,
+        "macro_f1": 0.16666666666666666,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.4,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 0.9375,
+          "ABSTAIN": 0.0
+        }
+      }
+    }
+  ],
+  "actual_layer_execution": {
+    "calibrated_exit_rate": 0.0,
+    "mean_executed_layers": 28.0,
+    "layers_saved": 0,
+    "actual_layer_skip_benchmark": "NOT_RUN because no policy passed independent controller risk gate",
+    "prior_forced_test_only_hook": "Historical structural proof only; forced 0.0 threshold is not an operating policy"
+  },
+  "latency": {
+    "calibrated_candidate": "NOT_MEASURED; no eligible policy",
+    "speedup_claimed": false,
+    "reason": "No calibrated early exits were authorized."
+  },
+  "memory_and_cache": {
+    "path": "/Users/hyunsu/.cache/lab-process-rag/phase6-hidden-states-b4f0f778a46643ef27fc925c28b8e9086c6dc65cd9e61694aaca66e9d793b46f.npz",
+    "cache_key": "b4f0f778a46643ef27fc925c28b8e9086c6dc65cd9e61694aaca66e9d793b46f",
+    "cache_reused": false,
+    "contract_fields": [
+      "backbone_revision",
+      "tokenizer_revision",
+      "context_adapter_version",
+      "dataset_hash",
+      "layer_ids",
+      "token_hashes",
+      "precision"
+    ],
+    "file_bytes": 8116738,
+    "hidden_state_extraction_seconds": 43.99065187499218
+  },
+  "root_cause_observations": [
+    "Synthetic scenario label mix is imbalanced; REQUEST_REVIEW is the largest class.",
+    "Results are synthetic scenario-contract accuracy only.",
+    "Sequential thresholds are enabled only when separate controller-validation Wilson upper risk is at most 0.20 with at least 24 exits."
+  ],
+  "limitations": [
+    "No human-reviewed laboratory decision labels were available.",
+    "Final evaluation is synthetic and independent by group, not scientific validation.",
+    "Current production artifact remains unchanged; diagnostic heads are not promoted.",
+    "Small synthetic controller split and severe class imbalance make the risk bound hard to satisfy.",
+    "Human-reviewed research cases are required before fitting/promoting a research early-exit policy.",
+    "No thresholds were relaxed and no diagnostic head was promoted."
+  ]
+}

@@ -5,3 +5,8 @@
 2026-11-01 실제 Qwen tokenizer로 training/runtime token equality를 확인한 뒤 120개 합성 row에서 72/24/24 group-disjoint fit/calibration/evaluation으로 head를 다시 학습했다. 모델 artifact v2는 backbone/tokenizer revision, adapter/action mapping version, dataset/calibration/evaluation hash, group IDs, calibration 및 evaluation metrics를 보관한다. 이전 v1 파일은 `~/.cache/lab-process-rag/phase6-decision-heads.adapter-v1-archived.pt`로 보존했고 v1은 로드 호환되지 않는다.
 
 실제 human-reviewed research dataset이 없으므로 현재 학습은 software execution 증명에 한정된다. 새 합성 split의 final layer 평가 accuracy는 0.500, macro F1은 0.295 (24 eval rows)였고, 이 값은 과학적 정확도가 아니다. Layer 7/14/21/28은 각각 accuracy 0.375/0.333/0.542/0.500, macro F1 0.162/0.144/0.304/0.295였다. Calibration 24개 사례에서 위험 제한을 만족하는 threshold가 나오지 않아 confidence threshold는 전부 `null`이다. Loss/metrics와 frozen-backbone digest는 `backend/reports/phase6_decision_benchmark.json`에 기록한다.
+
+
+## Closure diagnostic (2026-11-01)
+
+A separate diagnostic trained Linear, MLP and regularized MLP heads on the same pinned frozen Qwen backbone, using group-disjoint fit/calibration/controller/frozen sets (288/72/48/72) and layers 7/10/14/18/21/24/28. Synthetic-only comparisons are in `backend/reports/phase6_early_exit_diagnostics.json`; none of the head/layer sequential policies passed the controller risk bound. These diagnostic heads were not promoted and production artifacts were not changed.

@@ -92,6 +92,10 @@ Upload a PDF using `POST /api/papers` as multipart form data (`file`, with optio
 
 The **Assistant** panel uses Gemma 4 12B through a local Ollama server. The current local `.env` enables Ollama with `OLLAMA_MODEL=gemma4:12b`; on another machine, install Ollama and pull that model before enabling the provider. The assistant only receives a bounded set of retrieved paper excerpts and its evidence IDs are validated before return.
 
+### Phase 6 access boundary
+
+The supported local configuration is `LOCAL_SINGLE_USER`: the LaunchAgent binds Uvicorn to `127.0.0.1:8000`, and Phase 6 Research inference checks the direct socket peer is loopback. Keep the service off LAN/public interfaces and do not place an unauthenticated reverse proxy in front of it. The browser development CORS allowlist remains limited to `http://localhost:5173`. If deploying for multiple users, set `LAB_PROCESS_RAG_DEPLOYMENT_MODE=AUTHENTICATED_MULTI_USER`; Phase 6 Research inference then returns `AUTHENTICATION_REQUIRED` until a real user identity and topic authorization layer is added. Topic IDs alone do not provide user authorization.
+
 See [Open-weight model survey](docs/OPEN_WEIGHT_MODELS_2026.md) for the brand-by-brand open-weight survey and Mac shortlist, and [AI architecture](docs/AI_ARCHITECTURE.md) for model roles, privacy boundaries, and evaluation approach.
 
 ## Instrument analysis pilot
@@ -116,3 +120,5 @@ The `/api/analysis/tools` registry lists specialist candidates for future instru
 8. In Calculator, calculate the amount from concentration and volume. The API also exposes mass, dilution, and molar ratio endpoints.
 
 All endpoints are under `/api`; OpenAPI interactive docs at `/docs` list their input schemas.
+
+The optional local Phase 6 transformer and constrained explanation runtime uses `backend/requirements-phase6.txt`; install it only when enabling the local Qwen runtime. This file is intentionally excluded from default server/CI dependencies because it includes the large PyTorch/Transformers stack.

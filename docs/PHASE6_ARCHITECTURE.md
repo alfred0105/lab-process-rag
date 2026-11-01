@@ -17,3 +17,6 @@ Research explanation → topic-scoped DB EvidenceChunk IDs → decision-locked J
 중요한 보안 한계: 앱에는 인증된 사용자/주제별 권한 계층이 없다. topic-scoped lookup은 주제 간 citation 섞임을 막지만 사용자 authorization은 제공하지 않는다. 이를 응답과 readiness에 `TOPIC_SCOPED_NO_AUTHENTICATED_USER_IDENTITY`로 노출한다. 모델 artifact는 `SYNTHETICALLY_TRAINED_UNVALIDATED_DECISION_MODEL`이며 연구 판단을 검증하지 않는다.
 
 실행은 `backend/.venv/bin/python backend/scripts/train_phase6_sandbox.py` (backend 디렉터리에서 `scripts/train_phase6_sandbox.py`)로 수행한다. checkpoint와 artifact는 사용자 캐시 경로에만 두며 Git에 추가하지 않는다.
+
+
+2026-11-01 closure update: Research requests in `LOCAL_SINGLE_USER` are allowed only from loopback peers; `AUTHENTICATED_MULTI_USER` fails closed until actual authentication exists. Explanation generation now uses token-level JSON Schema constraints and verifies locked action and allowlisted DB citation identity. In isolated synthetic fixtures 4/5 scenario outputs passed while one malicious conflicting-action output was rejected; semantic entailment is not verified. Expanded synthetic early-exit diagnostics found no policy meeting the predeclared sequential risk gate; the production path remains full-depth. Phase 6 stays `IN_PROGRESS`. Details: `PHASE6_CORE_COMPLETION.md`.

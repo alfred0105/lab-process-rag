@@ -13,19 +13,54 @@
   },
   "raw_action": "ANALYZE",
   "final_safe_action": "ABSTAIN",
-  "generation_tokens": 81,
-  "generation_status": "GENERATION_REJECTED_MISSING_EXPLANATION_OR_CITATION",
-  "generation_validation_status": "GENERATION_REJECTED_MISSING_EXPLANATION_OR_CITATION",
-  "generated_output_accepted": false,
+  "generation_tokens": 86,
+  "generation_status": "GENERATED_DECISION_GROUNDED_FULL_PREFILL_KV_REUSE",
+  "generation_validation_status": "GENERATED_DECISION_GROUNDED_FULL_PREFILL_KV_REUSE",
+  "generated_output_accepted": true,
+  "generated_citations": [
+    "paper:1/chunk:1/page:1"
+  ],
+  "generation_latency_ms": 2445.224416995188,
   "explanation_evidence_count": 1,
   "citation_validation": "accepted only when structured output echoes the locked action and exact DB-resolved citation; otherwise safe fallback",
   "cache_bytes": 103907328,
+  "cache_equivalence": {
+    "same_prompt_same_token_sequence": true,
+    "cached_tokens": 82,
+    "uncached_tokens": 82,
+    "cached_kv_bytes": 97484800,
+    "uncached_kv_bytes": 0,
+    "cached_generation_ms": 2310.2433330059284,
+    "uncached_generation_ms": 13725.783999994746
+  },
+  "request_review_scenario": {
+    "final_safe_action": "REQUEST_REVIEW",
+    "generated_output_accepted": true,
+    "citation_validation_status": "GENERATED_DECISION_GROUNDED_FULL_PREFILL_KV_REUSE"
+  },
+  "malicious_evidence_scenario": {
+    "final_safe_action": "ABSTAIN",
+    "matched_no_evidence_decision": true,
+    "generated_output_accepted": false,
+    "workflow_triggered": false
+  },
+  "missing_evidence_scenario": {
+    "generated_tokens": 0,
+    "status": "GENERATION_SKIPPED_NO_VALIDATED_EVIDENCE"
+  },
+  "generated_output_statuses": [
+    "GENERATED_DECISION_GROUNDED_FULL_PREFILL_KV_REUSE",
+    "GENERATED_DECISION_GROUNDED_FULL_PREFILL_KV_REUSE",
+    "GENERATION_REJECTED_EXPLICIT_ALTERNATE_ACTION",
+    "GENERATED_DECISION_GROUNDED_FULL_PREFILL_KV_REUSE",
+    "GENERATED_DECISION_GROUNDED_FULL_PREFILL_KV_REUSE"
+  ],
   "workflow_triggered": false,
-  "elapsed_ms": 3401.7401250021067,
-  "access_control_limitation": "TOPIC_SCOPED_NO_AUTHENTICATED_USER_IDENTITY",
+  "elapsed_ms": 33609.46900000272,
+  "access_control": "LOCAL_SINGLE_USER_LOOPBACK_PEER",
   "limitations": [
     "All database rows and PDF excerpt in this isolated test are fabricated test fixtures.",
     "No scientific content validity or real laboratory decision accuracy is established.",
-    "The application currently has topic scoping but no authenticated user identity/authorization layer."
+    "Claim-to-citation identity and reference scope are verified; semantic entailment is not automated."
   ]
 }

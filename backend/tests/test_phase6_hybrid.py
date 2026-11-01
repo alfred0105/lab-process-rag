@@ -5,7 +5,7 @@ import pytest
 from app.services.phase6_hybrid import (
     ScientificContextError, build_scientific_prompt, build_decision_context,
     build_explanation_context, _safe_evidence, artifact_is_compatible,
-    validate_generated_explanation,
+    explanation_schema, validate_generated_explanation,
 )
 from app.services.scientific_state_v2 import SCIENTIFIC_STATE_SCHEMA_VERSION
 
@@ -93,14 +93,31 @@ def test_artifact_compatibility_requires_exact_adapter_backbone_and_action_contr
 
 def test_generated_explanation_must_echo_locked_action_and_exact_server_citations():
     allowed = {"paper:1/chunk:7/page:2"}
-    valid = '{"final_safe_action":"ABSTAIN","explanation":"입력 정보가 부족합니다.","citations":["paper:1/chunk:7/page:2"]}'
+    valid = ('{"final_safe_action":"ABSTAIN","explanation":"현재 기록만으로 판단을 보류합니다.",'
+             '"evidence_claim":"시험 자료에 기록된 관찰 내용입니다.",'
+             '"citations":["paper:1/chunk:7/page:2"]}')
     text, status = validate_generated_explanation(valid, expected_action="ABSTAIN", allowed_citations=allowed)
-    assert text == "입력 정보가 부족합니다." and status.startswith("GENERATED_")
+    assert text.startswith("현재 기록만으로 판단을 보류합니다.") and "근거와 연결된 문장" in text and status.startswith("GENERATED_")
+    schema = explanation_schema(expected_action="ABSTAIN", allowed_citations=allowed)
+    assert schema["properties"]["final_safe_action"]["enum"] == ["ABSTAIN"]
+    assert schema["properties"]["citations"]["items"]["enum"] == sorted(allowed)
     mismatch = valid.replace("ABSTAIN", "OPTIMIZE")
     assert validate_generated_explanation(mismatch, expected_action="ABSTAIN", allowed_citations=allowed)[1] == "GENERATION_REJECTED_DECISION_CONFLICT"
+    prose_conflict = json.loads(valid)
+    prose_conflict["explanation"] = "The final decision is to analyze the data."
+    assert validate_generated_explanation(json.dumps(prose_conflict), expected_action="ABSTAIN", allowed_citations=allowed)[1] == "GENERATION_REJECTED_EXPLICIT_ALTERNATE_ACTION"
     fabricated = valid.replace("paper:1/chunk:7/page:2", "paper:999/chunk:1/page:1")
     assert validate_generated_explanation(fabricated, expected_action="ABSTAIN", allowed_citations=allowed)[1] == "GENERATION_REJECTED_INVALID_CITATION"
     assert validate_generated_explanation("not json", expected_action="ABSTAIN", allowed_citations=allowed)[1] == "GENERATION_REJECTED_INVALID_JSON"
+
+
+def test_explanation_requires_a_nonempty_claim_and_verified_citation():
+    valid = {"final_safe_action":"ABSTAIN", "explanation":"판단을 보류합니다.", "evidence_claim":"문헌의 결과를 요약합니다.",
+             "citations":[]}
+    allowed = {"paper:1/chunk:1/page:1"}
+    assert validate_generated_explanation(json.dumps(valid), expected_action="ABSTAIN", allowed_citations=allowed)[1] == "GENERATION_REJECTED_MISSING_EXPLANATION_OR_CITATION"
+    valid["citations"] = ["paper:999/chunk:1/page:1"]
+    assert validate_generated_explanation(json.dumps(valid), expected_action="ABSTAIN", allowed_citations=allowed)[1] == "GENERATION_REJECTED_INVALID_CITATION"
 
 
 @pytest.mark.parametrize("state,user_input", [

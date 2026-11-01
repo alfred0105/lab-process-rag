@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import json
+import ipaddress
+import os
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from app.db.database import get_db
@@ -19,6 +21,30 @@ from app.services.decision_head import ACTIONS
 from app.db.models import EvidenceChunk, Experiment, Paper, ResearchTopic
 
 router = APIRouter(prefix="/decisions/hybrid", tags=["phase6-hybrid"])
+
+
+def enforce_research_access(request: Request, *, deployment_mode: str | None = None) -> str:
+    """Fail closed for non-loopback local calls and unauthenticated multi-user deployments.
+
+    This checks the ASGI socket peer, not the Host header. Local mode must also
+    bind the server to loopback and must not be put behind a public reverse proxy.
+    """
+    mode = (deployment_mode or os.environ.get("LAB_PROCESS_RAG_DEPLOYMENT_MODE", "LOCAL_SINGLE_USER")).upper()
+    if mode == "AUTHENTICATED_MULTI_USER":
+        raise HTTPException(status_code=503, detail={"code": "AUTHENTICATION_REQUIRED",
+            "message": "Research inference is disabled in multi-user mode until authenticated user and topic authorization are configured."})
+    if mode != "LOCAL_SINGLE_USER":
+        raise HTTPException(status_code=503, detail={"code": "UNSUPPORTED_DEPLOYMENT_MODE",
+            "message": "Research inference is disabled for an unknown deployment mode."})
+    peer = request.client.host if request.client else None
+    try:
+        is_loopback = bool(peer) and ipaddress.ip_address(peer.split("%", 1)[0]).is_loopback
+    except ValueError:
+        is_loopback = False
+    if not is_loopback:
+        raise HTTPException(status_code=403, detail={"code": "LOCAL_ONLY_RESEARCH_API",
+            "message": "Research inference accepts direct loopback connections only in LOCAL_SINGLE_USER mode."})
+    return "LOCAL_SINGLE_USER_LOOPBACK_PEER"
 
 
 def resolve_topic_evidence(db: Session, topic_id: int, evidence_ids: list[int]) -> list[dict[str, Any]]:
@@ -76,11 +102,18 @@ def models():
 
 @router.get("/runtime")
 def runtime_status():
+    deployment_mode = os.environ.get("LAB_PROCESS_RAG_DEPLOYMENT_MODE", "LOCAL_SINGLE_USER").upper()
+    access_control = (
+        "LOCAL_SINGLE_USER_LOOPBACK_PEER"
+        if deployment_mode == "LOCAL_SINGLE_USER"
+        else "AUTHENTICATION_REQUIRED"
+    )
     try:
         import torch
     except ImportError:
         return {"status": "OPTIONAL_PHASE6_RUNTIME_NOT_INSTALLED", "checkpoint_downloaded": _default_model_path().exists(),
-                "decision_head_trained": False, "research_access_control": "TOPIC_SCOPED_NO_AUTHENTICATED_USER_IDENTITY",
+                "decision_head_trained": False, "research_access_control": access_control,
+                "deployment_mode": deployment_mode,
                 "workflow_triggered": False}
     model_status = models()
     return {"checkpoint_downloaded": _default_model_path().exists(),
@@ -88,14 +121,16 @@ def runtime_status():
             "decision_head_artifact_status": model_status["decision_head_artifact_status"],
             "mps_available": bool(torch.backends.mps.is_available()),
             "cuda_available": bool(torch.cuda.is_available()),
-            "artifact_path": str(_artifact_path()), "research_access_control": "TOPIC_SCOPED_NO_AUTHENTICATED_USER_IDENTITY",
+            "artifact_path": str(_artifact_path()), "research_access_control": access_control,
+            "deployment_mode": deployment_mode,
             "workflow_triggered": False}
 
 
 @router.post("/infer")
-def infer(payload: HybridInferIn, db: Session = Depends(get_db)):
+def infer(payload: HybridInferIn, request: Request, db: Session = Depends(get_db)):
     try:
         if payload.mode == "research":
+            access_mode = enforce_research_access(request)
             if payload.scientific_state is not None:
                 raise HTTPException(422, detail={"code": "CLIENT_STATE_NOT_TRUSTED", "message": "Research mode builds ScientificState from server records; client state is not accepted."})
             if payload.topic_id is None or payload.experiment_id is None:
@@ -127,10 +162,13 @@ def infer(payload: HybridInferIn, db: Session = Depends(get_db)):
             if payload.mode != "research":
                 raise HTTPException(422, detail={"code": "SANDBOX_EVIDENCE_NOT_VERIFIED", "message": "Sandbox evidence references cannot be used as research citations."})
             verified_evidence = resolve_topic_evidence(db, payload.topic_id, payload.evidence_ids)
-        return get_runtime().infer(state, payload.user_request,
+        result = get_runtime().infer(state, payload.user_request,
                                    evidence=verified_evidence,
                                    explanation_requested=payload.explanation_requested,
                                    max_new_tokens=payload.max_new_tokens, mode=payload.mode)
+        if payload.mode == "research":
+            result["research_access_control"] = access_mode
+        return result
     except ScientificContextError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except Phase6Unavailable as exc:
@@ -140,8 +178,8 @@ def infer(payload: HybridInferIn, db: Session = Depends(get_db)):
 
 
 @router.post("/explain")
-def explain(payload: HybridInferIn, db: Session = Depends(get_db)):
-    return infer(payload.model_copy(update={"explanation_requested": True}), db)
+def explain(payload: HybridInferIn, request: Request, db: Session = Depends(get_db)):
+    return infer(payload.model_copy(update={"explanation_requested": True}), request, db)
 
 
 @router.get("/benchmarks")

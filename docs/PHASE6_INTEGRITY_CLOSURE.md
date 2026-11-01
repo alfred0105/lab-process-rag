@@ -95,3 +95,8 @@ Phase 6 focused tests: 17 passed. 전체 backend suite: **243 passed, 353 warnin
 구현 커밋 `911a5a6`를 `main`에 push했고 해당 커밋의 GitHub Actions 세 작업이 모두 성공했다. 이 CI는 구현 변경을 검증한다. 후속 문서 커밋은 이 검증된 코드 변경에 테스트 보고와 CI 결과를 덧붙인다.
 
 Phase 7 autonomous experiment loop는 시작하지 않았다.
+
+
+## Final closure follow-up — 2026-11-01
+
+The follow-up closure changed the security behavior to enforce the actual loopback socket peer in local mode and to reject Research access when multi-user authentication is absent. It replaced unconstrained JSON prompting with JSON Schema token constraints and action/citation validation. The actual Qwen integration now accepted four of five isolated generated scenarios and safely rejected the conflicting-action malicious case. The expanded independent early-exit diagnostic still found no acceptable controller; Phase 6 remains `IN_PROGRESS`. See [`PHASE6_CORE_COMPLETION.md`](PHASE6_CORE_COMPLETION.md) and the `phase6_access_security.json`, `phase6_structured_generation.json`, `phase6_early_exit_diagnostics.json`, `phase6_early_exit_final.json`, and `phase6_final_verification.json` reports. This supplement supersedes earlier generation failure counts but does not retroactively change the historical record above.

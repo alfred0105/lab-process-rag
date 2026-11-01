@@ -1,11 +1,53 @@
 import pytest
 from fastapi import HTTPException
+from starlette.requests import Request
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.db.database import Base
 from app.db.models import EvidenceChunk, Experiment, Paper, ResearchTopic
-from app.api.hybrid_decisions import HybridInferIn, infer, resolve_topic_evidence
+from app.api.hybrid_decisions import HybridInferIn, enforce_research_access, infer, resolve_topic_evidence, runtime_status
+
+
+def request_from(peer):
+    return Request({"type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1",
+        "method": "POST", "scheme": "http", "path": "/api/decisions/hybrid/infer",
+        "raw_path": b"/api/decisions/hybrid/infer", "query_string": b"", "headers": [],
+        "client": (peer, 43210), "server": ("127.0.0.1", 8000)})
+
+
+def test_local_single_user_access_accepts_loopback_socket_peer_only():
+    assert enforce_research_access(request_from("127.0.0.1")) == "LOCAL_SINGLE_USER_LOOPBACK_PEER"
+    assert enforce_research_access(request_from("::1")) == "LOCAL_SINGLE_USER_LOOPBACK_PEER"
+    with pytest.raises(HTTPException) as error:
+        enforce_research_access(request_from("192.168.1.44"))
+    assert error.value.status_code == 403
+    assert error.value.detail["code"] == "LOCAL_ONLY_RESEARCH_API"
+
+
+def test_multi_user_without_authentication_disables_research_access():
+    with pytest.raises(HTTPException) as error:
+        enforce_research_access(request_from("127.0.0.1"), deployment_mode="AUTHENTICATED_MULTI_USER")
+    assert error.value.status_code == 503
+    assert error.value.detail["code"] == "AUTHENTICATION_REQUIRED"
+
+
+def test_unknown_deployment_mode_fails_closed():
+    with pytest.raises(HTTPException) as error:
+        enforce_research_access(request_from("127.0.0.1"), deployment_mode="PUBLIC")
+    assert error.value.status_code == 503
+    assert error.value.detail["code"] == "UNSUPPORTED_DEPLOYMENT_MODE"
+
+
+def test_runtime_status_reports_the_enforced_deployment_boundary(monkeypatch):
+    monkeypatch.setenv("LAB_PROCESS_RAG_DEPLOYMENT_MODE", "LOCAL_SINGLE_USER")
+    local = runtime_status()
+    assert local["deployment_mode"] == "LOCAL_SINGLE_USER"
+    assert local["research_access_control"] == "LOCAL_SINGLE_USER_LOOPBACK_PEER"
+    monkeypatch.setenv("LAB_PROCESS_RAG_DEPLOYMENT_MODE", "AUTHENTICATED_MULTI_USER")
+    multi_user = runtime_status()
+    assert multi_user["deployment_mode"] == "AUTHENTICATED_MULTI_USER"
+    assert multi_user["research_access_control"] == "AUTHENTICATION_REQUIRED"
 
 
 @pytest.fixture
@@ -62,9 +104,18 @@ def test_research_mode_rejects_client_state_even_when_experiment_is_also_given(d
         scientific_state={"schema_version": "scientific-state-v2", "provenance": {"validity": "VALID"}},
         user_request="run")
     with pytest.raises(HTTPException) as error:
-        infer(payload, session)
+        infer(payload, request_from("127.0.0.1"), session)
     assert error.value.status_code == 422
     assert error.value.detail["code"] == "CLIENT_STATE_NOT_TRUSTED"
+
+
+def test_research_inference_rejects_remote_peer_before_topic_lookup(db):
+    _session, _topics, _chunks = db
+    payload = HybridInferIn(mode="research", topic_id=99999, experiment_id=99999, user_request="run")
+    with pytest.raises(HTTPException) as error:
+        infer(payload, request_from("198.51.100.27"), _session)
+    assert error.value.status_code == 403
+    assert error.value.detail["code"] == "LOCAL_ONLY_RESEARCH_API"
 
 
 def test_research_mode_requires_quality_verified_server_record(db):
@@ -76,6 +127,6 @@ def test_research_mode_requires_quality_verified_server_record(db):
     payload = HybridInferIn(mode="research", topic_id=topics[0].id, experiment_id=experiment.id,
         user_request="run")
     with pytest.raises(HTTPException) as error:
-        infer(payload, session)
+        infer(payload, request_from("127.0.0.1"), session)
     assert error.value.status_code == 422
     assert error.value.detail["code"] == "RESEARCH_STATE_NOT_VERIFIED"

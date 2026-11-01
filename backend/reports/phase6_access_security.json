@@ -1,0 +1,50 @@
+{
+  "status": "VERIFIED_LOCAL_SINGLE_USER_BOUNDARY_ONLY",
+  "deployment_mode": "LOCAL_SINGLE_USER",
+  "observed_runtime": {
+    "uvicorn_process": "app.main:app --host 127.0.0.1 --port 8000",
+    "observed_listener": "127.0.0.1:8000",
+    "observation": "ps and lsof inspection on 2026-11-01",
+    "outside_network_test": "not performed; loopback bind prevents LAN listener at this process socket"
+  },
+  "access_enforcement": {
+    "peer_source": "ASGI request.client.host parsed with ipaddress; Host header is not used as authorization",
+    "loopback_ipv4": "allowed by unit test",
+    "loopback_ipv6": "allowed by unit test",
+    "remote_peer": "403 denied before topic lookup by API test",
+    "unknown_deployment_mode": "503 deny",
+    "authenticated_multi_user_without_auth": "503 AUTHENTICATION_REQUIRED deny"
+  },
+  "cors": {
+    "allow_origins": [
+      "http://localhost:5173"
+    ],
+    "wildcard": false
+  },
+  "research_provenance": {
+    "state": "server-side ResearchTopic/non-demo Experiment lookup; quality/provenance gate",
+    "evidence": "server DB lookup scoped to selected topic; client evidence not trusted"
+  },
+  "security_tests": {
+    "focused_suite": "backend/tests/test_phase6_integrity_api.py",
+    "result": "PASS; included in complete backend suite pending final count",
+    "cases": [
+      "IPv4 loopback allowed",
+      "IPv6 loopback allowed",
+      "remote peer rejected",
+      "rejection precedes fabricated topic lookup",
+      "AUTHENTICATED_MULTI_USER fails closed without authentication",
+      "unknown deployment mode fails closed",
+      "topic-scoped citation lookup",
+      "fabricated citation rejected",
+      "client Research state rejected",
+      "quality/provenance gate retained"
+    ]
+  },
+  "limitations": [
+    "No authenticated user identity or per-topic authorization exists.",
+    "This deployment mode is safe only while service remains loopback-bound and no public/LAN proxy exposes it.",
+    "Test requests validate ASGI peer policy; no external network penetration test was run.",
+    "Paper provenance establishes stored source identity/scope, not scientific truth."
+  ]
+}

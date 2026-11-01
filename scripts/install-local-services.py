@@ -26,7 +26,10 @@ def install(label: str, program_arguments: list[str], working_directory: Path) -
         "WorkingDirectory": str(working_directory),
         "RunAtLoad": True,
         "KeepAlive": True,
-        "EnvironmentVariables": {"PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"},
+        "EnvironmentVariables": {
+            "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
+            "LAB_PROCESS_RAG_DEPLOYMENT_MODE": "LOCAL_SINGLE_USER",
+        },
         "StandardOutPath": str(LOGS / f"{label}.log"),
         "StandardErrorPath": str(LOGS / f"{label}.error.log"),
     }

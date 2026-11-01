@@ -1,0 +1,129 @@
+{
+  "status": "PHASE_6_IN_PROGRESS",
+  "verification_date": "2026-11-01",
+  "baseline_head": "e53c0c6acfee4e28ebd7b864c3f067485211579a",
+  "github_actions": {
+    "status": "PENDING_PUSH",
+    "url": null
+  },
+  "device": {
+    "hardware": "Apple M5 MacBook Air 24GB",
+    "torch_device": "mps",
+    "precision": "float16"
+  },
+  "model_checkpoint": {
+    "id": "Qwen/Qwen3-0.6B",
+    "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+    "loaded_for_actual_generation": true
+  },
+  "closure_gates": {
+    "CLOSE-P6-001": {
+      "status": "VERIFIED_LOCAL_SINGLE_USER_ONLY",
+      "report": "phase6_access_security.json"
+    },
+    "CLOSE-P6-002": {
+      "status": "VERIFIED_SOFTWARE_FIXTURE_PATH_SCIENTIFIC_VALIDITY_OPEN",
+      "report": "phase6_structured_generation.json"
+    },
+    "CLOSE-P6-003": {
+      "status": "PARTIAL_NO_SAFE_CALIBRATED_EARLY_EXIT",
+      "report": "phase6_early_exit_final.json"
+    }
+  },
+  "p6_requirements": {
+    "P6-001": "IMPLEMENTED",
+    "P6-002": "IMPLEMENTED",
+    "P6-003": "VERIFIED_SOFTWARE_INPUT_CONTRACT",
+    "P6-004": "VERIFIED_SYNTHETIC_SOFTWARE_PATH",
+    "P6-005": "IMPLEMENTED",
+    "P6-006": "PARTIAL",
+    "P6-007": "PARTIAL",
+    "P6-008": "PARTIAL",
+    "P6-009": "IMPLEMENTED",
+    "P6-010": "PARTIAL",
+    "P6-011": "PARTIAL",
+    "P6-012": "IMPLEMENTED"
+  },
+  "local_verification": {
+    "backend_pytest": {
+      "status": "PASS",
+      "passed": 249,
+      "warnings": 357,
+      "duration_seconds": 45.98
+    },
+    "frontend_build": {
+      "status": "PASS",
+      "tool": "Vite 6.4.5",
+      "transformed_modules": 1760
+    },
+    "browser_e2e": {
+      "status": "PASS",
+      "passed": 6,
+      "duration_seconds": 46.4
+    },
+    "fastapi_startup": {
+      "status": "PASS",
+      "bind": "127.0.0.1:8017",
+      "isolated_sqlite": true
+    },
+    "api_smoke": {
+      "status": "PASS",
+      "endpoints": [
+        "GET /api/health",
+        "GET /api/decisions/hybrid/runtime"
+      ],
+      "runtime_mode": "LOCAL_SINGLE_USER",
+      "access_contract": "LOCAL_SINGLE_USER_LOOPBACK_PEER"
+    },
+    "real_checkpoint_integration": {
+      "status": "PASS_SOFTWARE_INTEGRATION_ONLY",
+      "report": "phase6_generation_validation.json",
+      "workflow_triggered": false
+    },
+    "database_migration_and_existing_api_regression": "Included in full 249-test backend suite; passed"
+  },
+  "generation": {
+    "scenarios": 5,
+    "accepted": 4,
+    "schema_citation_action_success_rate": 0.8,
+    "malicious_action_conflict": "rejected_fail_closed",
+    "missing_evidence": "zero_tokens",
+    "cache_vs_no_cache_tokens_equal": true,
+    "semantic_entailment": "not verified"
+  },
+  "early_exit": {
+    "diagnostic_samples": 480,
+    "group_disjoint_split": [
+      288,
+      72,
+      48,
+      72
+    ],
+    "architectures": 3,
+    "layers": [
+      7,
+      10,
+      14,
+      18,
+      21,
+      24,
+      28
+    ],
+    "eligible_policies": 0,
+    "production_early_exit_rate": 0.0,
+    "mean_executed_layers": 28,
+    "compute_reduction": 0.0,
+    "candidate_latency_benchmark": "not run; no candidate passed safety gate"
+  },
+  "software_completion": "Phase 6 is not complete; retain IN_PROGRESS.",
+  "external_validation_status": "PENDING_HUMAN_REVIEWED_LAB_DECISION_DATA_AND_PAPER_CLAIM_ENTAILMENT_REVIEW",
+  "remaining_limitations": [
+    "No authenticated identity/per-topic authorization; multi-user Research mode is deliberately blocked.",
+    "All early-exit training/calibration/evaluation cases are synthetic scenario contracts.",
+    "Generated citation identity and scope are verified; scientific entailment is not.",
+    "No safe calibrated exit was found, so no production compute or latency improvement is claimed.",
+    "Existing deprecation warnings remain."
+  ],
+  "phase7_status": "NOT_STARTED",
+  "phase8_status": "NOT_STARTED"
+}

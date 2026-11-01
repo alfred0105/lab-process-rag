@@ -1,0 +1,1507 @@
+{
+  "status": "DIAGNOSTIC_SYNTHETIC_ONLY",
+  "sample_count": 480,
+  "dataset_hash": "f88e970b24482878818b0f54bd348d900d19c153a034290fdd949cc1ef40b5be",
+  "cache": {
+    "path": "/Users/hyunsu/.cache/lab-process-rag/phase6-hidden-states-b4f0f778a46643ef27fc925c28b8e9086c6dc65cd9e61694aaca66e9d793b46f.npz",
+    "cache_key": "b4f0f778a46643ef27fc925c28b8e9086c6dc65cd9e61694aaca66e9d793b46f",
+    "cache_reused": false,
+    "contract_fields": [
+      "backbone_revision",
+      "tokenizer_revision",
+      "context_adapter_version",
+      "dataset_hash",
+      "layer_ids",
+      "token_hashes",
+      "precision"
+    ],
+    "file_bytes": 8116738,
+    "hidden_state_extraction_seconds": 43.99065187499218
+  },
+  "split_counts": {
+    "fit": {
+      "count": 288,
+      "groups": 288,
+      "class_distribution": {
+        "REQUEST_INFORMATION": 42,
+        "ANALYZE": 34,
+        "SIMULATE": 51,
+        "OPTIMIZE": 14,
+        "REQUEST_REVIEW": 122,
+        "ABSTAIN": 25
+      }
+    },
+    "calibration": {
+      "count": 72,
+      "groups": 72,
+      "class_distribution": {
+        "REQUEST_INFORMATION": 8,
+        "ANALYZE": 9,
+        "SIMULATE": 10,
+        "OPTIMIZE": 1,
+        "REQUEST_REVIEW": 35,
+        "ABSTAIN": 9
+      }
+    },
+    "controller_validation": {
+      "count": 48,
+      "groups": 48,
+      "class_distribution": {
+        "REQUEST_INFORMATION": 3,
+        "ANALYZE": 4,
+        "SIMULATE": 11,
+        "OPTIMIZE": 2,
+        "REQUEST_REVIEW": 21,
+        "ABSTAIN": 7
+      }
+    },
+    "frozen_evaluation": {
+      "count": 72,
+      "groups": 72,
+      "class_distribution": {
+        "REQUEST_INFORMATION": 4,
+        "ANALYZE": 7,
+        "SIMULATE": 10,
+        "OPTIMIZE": 6,
+        "REQUEST_REVIEW": 32,
+        "ABSTAIN": 13
+      }
+    }
+  },
+  "class_distribution": {
+    "REQUEST_INFORMATION": 57,
+    "ANALYZE": 54,
+    "SIMULATE": 82,
+    "OPTIMIZE": 23,
+    "REQUEST_REVIEW": 210,
+    "ABSTAIN": 54
+  },
+  "model": {
+    "id": "Qwen/Qwen3-0.6B",
+    "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+    "device": "mps",
+    "precision": "torch.float16",
+    "model_load_seconds": 3.7292217500071274,
+    "layers": 28,
+    "hidden_size": 1024
+  },
+  "tested_architectures": [
+    "linear",
+    "mlp",
+    "mlp_regularized"
+  ],
+  "tested_layers": [
+    7,
+    10,
+    14,
+    18,
+    21,
+    24,
+    28
+  ],
+  "head_results": [
+    {
+      "architecture": "linear",
+      "layer": 7,
+      "head": {
+        "epochs": 30,
+        "weight_decay": 0.001,
+        "dropout": 0.0,
+        "head_parameters": 6150
+      },
+      "temperature": 1.1014038941092654,
+      "calibration_threshold_result": {
+        "status": "INSUFFICIENT_CALIBRATION_EVIDENCE",
+        "threshold": null,
+        "target_risk": 0.2,
+        "calibration_count": 72,
+        "minimum_covered": 24,
+        "reason": "No threshold met the prespecified Wilson upper-risk bound."
+      },
+      "ood_threshold_p95": 1.8482941389083862,
+      "calibration_metrics": {
+        "count": 72,
+        "accuracy": 0.4027777777777778,
+        "balanced_accuracy": 0.2571428571428571,
+        "macro_f1": 0.17019400352733685,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 1.0,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 0.5428571428571428,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_metrics": {
+        "count": 72,
+        "accuracy": 0.3333333333333333,
+        "balanced_accuracy": 0.23958333333333334,
+        "macro_f1": 0.1490420239229385,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 1.0,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 0.4375,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_high_confidence_wrong_count": 0,
+      "threshold_selective_evaluation": {
+        "status": "NO_CALIBRATED_COVERAGE"
+      }
+    },
+    {
+      "architecture": "linear",
+      "layer": 10,
+      "head": {
+        "epochs": 30,
+        "weight_decay": 0.001,
+        "dropout": 0.0,
+        "head_parameters": 6150
+      },
+      "temperature": 1.1474347144993229,
+      "calibration_threshold_result": {
+        "status": "INSUFFICIENT_CALIBRATION_EVIDENCE",
+        "threshold": null,
+        "target_risk": 0.2,
+        "calibration_count": 72,
+        "minimum_covered": 24,
+        "reason": "No threshold met the prespecified Wilson upper-risk bound."
+      },
+      "ood_threshold_p95": 1.8388445377349854,
+      "calibration_metrics": {
+        "count": 72,
+        "accuracy": 0.5416666666666666,
+        "balanced_accuracy": 0.26904761904761904,
+        "macro_f1": 0.19914902449149022,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.7,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 0.9142857142857143,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_metrics": {
+        "count": 72,
+        "accuracy": 0.4583333333333333,
+        "balanced_accuracy": 0.2520833333333333,
+        "macro_f1": 0.17563203029290567,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.7,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 0.8125,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_high_confidence_wrong_count": 0,
+      "threshold_selective_evaluation": {
+        "status": "NO_CALIBRATED_COVERAGE"
+      }
+    },
+    {
+      "architecture": "linear",
+      "layer": 14,
+      "head": {
+        "epochs": 30,
+        "weight_decay": 0.001,
+        "dropout": 0.0,
+        "head_parameters": 6150
+      },
+      "temperature": 0.8975108786623452,
+      "calibration_threshold_result": {
+        "status": "INSUFFICIENT_CALIBRATION_EVIDENCE",
+        "threshold": null,
+        "target_risk": 0.2,
+        "calibration_count": 72,
+        "minimum_covered": 24,
+        "reason": "No threshold met the prespecified Wilson upper-risk bound."
+      },
+      "ood_threshold_p95": 1.7890616655349731,
+      "calibration_metrics": {
+        "count": 72,
+        "accuracy": 0.4583333333333333,
+        "balanced_accuracy": 0.2523809523809524,
+        "macro_f1": 0.1828934506353861,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.8,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 0.7142857142857143,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_metrics": {
+        "count": 72,
+        "accuracy": 0.4166666666666667,
+        "balanced_accuracy": 0.25937499999999997,
+        "macro_f1": 0.17318952234206472,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.9,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 0.65625,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_high_confidence_wrong_count": 0,
+      "threshold_selective_evaluation": {
+        "status": "NO_CALIBRATED_COVERAGE"
+      }
+    },
+    {
+      "architecture": "linear",
+      "layer": 18,
+      "head": {
+        "epochs": 30,
+        "weight_decay": 0.001,
+        "dropout": 0.0,
+        "head_parameters": 6150
+      },
+      "temperature": 1.0148079319841585,
+      "calibration_threshold_result": {
+        "status": "SELECTED_ON_CALIBRATION_ONLY",
+        "threshold": 0.46583855152130127,
+        "target_risk": 0.2,
+        "calibration_count": 72,
+        "calibration_covered_count": 30,
+        "calibration_errors": 1,
+        "calibration_risk": 0.03333333333333333,
+        "calibration_wilson_upper_95": 0.16670751396958874,
+        "minimum_covered": 24
+      },
+      "ood_threshold_p95": 1.4125752449035645,
+      "calibration_metrics": {
+        "count": 72,
+        "accuracy": 0.5416666666666666,
+        "balanced_accuracy": 0.26904761904761904,
+        "macro_f1": 0.19674796747967482,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.7,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 0.9142857142857143,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_metrics": {
+        "count": 72,
+        "accuracy": 0.5277777777777778,
+        "balanced_accuracy": 0.3125,
+        "macro_f1": 0.2138047138047138,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 1.0,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 0.875,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_high_confidence_wrong_count": 0,
+      "threshold_selective_evaluation": {
+        "count": 28,
+        "accuracy": 0.8928571428571429,
+        "balanced_accuracy": 0.6666666666666666,
+        "macro_f1": 0.32222222222222224,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 1.0,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 1.0,
+          "ABSTAIN": 0.0
+        }
+      }
+    },
+    {
+      "architecture": "linear",
+      "layer": 21,
+      "head": {
+        "epochs": 30,
+        "weight_decay": 0.001,
+        "dropout": 0.0,
+        "head_parameters": 6150
+      },
+      "temperature": 1.0790856544815575,
+      "calibration_threshold_result": {
+        "status": "SELECTED_ON_CALIBRATION_ONLY",
+        "threshold": 0.5268636345863342,
+        "target_risk": 0.2,
+        "calibration_count": 72,
+        "calibration_covered_count": 25,
+        "calibration_errors": 1,
+        "calibration_risk": 0.04,
+        "calibration_wilson_upper_95": 0.19544472405022525,
+        "minimum_covered": 24
+      },
+      "ood_threshold_p95": 1.562415599822998,
+      "calibration_metrics": {
+        "count": 72,
+        "accuracy": 0.5138888888888888,
+        "balanced_accuracy": 0.2714285714285714,
+        "macro_f1": 0.19761194029850745,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.8,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 0.8285714285714286,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_metrics": {
+        "count": 72,
+        "accuracy": 0.4305555555555556,
+        "balanced_accuracy": 0.2760416666666667,
+        "macro_f1": 0.18153714955761646,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 1.0,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 0.65625,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_high_confidence_wrong_count": 0,
+      "threshold_selective_evaluation": {
+        "count": 27,
+        "accuracy": 0.8148148148148148,
+        "balanced_accuracy": 0.5,
+        "macro_f1": 0.28561253561253563,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 1.0,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 1.0,
+          "ABSTAIN": 0.0
+        }
+      }
+    },
+    {
+      "architecture": "linear",
+      "layer": 24,
+      "head": {
+        "epochs": 30,
+        "weight_decay": 0.001,
+        "dropout": 0.0,
+        "head_parameters": 6150
+      },
+      "temperature": 1.4669531649582002,
+      "calibration_threshold_result": {
+        "status": "INSUFFICIENT_CALIBRATION_EVIDENCE",
+        "threshold": null,
+        "target_risk": 0.2,
+        "calibration_count": 72,
+        "minimum_covered": 24,
+        "reason": "No threshold met the prespecified Wilson upper-risk bound."
+      },
+      "ood_threshold_p95": 1.781709909439087,
+      "calibration_metrics": {
+        "count": 72,
+        "accuracy": 0.4861111111111111,
+        "balanced_accuracy": 0.2738095238095238,
+        "macro_f1": 0.1953405017921147,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.9,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 0.7428571428571429,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_metrics": {
+        "count": 72,
+        "accuracy": 0.4166666666666667,
+        "balanced_accuracy": 0.2708333333333333,
+        "macro_f1": 0.17752715121136173,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 1.0,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 0.625,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_high_confidence_wrong_count": 0,
+      "threshold_selective_evaluation": {
+        "status": "NO_CALIBRATED_COVERAGE"
+      }
+    },
+    {
+      "architecture": "linear",
+      "layer": 28,
+      "head": {
+        "epochs": 30,
+        "weight_decay": 0.001,
+        "dropout": 0.0,
+        "head_parameters": 6150
+      },
+      "temperature": 1.035796744603489,
+      "calibration_threshold_result": {
+        "status": "SELECTED_ON_CALIBRATION_ONLY",
+        "threshold": 0.5841137170791626,
+        "target_risk": 0.2,
+        "calibration_count": 72,
+        "calibration_covered_count": 29,
+        "calibration_errors": 1,
+        "calibration_risk": 0.034482758620689655,
+        "calibration_wilson_upper_95": 0.17175891064700252,
+        "minimum_covered": 24
+      },
+      "ood_threshold_p95": 1.5956679582595825,
+      "calibration_metrics": {
+        "count": 72,
+        "accuracy": 0.5416666666666666,
+        "balanced_accuracy": 0.3084656084656085,
+        "macro_f1": 0.24964387464387464,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.2222222222222222,
+          "SIMULATE": 0.8,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 0.8285714285714286,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_metrics": {
+        "count": 72,
+        "accuracy": 0.4861111111111111,
+        "balanced_accuracy": 0.35267857142857145,
+        "macro_f1": 0.270026525198939,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.42857142857142855,
+          "SIMULATE": 1.0,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 0.6875,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_high_confidence_wrong_count": 0,
+      "threshold_selective_evaluation": {
+        "status": "NO_CALIBRATED_COVERAGE"
+      }
+    },
+    {
+      "architecture": "mlp",
+      "layer": 7,
+      "head": {
+        "epochs": 30,
+        "weight_decay": 0.0,
+        "dropout": 0.0,
+        "head_parameters": 131974
+      },
+      "temperature": 0.8615060746139895,
+      "calibration_threshold_result": {
+        "status": "INSUFFICIENT_CALIBRATION_EVIDENCE",
+        "threshold": null,
+        "target_risk": 0.2,
+        "calibration_count": 72,
+        "minimum_covered": 24,
+        "reason": "No threshold met the prespecified Wilson upper-risk bound."
+      },
+      "ood_threshold_p95": 1.8482941389083862,
+      "calibration_metrics": {
+        "count": 72,
+        "accuracy": 0.4861111111111111,
+        "balanced_accuracy": 0.16666666666666666,
+        "macro_f1": 0.10903426791277258,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.0,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 1.0,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_metrics": {
+        "count": 72,
+        "accuracy": 0.4444444444444444,
+        "balanced_accuracy": 0.16666666666666666,
+        "macro_f1": 0.10256410256410257,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.0,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 1.0,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_high_confidence_wrong_count": 0,
+      "threshold_selective_evaluation": {
+        "status": "NO_CALIBRATED_COVERAGE"
+      }
+    },
+    {
+      "architecture": "mlp",
+      "layer": 10,
+      "head": {
+        "epochs": 30,
+        "weight_decay": 0.0,
+        "dropout": 0.0,
+        "head_parameters": 131974
+      },
+      "temperature": 1.3795714005336082,
+      "calibration_threshold_result": {
+        "status": "INSUFFICIENT_CALIBRATION_EVIDENCE",
+        "threshold": null,
+        "target_risk": 0.2,
+        "calibration_count": 72,
+        "minimum_covered": 24,
+        "reason": "No threshold met the prespecified Wilson upper-risk bound."
+      },
+      "ood_threshold_p95": 1.8388445377349854,
+      "calibration_metrics": {
+        "count": 72,
+        "accuracy": 0.5416666666666666,
+        "balanced_accuracy": 0.26904761904761904,
+        "macro_f1": 0.19914902449149022,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.7,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 0.9142857142857143,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_metrics": {
+        "count": 72,
+        "accuracy": 0.4583333333333333,
+        "balanced_accuracy": 0.2520833333333333,
+        "macro_f1": 0.17545045045045046,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.7,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 0.8125,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_high_confidence_wrong_count": 0,
+      "threshold_selective_evaluation": {
+        "status": "NO_CALIBRATED_COVERAGE"
+      }
+    },
+    {
+      "architecture": "mlp",
+      "layer": 14,
+      "head": {
+        "epochs": 30,
+        "weight_decay": 0.0,
+        "dropout": 0.0,
+        "head_parameters": 131974
+      },
+      "temperature": 1.6586714913891372,
+      "calibration_threshold_result": {
+        "status": "INSUFFICIENT_CALIBRATION_EVIDENCE",
+        "threshold": null,
+        "target_risk": 0.2,
+        "calibration_count": 72,
+        "minimum_covered": 24,
+        "reason": "No threshold met the prespecified Wilson upper-risk bound."
+      },
+      "ood_threshold_p95": 1.7890616655349731,
+      "calibration_metrics": {
+        "count": 72,
+        "accuracy": 0.5,
+        "balanced_accuracy": 0.26666666666666666,
+        "macro_f1": 0.19487179487179487,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.8,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 0.8,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_metrics": {
+        "count": 72,
+        "accuracy": 0.4305555555555556,
+        "balanced_accuracy": 0.26458333333333334,
+        "macro_f1": 0.1759718775847808,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.9,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 0.6875,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_high_confidence_wrong_count": 0,
+      "threshold_selective_evaluation": {
+        "status": "NO_CALIBRATED_COVERAGE"
+      }
+    },
+    {
+      "architecture": "mlp",
+      "layer": 18,
+      "head": {
+        "epochs": 30,
+        "weight_decay": 0.0,
+        "dropout": 0.0,
+        "head_parameters": 131974
+      },
+      "temperature": 1.8002098545801832,
+      "calibration_threshold_result": {
+        "status": "INSUFFICIENT_CALIBRATION_EVIDENCE",
+        "threshold": null,
+        "target_risk": 0.2,
+        "calibration_count": 72,
+        "minimum_covered": 24,
+        "reason": "No threshold met the prespecified Wilson upper-risk bound."
+      },
+      "ood_threshold_p95": 1.4125752449035645,
+      "calibration_metrics": {
+        "count": 72,
+        "accuracy": 0.4583333333333333,
+        "balanced_accuracy": 0.2642857142857143,
+        "macro_f1": 0.18596491228070175,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.9,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 0.6857142857142857,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_metrics": {
+        "count": 72,
+        "accuracy": 0.4305555555555556,
+        "balanced_accuracy": 0.2760416666666667,
+        "macro_f1": 0.1824712643678161,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 1.0,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 0.65625,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_high_confidence_wrong_count": 0,
+      "threshold_selective_evaluation": {
+        "status": "NO_CALIBRATED_COVERAGE"
+      }
+    },
+    {
+      "architecture": "mlp",
+      "layer": 21,
+      "head": {
+        "epochs": 30,
+        "weight_decay": 0.0,
+        "dropout": 0.0,
+        "head_parameters": 131974
+      },
+      "temperature": 1.0148079319841585,
+      "calibration_threshold_result": {
+        "status": "SELECTED_ON_CALIBRATION_ONLY",
+        "threshold": 0.5171275734901428,
+        "target_risk": 0.2,
+        "calibration_count": 72,
+        "calibration_covered_count": 29,
+        "calibration_errors": 1,
+        "calibration_risk": 0.034482758620689655,
+        "calibration_wilson_upper_95": 0.17175891064700252,
+        "minimum_covered": 24
+      },
+      "ood_threshold_p95": 1.562415599822998,
+      "calibration_metrics": {
+        "count": 72,
+        "accuracy": 0.5555555555555556,
+        "balanced_accuracy": 0.28571428571428575,
+        "macro_f1": 0.20615964802011313,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.8,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 0.9142857142857143,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_metrics": {
+        "count": 72,
+        "accuracy": 0.5,
+        "balanced_accuracy": 0.29062499999999997,
+        "macro_f1": 0.1965280052407468,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.9,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 0.84375,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_high_confidence_wrong_count": 0,
+      "threshold_selective_evaluation": {
+        "count": 25,
+        "accuracy": 0.84,
+        "balanced_accuracy": 0.3333333333333333,
+        "macro_f1": 0.15217391304347824,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.0,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 1.0,
+          "ABSTAIN": 0.0
+        }
+      }
+    },
+    {
+      "architecture": "mlp",
+      "layer": 24,
+      "head": {
+        "epochs": 30,
+        "weight_decay": 0.0,
+        "dropout": 0.0,
+        "head_parameters": 131974
+      },
+      "temperature": 0.8793242143826984,
+      "calibration_threshold_result": {
+        "status": "SELECTED_ON_CALIBRATION_ONLY",
+        "threshold": 0.6761325001716614,
+        "target_risk": 0.2,
+        "calibration_count": 72,
+        "calibration_covered_count": 31,
+        "calibration_errors": 1,
+        "calibration_risk": 0.03225806451612903,
+        "calibration_wilson_upper_95": 0.16194457176169624,
+        "minimum_covered": 24
+      },
+      "ood_threshold_p95": 1.781709909439087,
+      "calibration_metrics": {
+        "count": 72,
+        "accuracy": 0.5277777777777778,
+        "balanced_accuracy": 0.23227513227513227,
+        "macro_f1": 0.21160972980257395,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.2222222222222222,
+          "SIMULATE": 0.2,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 0.9714285714285714,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_metrics": {
+        "count": 72,
+        "accuracy": 0.4861111111111111,
+        "balanced_accuracy": 0.228125,
+        "macro_f1": 0.17898550724637682,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.4,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 0.96875,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_high_confidence_wrong_count": 2,
+      "threshold_selective_evaluation": {
+        "count": 26,
+        "accuracy": 0.8461538461538461,
+        "balanced_accuracy": 0.3333333333333333,
+        "macro_f1": 0.15277777777777776,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.0,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 1.0,
+          "ABSTAIN": 0.0
+        }
+      }
+    },
+    {
+      "architecture": "mlp",
+      "layer": 28,
+      "head": {
+        "epochs": 30,
+        "weight_decay": 0.0,
+        "dropout": 0.0,
+        "head_parameters": 131974
+      },
+      "temperature": 1.1014038941092654,
+      "calibration_threshold_result": {
+        "status": "SELECTED_ON_CALIBRATION_ONLY",
+        "threshold": 0.5031914114952087,
+        "target_risk": 0.2,
+        "calibration_count": 72,
+        "calibration_covered_count": 34,
+        "calibration_errors": 2,
+        "calibration_risk": 0.058823529411764705,
+        "calibration_wilson_upper_95": 0.1909393688946371,
+        "minimum_covered": 24
+      },
+      "ood_threshold_p95": 1.5956679582595825,
+      "calibration_metrics": {
+        "count": 72,
+        "accuracy": 0.5277777777777778,
+        "balanced_accuracy": 0.27619047619047615,
+        "macro_f1": 0.2025870646766169,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.8,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 0.8571428571428571,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_metrics": {
+        "count": 72,
+        "accuracy": 0.4444444444444444,
+        "balanced_accuracy": 0.28125,
+        "macro_f1": 0.1871868670717408,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 1.0,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 0.6875,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_high_confidence_wrong_count": 0,
+      "threshold_selective_evaluation": {
+        "status": "NO_CALIBRATED_COVERAGE"
+      }
+    },
+    {
+      "architecture": "mlp_regularized",
+      "layer": 7,
+      "head": {
+        "epochs": 30,
+        "weight_decay": 0.01,
+        "dropout": 0.1,
+        "head_parameters": 131974
+      },
+      "temperature": 0.8615060746139895,
+      "calibration_threshold_result": {
+        "status": "INSUFFICIENT_CALIBRATION_EVIDENCE",
+        "threshold": null,
+        "target_risk": 0.2,
+        "calibration_count": 72,
+        "minimum_covered": 24,
+        "reason": "No threshold met the prespecified Wilson upper-risk bound."
+      },
+      "ood_threshold_p95": 1.8482941389083862,
+      "calibration_metrics": {
+        "count": 72,
+        "accuracy": 0.4861111111111111,
+        "balanced_accuracy": 0.16666666666666666,
+        "macro_f1": 0.10903426791277258,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.0,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 1.0,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_metrics": {
+        "count": 72,
+        "accuracy": 0.4444444444444444,
+        "balanced_accuracy": 0.16666666666666666,
+        "macro_f1": 0.10256410256410257,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.0,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 1.0,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_high_confidence_wrong_count": 0,
+      "threshold_selective_evaluation": {
+        "status": "NO_CALIBRATED_COVERAGE"
+      }
+    },
+    {
+      "architecture": "mlp_regularized",
+      "layer": 10,
+      "head": {
+        "epochs": 30,
+        "weight_decay": 0.01,
+        "dropout": 0.1,
+        "head_parameters": 131974
+      },
+      "temperature": 0.8440489917792583,
+      "calibration_threshold_result": {
+        "status": "INSUFFICIENT_CALIBRATION_EVIDENCE",
+        "threshold": null,
+        "target_risk": 0.2,
+        "calibration_count": 72,
+        "minimum_covered": 24,
+        "reason": "No threshold met the prespecified Wilson upper-risk bound."
+      },
+      "ood_threshold_p95": 1.8388445377349854,
+      "calibration_metrics": {
+        "count": 72,
+        "accuracy": 0.4861111111111111,
+        "balanced_accuracy": 0.16666666666666666,
+        "macro_f1": 0.10903426791277258,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.0,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 1.0,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_metrics": {
+        "count": 72,
+        "accuracy": 0.4444444444444444,
+        "balanced_accuracy": 0.16666666666666666,
+        "macro_f1": 0.10256410256410257,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.0,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 1.0,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_high_confidence_wrong_count": 0,
+      "threshold_selective_evaluation": {
+        "status": "NO_CALIBRATED_COVERAGE"
+      }
+    },
+    {
+      "architecture": "mlp_regularized",
+      "layer": 14,
+      "head": {
+        "epochs": 30,
+        "weight_decay": 0.01,
+        "dropout": 0.1,
+        "head_parameters": 131974
+      },
+      "temperature": 0.7020231888911797,
+      "calibration_threshold_result": {
+        "status": "INSUFFICIENT_CALIBRATION_EVIDENCE",
+        "threshold": null,
+        "target_risk": 0.2,
+        "calibration_count": 72,
+        "minimum_covered": 24,
+        "reason": "No threshold met the prespecified Wilson upper-risk bound."
+      },
+      "ood_threshold_p95": 1.7890616655349731,
+      "calibration_metrics": {
+        "count": 72,
+        "accuracy": 0.4861111111111111,
+        "balanced_accuracy": 0.16666666666666666,
+        "macro_f1": 0.10903426791277258,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.0,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 1.0,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_metrics": {
+        "count": 72,
+        "accuracy": 0.4444444444444444,
+        "balanced_accuracy": 0.16666666666666666,
+        "macro_f1": 0.10256410256410257,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.0,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 1.0,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_high_confidence_wrong_count": 0,
+      "threshold_selective_evaluation": {
+        "status": "NO_CALIBRATED_COVERAGE"
+      }
+    },
+    {
+      "architecture": "mlp_regularized",
+      "layer": 18,
+      "head": {
+        "epochs": 30,
+        "weight_decay": 0.01,
+        "dropout": 0.1,
+        "head_parameters": 131974
+      },
+      "temperature": 0.5491148569424217,
+      "calibration_threshold_result": {
+        "status": "SELECTED_ON_CALIBRATION_ONLY",
+        "threshold": 0.5998515486717224,
+        "target_risk": 0.2,
+        "calibration_count": 72,
+        "calibration_covered_count": 25,
+        "calibration_errors": 1,
+        "calibration_risk": 0.04,
+        "calibration_wilson_upper_95": 0.19544472405022525,
+        "minimum_covered": 24
+      },
+      "ood_threshold_p95": 1.4125752449035645,
+      "calibration_metrics": {
+        "count": 72,
+        "accuracy": 0.4861111111111111,
+        "balanced_accuracy": 0.16666666666666666,
+        "macro_f1": 0.10903426791277258,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.0,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 1.0,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_metrics": {
+        "count": 72,
+        "accuracy": 0.4444444444444444,
+        "balanced_accuracy": 0.16666666666666666,
+        "macro_f1": 0.10256410256410257,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.0,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 1.0,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_high_confidence_wrong_count": 0,
+      "threshold_selective_evaluation": {
+        "count": 19,
+        "accuracy": 0.8421052631578947,
+        "balanced_accuracy": 0.3333333333333333,
+        "macro_f1": 0.15238095238095237,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.0,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 1.0,
+          "ABSTAIN": 0.0
+        }
+      }
+    },
+    {
+      "architecture": "mlp_regularized",
+      "layer": 21,
+      "head": {
+        "epochs": 30,
+        "weight_decay": 0.01,
+        "dropout": 0.1,
+        "head_parameters": 131974
+      },
+      "temperature": 0.5720639381002202,
+      "calibration_threshold_result": {
+        "status": "SELECTED_ON_CALIBRATION_ONLY",
+        "threshold": 0.7054237723350525,
+        "target_risk": 0.2,
+        "calibration_count": 72,
+        "calibration_covered_count": 27,
+        "calibration_errors": 1,
+        "calibration_risk": 0.037037037037037035,
+        "calibration_wilson_upper_95": 0.1828385393415652,
+        "minimum_covered": 24
+      },
+      "ood_threshold_p95": 1.562415599822998,
+      "calibration_metrics": {
+        "count": 72,
+        "accuracy": 0.5,
+        "balanced_accuracy": 0.18333333333333335,
+        "macro_f1": 0.14036592338479129,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.1,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 1.0,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_metrics": {
+        "count": 72,
+        "accuracy": 0.4444444444444444,
+        "balanced_accuracy": 0.16666666666666666,
+        "macro_f1": 0.1035598705501618,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.0,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 1.0,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_high_confidence_wrong_count": 0,
+      "threshold_selective_evaluation": {
+        "count": 21,
+        "accuracy": 0.8571428571428571,
+        "balanced_accuracy": 0.3333333333333333,
+        "macro_f1": 0.15384615384615385,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.0,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 1.0,
+          "ABSTAIN": 0.0
+        }
+      }
+    },
+    {
+      "architecture": "mlp_regularized",
+      "layer": 24,
+      "head": {
+        "epochs": 30,
+        "weight_decay": 0.01,
+        "dropout": 0.1,
+        "head_parameters": 131974
+      },
+      "temperature": 0.8269456496203954,
+      "calibration_threshold_result": {
+        "status": "SELECTED_ON_CALIBRATION_ONLY",
+        "threshold": 0.6980123519897461,
+        "target_risk": 0.2,
+        "calibration_count": 72,
+        "calibration_covered_count": 30,
+        "calibration_errors": 1,
+        "calibration_risk": 0.03333333333333333,
+        "calibration_wilson_upper_95": 0.16670751396958874,
+        "minimum_covered": 24
+      },
+      "ood_threshold_p95": 1.781709909439087,
+      "calibration_metrics": {
+        "count": 72,
+        "accuracy": 0.5138888888888888,
+        "balanced_accuracy": 0.19999999999999998,
+        "macro_f1": 0.1588235294117647,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.2,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 1.0,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_metrics": {
+        "count": 72,
+        "accuracy": 0.4861111111111111,
+        "balanced_accuracy": 0.228125,
+        "macro_f1": 0.17659574468085104,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.4,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 0.96875,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_high_confidence_wrong_count": 1,
+      "threshold_selective_evaluation": {
+        "count": 25,
+        "accuracy": 0.84,
+        "balanced_accuracy": 0.3333333333333333,
+        "macro_f1": 0.15217391304347824,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.0,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 1.0,
+          "ABSTAIN": 0.0
+        }
+      }
+    },
+    {
+      "architecture": "mlp_regularized",
+      "layer": 28,
+      "head": {
+        "epochs": 30,
+        "weight_decay": 0.01,
+        "dropout": 0.1,
+        "head_parameters": 131974
+      },
+      "temperature": 0.5838956773137537,
+      "calibration_threshold_result": {
+        "status": "SELECTED_ON_CALIBRATION_ONLY",
+        "threshold": 0.7287310361862183,
+        "target_risk": 0.2,
+        "calibration_count": 72,
+        "calibration_covered_count": 30,
+        "calibration_errors": 1,
+        "calibration_risk": 0.03333333333333333,
+        "calibration_wilson_upper_95": 0.16670751396958874,
+        "minimum_covered": 24
+      },
+      "ood_threshold_p95": 1.5956679582595825,
+      "calibration_metrics": {
+        "count": 72,
+        "accuracy": 0.5138888888888888,
+        "balanced_accuracy": 0.2119047619047619,
+        "macro_f1": 0.16567460317460317,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.3,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 0.9714285714285714,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_metrics": {
+        "count": 72,
+        "accuracy": 0.4722222222222222,
+        "balanced_accuracy": 0.22291666666666665,
+        "macro_f1": 0.16666666666666666,
+        "per_class_recall": {
+          "REQUEST_INFORMATION": 0.0,
+          "ANALYZE": 0.0,
+          "SIMULATE": 0.4,
+          "OPTIMIZE": 0.0,
+          "REQUEST_REVIEW": 0.9375,
+          "ABSTAIN": 0.0
+        }
+      },
+      "evaluation_high_confidence_wrong_count": 1,
+      "threshold_selective_evaluation": {
+        "status": "NO_CALIBRATED_COVERAGE"
+      }
+    }
+  ],
+  "sequential_exit_policies": [
+    {
+      "architecture": "linear",
+      "selected_thresholds": {
+        "7": null,
+        "10": null,
+        "14": null,
+        "18": 0.46583855152130127,
+        "21": 0.5268636345863342,
+        "24": null
+      },
+      "controller_validation": {
+        "count": 48,
+        "early_exit_count": 20,
+        "early_exit_errors": 1,
+        "wilson_upper_95": 0.23613589351256678,
+        "target_risk": 0.2,
+        "policy_allowed": false,
+        "minimum_covered": 24
+      },
+      "frozen_evaluation": {
+        "count": 72,
+        "early_exit_count": 0,
+        "early_exit_rate": 0.0,
+        "mean_executed_layers": 28.0,
+        "layer_fraction_saved_estimate": 0.0,
+        "exit_layer_distribution": {
+          "7": 0,
+          "10": 0,
+          "14": 0,
+          "18": 0,
+          "21": 0,
+          "24": 0,
+          "28": 72
+        },
+        "routed_metrics": {
+          "count": 72,
+          "accuracy": 0.4861111111111111,
+          "balanced_accuracy": 0.35267857142857145,
+          "macro_f1": 0.270026525198939,
+          "per_class_recall": {
+            "REQUEST_INFORMATION": 0.0,
+            "ANALYZE": 0.42857142857142855,
+            "SIMULATE": 1.0,
+            "OPTIMIZE": 0.0,
+            "REQUEST_REVIEW": 0.6875,
+            "ABSTAIN": 0.0
+          }
+        },
+        "full_depth_metrics": {
+          "count": 72,
+          "accuracy": 0.4861111111111111,
+          "balanced_accuracy": 0.35267857142857145,
+          "macro_f1": 0.270026525198939,
+          "per_class_recall": {
+            "REQUEST_INFORMATION": 0.0,
+            "ANALYZE": 0.42857142857142855,
+            "SIMULATE": 1.0,
+            "OPTIMIZE": 0.0,
+            "REQUEST_REVIEW": 0.6875,
+            "ABSTAIN": 0.0
+          }
+        }
+      }
+    },
+    {
+      "architecture": "mlp",
+      "selected_thresholds": {
+        "7": null,
+        "10": null,
+        "14": null,
+        "18": null,
+        "21": 0.5171275734901428,
+        "24": 0.6761325001716614
+      },
+      "controller_validation": {
+        "count": 48,
+        "early_exit_count": 18,
+        "early_exit_errors": 2,
+        "wilson_upper_95": 0.3280024486660421,
+        "target_risk": 0.2,
+        "policy_allowed": false,
+        "minimum_covered": 24
+      },
+      "frozen_evaluation": {
+        "count": 72,
+        "early_exit_count": 0,
+        "early_exit_rate": 0.0,
+        "mean_executed_layers": 28.0,
+        "layer_fraction_saved_estimate": 0.0,
+        "exit_layer_distribution": {
+          "7": 0,
+          "10": 0,
+          "14": 0,
+          "18": 0,
+          "21": 0,
+          "24": 0,
+          "28": 72
+        },
+        "routed_metrics": {
+          "count": 72,
+          "accuracy": 0.4444444444444444,
+          "balanced_accuracy": 0.28125,
+          "macro_f1": 0.1871868670717408,
+          "per_class_recall": {
+            "REQUEST_INFORMATION": 0.0,
+            "ANALYZE": 0.0,
+            "SIMULATE": 1.0,
+            "OPTIMIZE": 0.0,
+            "REQUEST_REVIEW": 0.6875,
+            "ABSTAIN": 0.0
+          }
+        },
+        "full_depth_metrics": {
+          "count": 72,
+          "accuracy": 0.4444444444444444,
+          "balanced_accuracy": 0.28125,
+          "macro_f1": 0.1871868670717408,
+          "per_class_recall": {
+            "REQUEST_INFORMATION": 0.0,
+            "ANALYZE": 0.0,
+            "SIMULATE": 1.0,
+            "OPTIMIZE": 0.0,
+            "REQUEST_REVIEW": 0.6875,
+            "ABSTAIN": 0.0
+          }
+        }
+      }
+    },
+    {
+      "architecture": "mlp_regularized",
+      "selected_thresholds": {
+        "7": null,
+        "10": null,
+        "14": null,
+        "18": 0.5998515486717224,
+        "21": 0.7054237723350525,
+        "24": 0.6980123519897461
+      },
+      "controller_validation": {
+        "count": 48,
+        "early_exit_count": 16,
+        "early_exit_errors": 2,
+        "wilson_upper_95": 0.3602333143674828,
+        "target_risk": 0.2,
+        "policy_allowed": false,
+        "minimum_covered": 24
+      },
+      "frozen_evaluation": {
+        "count": 72,
+        "early_exit_count": 0,
+        "early_exit_rate": 0.0,
+        "mean_executed_layers": 28.0,
+        "layer_fraction_saved_estimate": 0.0,
+        "exit_layer_distribution": {
+          "7": 0,
+          "10": 0,
+          "14": 0,
+          "18": 0,
+          "21": 0,
+          "24": 0,
+          "28": 72
+        },
+        "routed_metrics": {
+          "count": 72,
+          "accuracy": 0.4722222222222222,
+          "balanced_accuracy": 0.22291666666666665,
+          "macro_f1": 0.16666666666666666,
+          "per_class_recall": {
+            "REQUEST_INFORMATION": 0.0,
+            "ANALYZE": 0.0,
+            "SIMULATE": 0.4,
+            "OPTIMIZE": 0.0,
+            "REQUEST_REVIEW": 0.9375,
+            "ABSTAIN": 0.0
+          }
+        },
+        "full_depth_metrics": {
+          "count": 72,
+          "accuracy": 0.4722222222222222,
+          "balanced_accuracy": 0.22291666666666665,
+          "macro_f1": 0.16666666666666666,
+          "per_class_recall": {
+            "REQUEST_INFORMATION": 0.0,
+            "ANALYZE": 0.0,
+            "SIMULATE": 0.4,
+            "OPTIMIZE": 0.0,
+            "REQUEST_REVIEW": 0.9375,
+            "ABSTAIN": 0.0
+          }
+        }
+      }
+    }
+  ],
+  "root_cause_observations": [
+    "Synthetic scenario label mix is imbalanced; REQUEST_REVIEW is the largest class.",
+    "Results are synthetic scenario-contract accuracy only.",
+    "Sequential thresholds are enabled only when separate controller-validation Wilson upper risk is at most 0.20 with at least 24 exits."
+  ],
+  "limitations": [
+    "No human-reviewed laboratory decision labels were available.",
+    "Final evaluation is synthetic and independent by group, not scientific validation.",
+    "Current production artifact remains unchanged; diagnostic heads are not promoted."
+  ]
+}
