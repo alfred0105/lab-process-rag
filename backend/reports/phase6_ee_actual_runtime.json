@@ -1,0 +1,3181 @@
+{
+  "status": "COMPLETED_REAL_QWEN_SANDBOX_RUNTIME",
+  "scope": "SYNTHETIC_SANDBOX_ONLY_NO_RESEARCH_API_OR_WORKFLOW",
+  "model": {
+    "id": "Qwen/Qwen3-0.6B",
+    "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+    "tokenizer_revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+    "device": "mps",
+    "precision": "torch.float16",
+    "layer_count": 28,
+    "model_loading_excluded": true
+  },
+  "artifact": {
+    "path": "/Users/hyunsu/.cache/lab-process-rag/phase6-early-exit-runtime-v1.pt",
+    "sha256": "a92bc452f9d4d002ad8ca20c3afef5d047c5c447ee7f9c882febbe447cc0cb60",
+    "contract_validated": true,
+    "source": "regenerated locally from existing report/cache; no external artifact loaded"
+  },
+  "dataset": {
+    "hash": "2a3d38579c456d183f411aab41d9afa9bfe9183d9f950af4baba7c637f0d137d",
+    "frozen_count": 384,
+    "benchmark_count": 30,
+    "selected_indices": [
+      69,
+      61,
+      74,
+      27,
+      1,
+      12,
+      81,
+      145,
+      116,
+      819,
+      115,
+      21,
+      109,
+      238,
+      122,
+      1179,
+      160,
+      131,
+      203,
+      333,
+      132,
+      1191,
+      178,
+      198,
+      241,
+      349,
+      154,
+      1383,
+      230,
+      321
+    ],
+    "labels": [
+      "REQUEST_INFORMATION",
+      "ANALYZE",
+      "SIMULATE",
+      "OPTIMIZE",
+      "REQUEST_REVIEW",
+      "ABSTAIN",
+      "REQUEST_INFORMATION",
+      "ANALYZE",
+      "SIMULATE",
+      "OPTIMIZE",
+      "REQUEST_REVIEW",
+      "ABSTAIN",
+      "REQUEST_INFORMATION",
+      "ANALYZE",
+      "SIMULATE",
+      "OPTIMIZE",
+      "REQUEST_REVIEW",
+      "ABSTAIN",
+      "REQUEST_INFORMATION",
+      "ANALYZE",
+      "SIMULATE",
+      "OPTIMIZE",
+      "REQUEST_REVIEW",
+      "ABSTAIN",
+      "REQUEST_INFORMATION",
+      "ANALYZE",
+      "SIMULATE",
+      "OPTIMIZE",
+      "REQUEST_REVIEW",
+      "ABSTAIN"
+    ]
+  },
+  "timing_protocol": {
+    "warmup_runs": 3,
+    "measured_inputs": 30,
+    "same_inputs_and_token_ids": true,
+    "synchronization": true,
+    "latency_includes": "decoder prefix + heads + router; tokenization excluded",
+    "full_depth_p50_ms": 85.24560400110204,
+    "full_depth_p95_ms": 87.63078955817036,
+    "full_depth_mean_layer_calls": 28.0
+  },
+  "memory": {
+    "before_benchmark": {
+      "allocator_current_bytes": 1199702272,
+      "driver_allocated_bytes": 1216823296,
+      "peak_bytes": null,
+      "peak_measurement_supported": false
+    },
+    "after_benchmark": {
+      "allocator_current_bytes": 1199860480,
+      "driver_allocated_bytes": 1259012096,
+      "peak_bytes": null,
+      "peak_measurement_supported": false
+    },
+    "peak_note": "MPS peak allocator counter is unavailable in this PyTorch runtime; current driver/allocator bytes are reported."
+  },
+  "candidates": {
+    "A": {
+      "policy": "PABEE",
+      "early_exit_count": 29,
+      "early_exit_rate": 0.9666666666666667,
+      "mean_executed_layers": 15.633333333333333,
+      "actual_layer_calls": [
+        14,
+        14,
+        14,
+        14,
+        21,
+        14,
+        14,
+        14,
+        14,
+        28,
+        21,
+        14,
+        14,
+        21,
+        14,
+        14,
+        14,
+        14,
+        14,
+        14,
+        21,
+        14,
+        14,
+        14,
+        14,
+        14,
+        14,
+        14,
+        14,
+        21
+      ],
+      "latency_p50_ms": 45.38095850148238,
+      "latency_p95_ms": 68.3426355906704,
+      "speedup_vs_shared_full_depth_p50": 1.8784443259019632,
+      "speedup_vs_shared_full_depth_p95": 1.2822272480538202,
+      "mean_head_ms": 0.05011533648939803,
+      "mean_ood_gate_ms": 0.7497710335883312,
+      "mean_router_ms": 0.21472913455606127,
+      "full_depth_metrics": {
+        "count": 30,
+        "accuracy": 0.8,
+        "balanced_accuracy": 0.7999999999999999,
+        "macro_f1": 0.798989898989899,
+        "per_class": {
+          "REQUEST_INFORMATION": {
+            "precision": 0.6666666666666666,
+            "recall": 0.8,
+            "f1": 0.7272727272727273,
+            "support": 5
+          },
+          "ANALYZE": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 5
+          },
+          "SIMULATE": {
+            "precision": 0.8,
+            "recall": 0.8,
+            "f1": 0.8,
+            "support": 5
+          },
+          "OPTIMIZE": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 5
+          },
+          "REQUEST_REVIEW": {
+            "precision": 0.75,
+            "recall": 0.6,
+            "f1": 0.6666666666666666,
+            "support": 5
+          },
+          "ABSTAIN": {
+            "precision": 0.6,
+            "recall": 0.6,
+            "f1": 0.6,
+            "support": 5
+          }
+        }
+      },
+      "adaptive_metrics": {
+        "count": 30,
+        "accuracy": 0.8333333333333334,
+        "balanced_accuracy": 0.8333333333333331,
+        "macro_f1": 0.8282828282828283,
+        "per_class": {
+          "REQUEST_INFORMATION": {
+            "precision": 0.6666666666666666,
+            "recall": 0.8,
+            "f1": 0.7272727272727273,
+            "support": 5
+          },
+          "ANALYZE": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 5
+          },
+          "SIMULATE": {
+            "precision": 0.8333333333333334,
+            "recall": 1.0,
+            "f1": 0.9090909090909091,
+            "support": 5
+          },
+          "OPTIMIZE": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 5
+          },
+          "REQUEST_REVIEW": {
+            "precision": 0.75,
+            "recall": 0.6,
+            "f1": 0.6666666666666666,
+            "support": 5
+          },
+          "ABSTAIN": {
+            "precision": 0.75,
+            "recall": 0.6,
+            "f1": 0.6666666666666666,
+            "support": 5
+          }
+        }
+      },
+      "prediction_agreement_with_full_depth": 0.9666666666666667,
+      "unsafe_optimize_false_positive_count": 0,
+      "review_or_abstain_recall": 0.7,
+      "ood_detection_count": 5,
+      "ood_exit_block_count": 5,
+      "ood_early_exit_violation_count": 0
+    },
+    "C": {
+      "policy": "Fusion + EEFP",
+      "early_exit_count": 29,
+      "early_exit_rate": 0.9666666666666667,
+      "mean_executed_layers": 7.933333333333334,
+      "actual_layer_calls": [
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        28,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        14,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7
+      ],
+      "latency_p50_ms": 26.967582998622674,
+      "latency_p95_ms": 40.413383697887134,
+      "speedup_vs_shared_full_depth_p50": 3.161039830876049,
+      "speedup_vs_shared_full_depth_p95": 2.168360615712359,
+      "mean_head_ms": 0.02839993345939244,
+      "mean_ood_gate_ms": 0.4381388003821485,
+      "mean_router_ms": 0.2282944978408826,
+      "full_depth_metrics": {
+        "count": 30,
+        "accuracy": 0.8333333333333334,
+        "balanced_accuracy": 0.8333333333333331,
+        "macro_f1": 0.8282828282828283,
+        "per_class": {
+          "REQUEST_INFORMATION": {
+            "precision": 0.6666666666666666,
+            "recall": 0.8,
+            "f1": 0.7272727272727273,
+            "support": 5
+          },
+          "ANALYZE": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 5
+          },
+          "SIMULATE": {
+            "precision": 0.8333333333333334,
+            "recall": 1.0,
+            "f1": 0.9090909090909091,
+            "support": 5
+          },
+          "OPTIMIZE": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 5
+          },
+          "REQUEST_REVIEW": {
+            "precision": 0.75,
+            "recall": 0.6,
+            "f1": 0.6666666666666666,
+            "support": 5
+          },
+          "ABSTAIN": {
+            "precision": 0.75,
+            "recall": 0.6,
+            "f1": 0.6666666666666666,
+            "support": 5
+          }
+        }
+      },
+      "adaptive_metrics": {
+        "count": 30,
+        "accuracy": 0.8333333333333334,
+        "balanced_accuracy": 0.8333333333333331,
+        "macro_f1": 0.8282828282828283,
+        "per_class": {
+          "REQUEST_INFORMATION": {
+            "precision": 0.6666666666666666,
+            "recall": 0.8,
+            "f1": 0.7272727272727273,
+            "support": 5
+          },
+          "ANALYZE": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 5
+          },
+          "SIMULATE": {
+            "precision": 0.8333333333333334,
+            "recall": 1.0,
+            "f1": 0.9090909090909091,
+            "support": 5
+          },
+          "OPTIMIZE": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 5
+          },
+          "REQUEST_REVIEW": {
+            "precision": 0.75,
+            "recall": 0.6,
+            "f1": 0.6666666666666666,
+            "support": 5
+          },
+          "ABSTAIN": {
+            "precision": 0.75,
+            "recall": 0.6,
+            "f1": 0.6666666666666666,
+            "support": 5
+          }
+        }
+      },
+      "prediction_agreement_with_full_depth": 1.0,
+      "unsafe_optimize_false_positive_count": 0,
+      "review_or_abstain_recall": 0.7,
+      "ood_detection_count": 4,
+      "ood_exit_block_count": 4,
+      "ood_early_exit_violation_count": 0
+    }
+  },
+  "per_sample_evidence": [
+    {
+      "row_index": 69,
+      "label": "REQUEST_INFORMATION",
+      "full_depth_action_a": "REQUEST_INFORMATION",
+      "full_depth_action_c": "REQUEST_INFORMATION",
+      "adaptive_a": {
+        "action_index": 0,
+        "exit_layer": 14,
+        "actual_layer_calls": 14,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.9097073674201965,
+            "ood_score": 0.5762584805488586,
+            "ood": false,
+            "exit_threshold": null,
+            "accepted": false,
+            "prediction_index": 0,
+            "probabilities": [
+              0.9097073674201965,
+              0.01378916297107935,
+              0.0004049439448863268,
+              0.00032468241988681257,
+              0.06661860644817352,
+              0.009155194275081158
+            ],
+            "decision_head_ms": 0.020000006770715117,
+            "ood_ms": 0.2127920015482232,
+            "router_ms": 0.0
+          },
+          {
+            "layer": 14,
+            "confidence": 0.8409789800643921,
+            "ood_score": 0.6514214277267456,
+            "ood": false,
+            "exit_threshold": 0.44425147771835327,
+            "accepted": true,
+            "prediction_index": 0,
+            "probabilities": [
+              0.8409789800643921,
+              0.0489753857254982,
+              2.8984677555854432e-05,
+              0.0005504316068254411,
+              0.05504621937870979,
+              0.05441997945308685
+            ],
+            "decision_head_ms": 0.014999997802078724,
+            "ood_ms": 0.21787500008940697,
+            "router_ms": 0.13908300024922937
+          }
+        ],
+        "action": "REQUEST_INFORMATION"
+      },
+      "adaptive_c": {
+        "action_index": 0,
+        "exit_layer": 7,
+        "actual_layer_calls": 7,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.9990540146827698,
+            "ood_score": 0.5762584805488586,
+            "ood": false,
+            "exit_threshold": 0.975710173594662,
+            "accepted": true,
+            "prediction_index": 0,
+            "probabilities": [
+              0.9990540146827698,
+              0.0001564369013067335,
+              3.671200943244912e-07,
+              1.8281670008946094e-06,
+              0.00038024576497264206,
+              0.0004070718714501709
+            ],
+            "decision_head_ms": 0.021957996068522334,
+            "ood_ms": 0.22037500457372516,
+            "router_ms": 0.1720000000204891
+          }
+        ],
+        "action": "REQUEST_INFORMATION"
+      }
+    },
+    {
+      "row_index": 61,
+      "label": "ANALYZE",
+      "full_depth_action_a": "ANALYZE",
+      "full_depth_action_c": "ANALYZE",
+      "adaptive_a": {
+        "action_index": 1,
+        "exit_layer": 14,
+        "actual_layer_calls": 14,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.9081099033355713,
+            "ood_score": 0.6497530341148376,
+            "ood": false,
+            "exit_threshold": null,
+            "accepted": false,
+            "prediction_index": 1,
+            "probabilities": [
+              0.00925565604120493,
+              0.9081099033355713,
+              0.0055791581980884075,
+              3.896668567904271e-05,
+              0.03486958146095276,
+              0.04214674234390259
+            ],
+            "decision_head_ms": 0.021375002688728273,
+            "ood_ms": 0.241083005676046,
+            "router_ms": 0.0
+          },
+          {
+            "layer": 14,
+            "confidence": 0.7960504293441772,
+            "ood_score": 0.73605877161026,
+            "ood": false,
+            "exit_threshold": 0.44425147771835327,
+            "accepted": true,
+            "prediction_index": 1,
+            "probabilities": [
+              0.056405212730169296,
+              0.7960504293441772,
+              0.009288267232477665,
+              0.00045768290874548256,
+              0.10377222299575806,
+              0.034026190638542175
+            ],
+            "decision_head_ms": 0.015541998436674476,
+            "ood_ms": 0.2979580021928996,
+            "router_ms": 0.16729100025258958
+          }
+        ],
+        "action": "ANALYZE"
+      },
+      "adaptive_c": {
+        "action_index": 1,
+        "exit_layer": 7,
+        "actual_layer_calls": 7,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.9751959443092346,
+            "ood_score": 0.6497530341148376,
+            "ood": false,
+            "exit_threshold": 0.975710173594662,
+            "accepted": true,
+            "prediction_index": 1,
+            "probabilities": [
+              0.0036666791420429945,
+              0.9751959443092346,
+              0.0007068372215144336,
+              3.259818549850024e-05,
+              0.00894982274621725,
+              0.011448039673268795
+            ],
+            "decision_head_ms": 0.028291004127822816,
+            "ood_ms": 0.23608299670740962,
+            "router_ms": 0.16533299640286714
+          }
+        ],
+        "action": "ANALYZE"
+      }
+    },
+    {
+      "row_index": 74,
+      "label": "SIMULATE",
+      "full_depth_action_a": "SIMULATE",
+      "full_depth_action_c": "SIMULATE",
+      "adaptive_a": {
+        "action_index": 2,
+        "exit_layer": 14,
+        "actual_layer_calls": 14,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.8445382714271545,
+            "ood_score": 0.5492227673530579,
+            "ood": false,
+            "exit_threshold": null,
+            "accepted": false,
+            "prediction_index": 2,
+            "probabilities": [
+              0.03304962068796158,
+              0.008398405276238918,
+              0.8445382714271545,
+              0.0002444479614496231,
+              0.031022995710372925,
+              0.08274617046117783
+            ],
+            "decision_head_ms": 0.02604200562927872,
+            "ood_ms": 0.3079589951084927,
+            "router_ms": 0.0
+          },
+          {
+            "layer": 14,
+            "confidence": 0.8296786546707153,
+            "ood_score": 0.6891181468963623,
+            "ood": false,
+            "exit_threshold": 0.44425147771835327,
+            "accepted": true,
+            "prediction_index": 2,
+            "probabilities": [
+              0.0184918399900198,
+              0.04141217842698097,
+              0.8296786546707153,
+              0.0023726073559373617,
+              0.006695546675473452,
+              0.10134914517402649
+            ],
+            "decision_head_ms": 0.026958994567394257,
+            "ood_ms": 0.3409999917494133,
+            "router_ms": 0.2059580001514405
+          }
+        ],
+        "action": "SIMULATE"
+      },
+      "adaptive_c": {
+        "action_index": 2,
+        "exit_layer": 7,
+        "actual_layer_calls": 7,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.799976646900177,
+            "ood_score": 0.5492227673530579,
+            "ood": false,
+            "exit_threshold": 0.975710173594662,
+            "accepted": true,
+            "prediction_index": 2,
+            "probabilities": [
+              0.05668006092309952,
+              0.0055481502786278725,
+              0.799976646900177,
+              0.0009607773972675204,
+              0.013879398815333843,
+              0.12295496463775635
+            ],
+            "decision_head_ms": 0.036083991290070117,
+            "ood_ms": 0.2982909936690703,
+            "router_ms": 0.2114169910782948
+          }
+        ],
+        "action": "SIMULATE"
+      }
+    },
+    {
+      "row_index": 27,
+      "label": "OPTIMIZE",
+      "full_depth_action_a": "OPTIMIZE",
+      "full_depth_action_c": "OPTIMIZE",
+      "adaptive_a": {
+        "action_index": 3,
+        "exit_layer": 14,
+        "actual_layer_calls": 14,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.5475900173187256,
+            "ood_score": 0.5585314035415649,
+            "ood": false,
+            "exit_threshold": null,
+            "accepted": false,
+            "prediction_index": 3,
+            "probabilities": [
+              0.04124407097697258,
+              0.005325895268470049,
+              0.002304807072505355,
+              0.5475900173187256,
+              0.22657398879528046,
+              0.17696112394332886
+            ],
+            "decision_head_ms": 0.02270800177939236,
+            "ood_ms": 0.34079200122505426,
+            "router_ms": 0.0
+          },
+          {
+            "layer": 14,
+            "confidence": 0.760026216506958,
+            "ood_score": 0.6158078908920288,
+            "ood": false,
+            "exit_threshold": 0.44425147771835327,
+            "accepted": true,
+            "prediction_index": 3,
+            "probabilities": [
+              0.015566474758088589,
+              0.0010189044987782836,
+              0.0003127529053017497,
+              0.760026216506958,
+              0.022793838754296303,
+              0.2002817988395691
+            ],
+            "decision_head_ms": 0.02374999166931957,
+            "ood_ms": 0.29075000202283263,
+            "router_ms": 0.1814580027712509
+          }
+        ],
+        "action": "OPTIMIZE"
+      },
+      "adaptive_c": {
+        "action_index": 3,
+        "exit_layer": 7,
+        "actual_layer_calls": 7,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.8197216391563416,
+            "ood_score": 0.5585314035415649,
+            "ood": false,
+            "exit_threshold": 0.975710173594662,
+            "accepted": true,
+            "prediction_index": 3,
+            "probabilities": [
+              0.004223539028316736,
+              0.004355909302830696,
+              0.00036119966534897685,
+              0.8197216391563416,
+              0.034992069005966187,
+              0.13634569942951202
+            ],
+            "decision_head_ms": 0.02387500717304647,
+            "ood_ms": 0.298625003779307,
+            "router_ms": 0.2160829899366945
+          }
+        ],
+        "action": "OPTIMIZE"
+      }
+    },
+    {
+      "row_index": 1,
+      "label": "REQUEST_REVIEW",
+      "full_depth_action_a": "REQUEST_REVIEW",
+      "full_depth_action_c": "REQUEST_REVIEW",
+      "adaptive_a": {
+        "action_index": 4,
+        "exit_layer": 21,
+        "actual_layer_calls": 21,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.7836387157440186,
+            "ood_score": 0.6077869534492493,
+            "ood": false,
+            "exit_threshold": null,
+            "accepted": false,
+            "prediction_index": 2,
+            "probabilities": [
+              0.021141812205314636,
+              0.10290710628032684,
+              0.7836387157440186,
+              0.0004464338126126677,
+              0.08577758818864822,
+              0.006088337395340204
+            ],
+            "decision_head_ms": 0.02270800177939236,
+            "ood_ms": 0.3321249969303608,
+            "router_ms": 0.0
+          },
+          {
+            "layer": 14,
+            "confidence": 0.8963651061058044,
+            "ood_score": 0.6989081501960754,
+            "ood": false,
+            "exit_threshold": 0.44425147771835327,
+            "accepted": false,
+            "prediction_index": 4,
+            "probabilities": [
+              0.00787276029586792,
+              0.006802437826991081,
+              0.07899391651153564,
+              0.0001083441820810549,
+              0.8963651061058044,
+              0.009857374243438244
+            ],
+            "decision_head_ms": 0.03245800326112658,
+            "ood_ms": 0.30012500064913183,
+            "router_ms": 0.17983400903176516
+          },
+          {
+            "layer": 21,
+            "confidence": 0.8631980419158936,
+            "ood_score": 0.9288093447685242,
+            "ood": false,
+            "exit_threshold": 0.26802849769592285,
+            "accepted": true,
+            "prediction_index": 4,
+            "probabilities": [
+              0.017285842448472977,
+              0.009700744412839413,
+              0.08324255049228668,
+              0.00013104805839248002,
+              0.8631980419158936,
+              0.026441745460033417
+            ],
+            "decision_head_ms": 0.022792009986005723,
+            "ood_ms": 0.29354200523812324,
+            "router_ms": 0.19175000488758087
+          }
+        ],
+        "action": "REQUEST_REVIEW"
+      },
+      "adaptive_c": {
+        "action_index": 4,
+        "exit_layer": 7,
+        "actual_layer_calls": 7,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.8688575625419617,
+            "ood_score": 0.6077869534492493,
+            "ood": false,
+            "exit_threshold": 0.975710173594662,
+            "accepted": true,
+            "prediction_index": 4,
+            "probabilities": [
+              0.0007447606767527759,
+              0.007474357727915049,
+              0.11926330626010895,
+              9.626166138332337e-05,
+              0.8688575625419617,
+              0.0035637563560158014
+            ],
+            "decision_head_ms": 0.023250002413988113,
+            "ood_ms": 0.3227499983040616,
+            "router_ms": 0.2192090032622218
+          }
+        ],
+        "action": "REQUEST_REVIEW"
+      }
+    },
+    {
+      "row_index": 12,
+      "label": "ABSTAIN",
+      "full_depth_action_a": "ABSTAIN",
+      "full_depth_action_c": "ABSTAIN",
+      "adaptive_a": {
+        "action_index": 5,
+        "exit_layer": 14,
+        "actual_layer_calls": 14,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.4393039047718048,
+            "ood_score": 0.5114688277244568,
+            "ood": false,
+            "exit_threshold": null,
+            "accepted": false,
+            "prediction_index": 5,
+            "probabilities": [
+              0.2547565996646881,
+              0.07569442689418793,
+              0.03418191149830818,
+              0.0034275150392204523,
+              0.19263571500778198,
+              0.4393039047718048
+            ],
+            "decision_head_ms": 0.022917010937817395,
+            "ood_ms": 0.2749580016825348,
+            "router_ms": 0.0
+          },
+          {
+            "layer": 14,
+            "confidence": 0.8110853433609009,
+            "ood_score": 0.545517086982727,
+            "ood": false,
+            "exit_threshold": 0.44425147771835327,
+            "accepted": true,
+            "prediction_index": 5,
+            "probabilities": [
+              0.03855954855680466,
+              0.018977662548422813,
+              0.004281666595488787,
+              0.0021255554165691137,
+              0.12497018277645111,
+              0.8110853433609009
+            ],
+            "decision_head_ms": 0.02216600114479661,
+            "ood_ms": 0.2927089954027906,
+            "router_ms": 0.1950410078279674
+          }
+        ],
+        "action": "ABSTAIN"
+      },
+      "adaptive_c": {
+        "action_index": 5,
+        "exit_layer": 7,
+        "actual_layer_calls": 7,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.6362788081169128,
+            "ood_score": 0.5114688277244568,
+            "ood": false,
+            "exit_threshold": 0.975710173594662,
+            "accepted": true,
+            "prediction_index": 5,
+            "probabilities": [
+              0.1424868106842041,
+              0.09802750498056412,
+              0.00869488064199686,
+              0.0007967727724462748,
+              0.11371529847383499,
+              0.6362788081169128
+            ],
+            "decision_head_ms": 0.02704199869185686,
+            "ood_ms": 0.2736250025918707,
+            "router_ms": 0.203957999474369
+          }
+        ],
+        "action": "ABSTAIN"
+      }
+    },
+    {
+      "row_index": 81,
+      "label": "REQUEST_INFORMATION",
+      "full_depth_action_a": "ABSTAIN",
+      "full_depth_action_c": "ABSTAIN",
+      "adaptive_a": {
+        "action_index": 5,
+        "exit_layer": 14,
+        "actual_layer_calls": 14,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.9217091798782349,
+            "ood_score": 0.6040074825286865,
+            "ood": false,
+            "exit_threshold": null,
+            "accepted": false,
+            "prediction_index": 5,
+            "probabilities": [
+              0.029894256964325905,
+              0.017895810306072235,
+              0.00018931785598397255,
+              0.00019417388830333948,
+              0.03011736087501049,
+              0.9217091798782349
+            ],
+            "decision_head_ms": 0.021334009943529963,
+            "ood_ms": 0.2802090020850301,
+            "router_ms": 0.0
+          },
+          {
+            "layer": 14,
+            "confidence": 0.8030918836593628,
+            "ood_score": 0.6048533320426941,
+            "ood": false,
+            "exit_threshold": 0.44425147771835327,
+            "accepted": true,
+            "prediction_index": 5,
+            "probabilities": [
+              0.06373725086450577,
+              0.005005334969609976,
+              0.00022650614846497774,
+              0.0003841540601570159,
+              0.12755481898784637,
+              0.8030918836593628
+            ],
+            "decision_head_ms": 0.02662499900907278,
+            "ood_ms": 0.2750830026343465,
+            "router_ms": 0.19129199790768325
+          }
+        ],
+        "action": "ABSTAIN"
+      },
+      "adaptive_c": {
+        "action_index": 5,
+        "exit_layer": 7,
+        "actual_layer_calls": 7,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.880149781703949,
+            "ood_score": 0.6040074825286865,
+            "ood": false,
+            "exit_threshold": 0.975710173594662,
+            "accepted": true,
+            "prediction_index": 5,
+            "probabilities": [
+              0.034780144691467285,
+              0.053266484290361404,
+              0.00011132185318274423,
+              3.119486791547388e-05,
+              0.03166104480624199,
+              0.880149781703949
+            ],
+            "decision_head_ms": 0.025582994567230344,
+            "ood_ms": 0.27383399719838053,
+            "router_ms": 0.2001249958993867
+          }
+        ],
+        "action": "ABSTAIN"
+      }
+    },
+    {
+      "row_index": 145,
+      "label": "ANALYZE",
+      "full_depth_action_a": "ANALYZE",
+      "full_depth_action_c": "ANALYZE",
+      "adaptive_a": {
+        "action_index": 1,
+        "exit_layer": 14,
+        "actual_layer_calls": 14,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.699908435344696,
+            "ood_score": 0.6944124698638916,
+            "ood": false,
+            "exit_threshold": null,
+            "accepted": false,
+            "prediction_index": 1,
+            "probabilities": [
+              0.17325758934020996,
+              0.699908435344696,
+              0.021481139585375786,
+              0.0006615530583076179,
+              0.05227286368608475,
+              0.05241835489869118
+            ],
+            "decision_head_ms": 0.021667001419700682,
+            "ood_ms": 0.29587499739136547,
+            "router_ms": 0.0
+          },
+          {
+            "layer": 14,
+            "confidence": 0.587883472442627,
+            "ood_score": 0.7240710258483887,
+            "ood": false,
+            "exit_threshold": 0.44425147771835327,
+            "accepted": true,
+            "prediction_index": 1,
+            "probabilities": [
+              0.03148810192942619,
+              0.587883472442627,
+              0.017007874324917793,
+              0.0016942535294219851,
+              0.0697041004896164,
+              0.2922222316265106
+            ],
+            "decision_head_ms": 0.02404100087005645,
+            "ood_ms": 0.2733750006882474,
+            "router_ms": 0.1539999939268455
+          }
+        ],
+        "action": "ANALYZE"
+      },
+      "adaptive_c": {
+        "action_index": 1,
+        "exit_layer": 7,
+        "actual_layer_calls": 7,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.8105074763298035,
+            "ood_score": 0.6944124698638916,
+            "ood": false,
+            "exit_threshold": 0.975710173594662,
+            "accepted": true,
+            "prediction_index": 1,
+            "probabilities": [
+              0.06448281556367874,
+              0.8105074763298035,
+              0.00853253249078989,
+              0.0021444505546242,
+              0.03197869658470154,
+              0.08235394954681396
+            ],
+            "decision_head_ms": 0.022791995434090495,
+            "ood_ms": 0.30987500213086605,
+            "router_ms": 0.21216699678916484
+          }
+        ],
+        "action": "ANALYZE"
+      }
+    },
+    {
+      "row_index": 116,
+      "label": "SIMULATE",
+      "full_depth_action_a": "SIMULATE",
+      "full_depth_action_c": "SIMULATE",
+      "adaptive_a": {
+        "action_index": 2,
+        "exit_layer": 14,
+        "actual_layer_calls": 14,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.5244082808494568,
+            "ood_score": 0.6253557801246643,
+            "ood": false,
+            "exit_threshold": null,
+            "accepted": false,
+            "prediction_index": 2,
+            "probabilities": [
+              0.10854237526655197,
+              0.03389449417591095,
+              0.5244082808494568,
+              0.010719235986471176,
+              0.20404808223247528,
+              0.11838753521442413
+            ],
+            "decision_head_ms": 0.01995899947360158,
+            "ood_ms": 0.2877910010283813,
+            "router_ms": 0.0
+          },
+          {
+            "layer": 14,
+            "confidence": 0.7039832472801208,
+            "ood_score": 0.7014671564102173,
+            "ood": false,
+            "exit_threshold": 0.44425147771835327,
+            "accepted": true,
+            "prediction_index": 2,
+            "probabilities": [
+              0.09546099603176117,
+              0.02973265014588833,
+              0.7039832472801208,
+              0.010603868402540684,
+              0.06898953765630722,
+              0.09122975915670395
+            ],
+            "decision_head_ms": 0.022375010303221643,
+            "ood_ms": 0.2442499971948564,
+            "router_ms": 0.1638750109123066
+          }
+        ],
+        "action": "SIMULATE"
+      },
+      "adaptive_c": {
+        "action_index": 2,
+        "exit_layer": 7,
+        "actual_layer_calls": 7,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.7463753819465637,
+            "ood_score": 0.6253557801246643,
+            "ood": false,
+            "exit_threshold": 0.975710173594662,
+            "accepted": true,
+            "prediction_index": 2,
+            "probabilities": [
+              0.050638455897569656,
+              0.007278622128069401,
+              0.7463753819465637,
+              0.003974435850977898,
+              0.11546321213245392,
+              0.07626990228891373
+            ],
+            "decision_head_ms": 0.029749993700534105,
+            "ood_ms": 0.29804099176544696,
+            "router_ms": 0.20779100304935127
+          }
+        ],
+        "action": "SIMULATE"
+      }
+    },
+    {
+      "row_index": 819,
+      "label": "OPTIMIZE",
+      "full_depth_action_a": "OPTIMIZE",
+      "full_depth_action_c": "OPTIMIZE",
+      "adaptive_a": {
+        "action_index": 3,
+        "exit_layer": 28,
+        "actual_layer_calls": 28,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.7642685174942017,
+            "ood_score": 1.7846368551254272,
+            "ood": true,
+            "exit_threshold": null,
+            "accepted": false,
+            "prediction_index": 3,
+            "probabilities": [
+              0.09992223232984543,
+              0.009597893804311752,
+              0.04817420616745949,
+              0.7642685174942017,
+              0.07041778415441513,
+              0.0076193721033632755
+            ],
+            "decision_head_ms": 0.02416699135210365,
+            "ood_ms": 0.3149169933749363,
+            "router_ms": 0.0
+          },
+          {
+            "layer": 14,
+            "confidence": 0.8404154777526855,
+            "ood_score": 1.8183165788650513,
+            "ood": true,
+            "exit_threshold": 0.44425147771835327,
+            "accepted": false,
+            "prediction_index": 3,
+            "probabilities": [
+              0.010515758767724037,
+              0.0024418854154646397,
+              0.10632487386465073,
+              0.8404154777526855,
+              0.033608414232730865,
+              0.00669354572892189
+            ],
+            "decision_head_ms": 0.03187499532941729,
+            "ood_ms": 0.3141249908367172,
+            "router_ms": 0.19079199410043657
+          },
+          {
+            "layer": 21,
+            "confidence": 0.7731992602348328,
+            "ood_score": 1.494913935661316,
+            "ood": true,
+            "exit_threshold": 0.26802849769592285,
+            "accepted": false,
+            "prediction_index": 3,
+            "probabilities": [
+              0.002512875245884061,
+              0.0011853905161842704,
+              0.2203110009431839,
+              0.7731992602348328,
+              0.0015695362817496061,
+              0.0012219900963827968
+            ],
+            "decision_head_ms": 0.02720800694078207,
+            "ood_ms": 0.3309159947093576,
+            "router_ms": 0.2050420007435605
+          },
+          {
+            "layer": 28,
+            "confidence": 0.9411078095436096,
+            "ood_score": 1.2605557441711426,
+            "ood": false,
+            "exit_threshold": null,
+            "accepted": false,
+            "prediction_index": 3,
+            "probabilities": [
+              0.000645703577902168,
+              0.001348727266304195,
+              0.052228063344955444,
+              0.9411078095436096,
+              0.0030026144813746214,
+              0.0016671712510287762
+            ],
+            "decision_head_ms": 0.0269579904852435,
+            "ood_ms": 0.31508400570601225,
+            "router_ms": 0.0
+          },
+          {
+            "layer": 28,
+            "confidence": 0.9411078095436096,
+            "ood_score": 1.2605557441711426,
+            "ood": false,
+            "exit_threshold": null,
+            "accepted": true
+          }
+        ],
+        "action": "OPTIMIZE"
+      },
+      "adaptive_c": {
+        "action_index": 3,
+        "exit_layer": 28,
+        "actual_layer_calls": 28,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.9177023768424988,
+            "ood_score": 1.7846368551254272,
+            "ood": true,
+            "exit_threshold": 0.975710173594662,
+            "accepted": false,
+            "prediction_index": 3,
+            "probabilities": [
+              0.014103114604949951,
+              0.002125503495335579,
+              0.03955893591046333,
+              0.9177023768424988,
+              0.020524626597762108,
+              0.005985377822071314
+            ],
+            "decision_head_ms": 0.02145799226127565,
+            "ood_ms": 0.32020801154430956,
+            "router_ms": 0.23266699281521142
+          },
+          {
+            "layer": 14,
+            "confidence": 0.9481469988822937,
+            "ood_score": 1.8183165788650513,
+            "ood": true,
+            "exit_threshold": 0.9920501397805855,
+            "accepted": false,
+            "prediction_index": 3,
+            "probabilities": [
+              0.0033407302107661963,
+              0.0005239779129624367,
+              0.03509646654129028,
+              0.9481469988822937,
+              0.009301225654780865,
+              0.0035906624980270863
+            ],
+            "decision_head_ms": 0.029292001272551715,
+            "ood_ms": 0.2673330018296838,
+            "router_ms": 0.184959004400298
+          },
+          {
+            "layer": 21,
+            "confidence": 0.9230698943138123,
+            "ood_score": 1.494913935661316,
+            "ood": true,
+            "exit_threshold": 0.9989636134746904,
+            "accepted": false,
+            "prediction_index": 3,
+            "probabilities": [
+              0.001631908817216754,
+              0.00022741117572877556,
+              0.0733160749077797,
+              0.9230698943138123,
+              0.0010976920602843165,
+              0.0006570195546373725
+            ],
+            "decision_head_ms": 0.03404100425541401,
+            "ood_ms": 0.30320900259539485,
+            "router_ms": 0.22812500537838787
+          },
+          {
+            "layer": 28,
+            "confidence": 0.9527595043182373,
+            "ood_score": 1.2605557441711426,
+            "ood": false,
+            "exit_threshold": null,
+            "accepted": false,
+            "prediction_index": 3,
+            "probabilities": [
+              0.0007137608481571078,
+              0.0003507557266857475,
+              0.04238322377204895,
+              0.9527595043182373,
+              0.002136165974661708,
+              0.0016565922414883971
+            ],
+            "decision_head_ms": 0.027166999643668532,
+            "ood_ms": 0.2940419944934547,
+            "router_ms": 0.0
+          },
+          {
+            "layer": 28,
+            "confidence": 0.9527595043182373,
+            "ood_score": 1.2605557441711426,
+            "ood": false,
+            "exit_threshold": null,
+            "accepted": true
+          }
+        ],
+        "action": "OPTIMIZE"
+      }
+    },
+    {
+      "row_index": 115,
+      "label": "REQUEST_REVIEW",
+      "full_depth_action_a": "REQUEST_REVIEW",
+      "full_depth_action_c": "REQUEST_REVIEW",
+      "adaptive_a": {
+        "action_index": 4,
+        "exit_layer": 21,
+        "actual_layer_calls": 21,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.958012580871582,
+            "ood_score": 1.7334175109863281,
+            "ood": false,
+            "exit_threshold": null,
+            "accepted": false,
+            "prediction_index": 4,
+            "probabilities": [
+              1.1122458545287373e-06,
+              1.5173476697327715e-07,
+              1.2569682274199412e-11,
+              1.9929520931327716e-06,
+              0.958012580871582,
+              0.04198409244418144
+            ],
+            "decision_head_ms": 0.02633300027810037,
+            "ood_ms": 0.24312498862855136,
+            "router_ms": 0.0
+          },
+          {
+            "layer": 14,
+            "confidence": 0.8761940002441406,
+            "ood_score": 1.7363824844360352,
+            "ood": true,
+            "exit_threshold": 0.44425147771835327,
+            "accepted": false,
+            "prediction_index": 4,
+            "probabilities": [
+              0.00012655465980060399,
+              0.0001591590844327584,
+              3.6909053591216434e-08,
+              7.72053226683056e-06,
+              0.8761940002441406,
+              0.12351249158382416
+            ],
+            "decision_head_ms": 0.024792010663077235,
+            "ood_ms": 0.28908299282193184,
+            "router_ms": 0.17058300727512687
+          },
+          {
+            "layer": 21,
+            "confidence": 0.9539616107940674,
+            "ood_score": 1.4010366201400757,
+            "ood": false,
+            "exit_threshold": 0.26802849769592285,
+            "accepted": true,
+            "prediction_index": 4,
+            "probabilities": [
+              4.387467561173253e-05,
+              1.5145671568461694e-05,
+              0.00026476476341485977,
+              2.9807119972247165e-07,
+              0.9539616107940674,
+              0.045714281499385834
+            ],
+            "decision_head_ms": 0.020499996026046574,
+            "ood_ms": 0.2894999925047159,
+            "router_ms": 0.15762500697746873
+          }
+        ],
+        "action": "REQUEST_REVIEW"
+      },
+      "adaptive_c": {
+        "action_index": 4,
+        "exit_layer": 7,
+        "actual_layer_calls": 7,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.9165456295013428,
+            "ood_score": 1.7334175109863281,
+            "ood": false,
+            "exit_threshold": 0.975710173594662,
+            "accepted": true,
+            "prediction_index": 4,
+            "probabilities": [
+              7.154068498493871e-06,
+              1.2704099106031208e-07,
+              8.361009662394281e-10,
+              0.0001646641467232257,
+              0.9165456295013428,
+              0.08328232169151306
+            ],
+            "decision_head_ms": 0.02533300721552223,
+            "ood_ms": 3.736749989911914,
+            "router_ms": 0.21529199148062617
+          }
+        ],
+        "action": "REQUEST_REVIEW"
+      }
+    },
+    {
+      "row_index": 21,
+      "label": "ABSTAIN",
+      "full_depth_action_a": "ABSTAIN",
+      "full_depth_action_c": "ABSTAIN",
+      "adaptive_a": {
+        "action_index": 5,
+        "exit_layer": 14,
+        "actual_layer_calls": 14,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.7681753039360046,
+            "ood_score": 0.5636844038963318,
+            "ood": false,
+            "exit_threshold": null,
+            "accepted": false,
+            "prediction_index": 5,
+            "probabilities": [
+              0.0087326280772686,
+              0.07143798470497131,
+              0.0019034354481846094,
+              0.02143070474267006,
+              0.12831994891166687,
+              0.7681753039360046
+            ],
+            "decision_head_ms": 0.02341700019314885,
+            "ood_ms": 0.3221660008421168,
+            "router_ms": 0.0
+          },
+          {
+            "layer": 14,
+            "confidence": 0.8910464644432068,
+            "ood_score": 0.5513403415679932,
+            "ood": false,
+            "exit_threshold": 0.44425147771835327,
+            "accepted": true,
+            "prediction_index": 5,
+            "probabilities": [
+              0.013764512725174427,
+              0.01324256882071495,
+              0.00041248745401389897,
+              0.016723886132240295,
+              0.06481008231639862,
+              0.8910464644432068
+            ],
+            "decision_head_ms": 0.02733300789259374,
+            "ood_ms": 0.3207499976269901,
+            "router_ms": 0.2177499991375953
+          }
+        ],
+        "action": "ABSTAIN"
+      },
+      "adaptive_c": {
+        "action_index": 5,
+        "exit_layer": 7,
+        "actual_layer_calls": 7,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.7801949977874756,
+            "ood_score": 0.5636844038963318,
+            "ood": false,
+            "exit_threshold": 0.975710173594662,
+            "accepted": true,
+            "prediction_index": 5,
+            "probabilities": [
+              0.005510624032467604,
+              0.09424186497926712,
+              0.000745054567232728,
+              0.010495281778275967,
+              0.10881223529577255,
+              0.7801949977874756
+            ],
+            "decision_head_ms": 0.030957991839386523,
+            "ood_ms": 0.31545899400953203,
+            "router_ms": 0.22741599241271615
+          }
+        ],
+        "action": "ABSTAIN"
+      }
+    },
+    {
+      "row_index": 109,
+      "label": "REQUEST_INFORMATION",
+      "full_depth_action_a": "REQUEST_INFORMATION",
+      "full_depth_action_c": "REQUEST_INFORMATION",
+      "adaptive_a": {
+        "action_index": 0,
+        "exit_layer": 14,
+        "actual_layer_calls": 14,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.3820168972015381,
+            "ood_score": 0.6366636157035828,
+            "ood": false,
+            "exit_threshold": null,
+            "accepted": false,
+            "prediction_index": 0,
+            "probabilities": [
+              0.3820168972015381,
+              0.37919488549232483,
+              0.020806163549423218,
+              0.0005933637730777264,
+              0.14041414856910706,
+              0.07697461545467377
+            ],
+            "decision_head_ms": 0.02441700780764222,
+            "ood_ms": 0.31158300407696515,
+            "router_ms": 0.0
+          },
+          {
+            "layer": 14,
+            "confidence": 0.8999704122543335,
+            "ood_score": 0.6647858619689941,
+            "ood": false,
+            "exit_threshold": 0.44425147771835327,
+            "accepted": true,
+            "prediction_index": 0,
+            "probabilities": [
+              0.8999704122543335,
+              0.039868153631687164,
+              0.0012866785982623696,
+              0.0001145361311500892,
+              0.01484182383865118,
+              0.0439184196293354
+            ],
+            "decision_head_ms": 0.024499997380189598,
+            "ood_ms": 0.2875420032069087,
+            "router_ms": 0.19999999494757503
+          }
+        ],
+        "action": "REQUEST_INFORMATION"
+      },
+      "adaptive_c": {
+        "action_index": 0,
+        "exit_layer": 7,
+        "actual_layer_calls": 7,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.7736803293228149,
+            "ood_score": 0.6366636157035828,
+            "ood": false,
+            "exit_threshold": 0.975710173594662,
+            "accepted": true,
+            "prediction_index": 0,
+            "probabilities": [
+              0.7736803293228149,
+              0.1200825572013855,
+              0.0011514144716784358,
+              0.0006123391212895513,
+              0.06904219835996628,
+              0.03543116897344589
+            ],
+            "decision_head_ms": 0.023625005269423127,
+            "ood_ms": 0.30987500213086605,
+            "router_ms": 0.2045419969363138
+          }
+        ],
+        "action": "REQUEST_INFORMATION"
+      }
+    },
+    {
+      "row_index": 238,
+      "label": "ANALYZE",
+      "full_depth_action_a": "ANALYZE",
+      "full_depth_action_c": "ANALYZE",
+      "adaptive_a": {
+        "action_index": 1,
+        "exit_layer": 21,
+        "actual_layer_calls": 21,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.3524165451526642,
+            "ood_score": 0.6099912524223328,
+            "ood": false,
+            "exit_threshold": null,
+            "accepted": false,
+            "prediction_index": 4,
+            "probabilities": [
+              0.313001424074173,
+              0.16367346048355103,
+              0.03328419849276543,
+              0.0006884964532218874,
+              0.3524165451526642,
+              0.13693588972091675
+            ],
+            "decision_head_ms": 0.0221250083995983,
+            "ood_ms": 0.29916700441390276,
+            "router_ms": 0.0
+          },
+          {
+            "layer": 14,
+            "confidence": 0.849640429019928,
+            "ood_score": 0.6366277933120728,
+            "ood": false,
+            "exit_threshold": 0.44425147771835327,
+            "accepted": false,
+            "prediction_index": 1,
+            "probabilities": [
+              0.030288003385066986,
+              0.849640429019928,
+              0.0012452398659661412,
+              0.00011688473023241386,
+              0.07053757458925247,
+              0.04817189276218414
+            ],
+            "decision_head_ms": 0.02474999928381294,
+            "ood_ms": 0.31450000824406743,
+            "router_ms": 0.18524999904911965
+          },
+          {
+            "layer": 21,
+            "confidence": 0.9185292720794678,
+            "ood_score": 0.9895615577697754,
+            "ood": false,
+            "exit_threshold": 0.26802849769592285,
+            "accepted": true,
+            "prediction_index": 1,
+            "probabilities": [
+              0.021284334361553192,
+              0.9185292720794678,
+              0.000328787078615278,
+              8.037634688662365e-05,
+              0.03450966998934746,
+              0.02526761405169964
+            ],
+            "decision_head_ms": 0.025708999601192772,
+            "ood_ms": 0.3135419974569231,
+            "router_ms": 0.2058749960269779
+          }
+        ],
+        "action": "ANALYZE"
+      },
+      "adaptive_c": {
+        "action_index": 1,
+        "exit_layer": 7,
+        "actual_layer_calls": 7,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.5735786557197571,
+            "ood_score": 0.6099912524223328,
+            "ood": false,
+            "exit_threshold": 0.975710173594662,
+            "accepted": true,
+            "prediction_index": 1,
+            "probabilities": [
+              0.1122082993388176,
+              0.5735786557197571,
+              0.010125819593667984,
+              0.0003159070620313287,
+              0.13229916989803314,
+              0.17147214710712433
+            ],
+            "decision_head_ms": 0.025707995519042015,
+            "ood_ms": 0.29233300301712006,
+            "router_ms": 0.21262500376906246
+          }
+        ],
+        "action": "ANALYZE"
+      }
+    },
+    {
+      "row_index": 122,
+      "label": "SIMULATE",
+      "full_depth_action_a": "ABSTAIN",
+      "full_depth_action_c": "SIMULATE",
+      "adaptive_a": {
+        "action_index": 2,
+        "exit_layer": 14,
+        "actual_layer_calls": 14,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.44330793619155884,
+            "ood_score": 0.599791944026947,
+            "ood": false,
+            "exit_threshold": null,
+            "accepted": false,
+            "prediction_index": 2,
+            "probabilities": [
+              0.07378604263067245,
+              0.001844989601522684,
+              0.44330793619155884,
+              0.0024093545507639647,
+              0.12857630848884583,
+              0.35007530450820923
+            ],
+            "decision_head_ms": 0.02316699828952551,
+            "ood_ms": 0.3066670033149421,
+            "router_ms": 0.0
+          },
+          {
+            "layer": 14,
+            "confidence": 0.5106744170188904,
+            "ood_score": 0.572433590888977,
+            "ood": false,
+            "exit_threshold": 0.44425147771835327,
+            "accepted": true,
+            "prediction_index": 2,
+            "probabilities": [
+              0.01990940049290657,
+              0.00025914714206010103,
+              0.5106744170188904,
+              0.0008660893654450774,
+              0.026128536090254784,
+              0.442162424325943
+            ],
+            "decision_head_ms": 0.02387500717304647,
+            "ood_ms": 0.29687500500585884,
+            "router_ms": 0.20900000527035445
+          }
+        ],
+        "action": "SIMULATE"
+      },
+      "adaptive_c": {
+        "action_index": 2,
+        "exit_layer": 7,
+        "actual_layer_calls": 7,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.5296694040298462,
+            "ood_score": 0.599791944026947,
+            "ood": false,
+            "exit_threshold": 0.975710173594662,
+            "accepted": true,
+            "prediction_index": 2,
+            "probabilities": [
+              0.048051394522190094,
+              0.00041433158912695944,
+              0.5296694040298462,
+              0.0012817804235965014,
+              0.04767695441842079,
+              0.3729062080383301
+            ],
+            "decision_head_ms": 0.02216600114479661,
+            "ood_ms": 0.2659169986145571,
+            "router_ms": 0.2066249871859327
+          }
+        ],
+        "action": "SIMULATE"
+      }
+    },
+    {
+      "row_index": 1179,
+      "label": "OPTIMIZE",
+      "full_depth_action_a": "OPTIMIZE",
+      "full_depth_action_c": "OPTIMIZE",
+      "adaptive_a": {
+        "action_index": 3,
+        "exit_layer": 14,
+        "actual_layer_calls": 14,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.9229032397270203,
+            "ood_score": 0.6227597594261169,
+            "ood": false,
+            "exit_threshold": null,
+            "accepted": false,
+            "prediction_index": 3,
+            "probabilities": [
+              0.007881800644099712,
+              0.03272416815161705,
+              0.0014858064241707325,
+              0.9229032397270203,
+              0.01761028915643692,
+              0.017394719645380974
+            ],
+            "decision_head_ms": 0.02129199856426567,
+            "ood_ms": 0.2594580000732094,
+            "router_ms": 0.0
+          },
+          {
+            "layer": 14,
+            "confidence": 0.8678228855133057,
+            "ood_score": 0.6620128154754639,
+            "ood": false,
+            "exit_threshold": 0.44425147771835327,
+            "accepted": true,
+            "prediction_index": 3,
+            "probabilities": [
+              0.009725965559482574,
+              0.09789497405290604,
+              0.0002531504142098129,
+              0.8678228855133057,
+              0.0021902986336499453,
+              0.0221126526594162
+            ],
+            "decision_head_ms": 0.02112500078510493,
+            "ood_ms": 0.293709003017284,
+            "router_ms": 0.1907920086523518
+          }
+        ],
+        "action": "OPTIMIZE"
+      },
+      "adaptive_c": {
+        "action_index": 3,
+        "exit_layer": 7,
+        "actual_layer_calls": 7,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.9806719422340393,
+            "ood_score": 0.6227597594261169,
+            "ood": false,
+            "exit_threshold": 0.975710173594662,
+            "accepted": true,
+            "prediction_index": 3,
+            "probabilities": [
+              0.003087917109951377,
+              0.00693935714662075,
+              8.838567009661347e-05,
+              0.9806719422340393,
+              0.003214007942005992,
+              0.005998298991471529
+            ],
+            "decision_head_ms": 0.023540997062809765,
+            "ood_ms": 0.2643330080900341,
+            "router_ms": 0.17566699534654617
+          }
+        ],
+        "action": "OPTIMIZE"
+      }
+    },
+    {
+      "row_index": 160,
+      "label": "REQUEST_REVIEW",
+      "full_depth_action_a": "REQUEST_REVIEW",
+      "full_depth_action_c": "REQUEST_REVIEW",
+      "adaptive_a": {
+        "action_index": 4,
+        "exit_layer": 14,
+        "actual_layer_calls": 14,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.9714725613594055,
+            "ood_score": 0.8215473294258118,
+            "ood": false,
+            "exit_threshold": null,
+            "accepted": false,
+            "prediction_index": 4,
+            "probabilities": [
+              0.0009169974364340305,
+              0.0015560645842924714,
+              0.0003001070872414857,
+              1.2331372090557124e-05,
+              0.9714725613594055,
+              0.025741927325725555
+            ],
+            "decision_head_ms": 0.021750005544163287,
+            "ood_ms": 3.8115420029498637,
+            "router_ms": 0.0
+          },
+          {
+            "layer": 14,
+            "confidence": 0.909354031085968,
+            "ood_score": 0.9002643823623657,
+            "ood": false,
+            "exit_threshold": 0.44425147771835327,
+            "accepted": true,
+            "prediction_index": 4,
+            "probabilities": [
+              0.00021398992976173759,
+              0.0029274895787239075,
+              8.200068805308547e-06,
+              3.127754325760179e-06,
+              0.909354031085968,
+              0.08749314397573471
+            ],
+            "decision_head_ms": 0.025083005311898887,
+            "ood_ms": 0.26345800142735243,
+            "router_ms": 0.1598329981788993
+          }
+        ],
+        "action": "REQUEST_REVIEW"
+      },
+      "adaptive_c": {
+        "action_index": 4,
+        "exit_layer": 7,
+        "actual_layer_calls": 7,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.9296206831932068,
+            "ood_score": 0.8215473294258118,
+            "ood": false,
+            "exit_threshold": 0.975710173594662,
+            "accepted": true,
+            "prediction_index": 4,
+            "probabilities": [
+              0.00010411753464723006,
+              0.0008789245621301234,
+              7.863098289817572e-06,
+              2.2818305751570733e-06,
+              0.9296206831932068,
+              0.06938614696264267
+            ],
+            "decision_head_ms": 0.025415996788069606,
+            "ood_ms": 0.2970830100821331,
+            "router_ms": 0.2020840038312599
+          }
+        ],
+        "action": "REQUEST_REVIEW"
+      }
+    },
+    {
+      "row_index": 131,
+      "label": "ABSTAIN",
+      "full_depth_action_a": "REQUEST_INFORMATION",
+      "full_depth_action_c": "REQUEST_INFORMATION",
+      "adaptive_a": {
+        "action_index": 0,
+        "exit_layer": 14,
+        "actual_layer_calls": 14,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.6326342225074768,
+            "ood_score": 1.8040391206741333,
+            "ood": true,
+            "exit_threshold": null,
+            "accepted": false,
+            "prediction_index": 0,
+            "probabilities": [
+              0.6326342225074768,
+              1.59254195750691e-05,
+              0.2625129818916321,
+              0.0029947629664093256,
+              0.0992036908864975,
+              0.0026385425589978695
+            ],
+            "decision_head_ms": 0.022124993847683072,
+            "ood_ms": 0.2720420015975833,
+            "router_ms": 0.0
+          },
+          {
+            "layer": 14,
+            "confidence": 0.8338676691055298,
+            "ood_score": 1.686033844947815,
+            "ood": false,
+            "exit_threshold": 0.44425147771835327,
+            "accepted": true,
+            "prediction_index": 0,
+            "probabilities": [
+              0.8338676691055298,
+              5.673785494764161e-07,
+              0.12107037752866745,
+              0.0001160220563178882,
+              0.04294344037771225,
+              0.0020018969662487507
+            ],
+            "decision_head_ms": 0.025542001822032034,
+            "ood_ms": 0.2766249963315204,
+            "router_ms": 0.2141250006388873
+          }
+        ],
+        "action": "REQUEST_INFORMATION"
+      },
+      "adaptive_c": {
+        "action_index": 0,
+        "exit_layer": 14,
+        "actual_layer_calls": 14,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.9644812941551208,
+            "ood_score": 1.8040391206741333,
+            "ood": true,
+            "exit_threshold": 0.975710173594662,
+            "accepted": false,
+            "prediction_index": 0,
+            "probabilities": [
+              0.9644812941551208,
+              4.953132588525477e-07,
+              0.006391298025846481,
+              8.475612048641779e-06,
+              0.02856414206326008,
+              0.000554364116396755
+            ],
+            "decision_head_ms": 0.02458400558680296,
+            "ood_ms": 0.3081659961026162,
+            "router_ms": 0.2157909912057221
+          },
+          {
+            "layer": 14,
+            "confidence": 0.956803023815155,
+            "ood_score": 1.686033844947815,
+            "ood": false,
+            "exit_threshold": 0.9920501397805855,
+            "accepted": true,
+            "prediction_index": 0,
+            "probabilities": [
+              0.956803023815155,
+              4.5897856182364194e-08,
+              0.012292155995965004,
+              2.9764214559691027e-05,
+              0.02998892217874527,
+              0.0008861559326760471
+            ],
+            "decision_head_ms": 0.02937500539701432,
+            "ood_ms": 0.2956669923150912,
+            "router_ms": 0.2137080009561032
+          }
+        ],
+        "action": "REQUEST_INFORMATION"
+      }
+    },
+    {
+      "row_index": 203,
+      "label": "REQUEST_INFORMATION",
+      "full_depth_action_a": "REQUEST_INFORMATION",
+      "full_depth_action_c": "REQUEST_INFORMATION",
+      "adaptive_a": {
+        "action_index": 0,
+        "exit_layer": 14,
+        "actual_layer_calls": 14,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.5176921486854553,
+            "ood_score": 0.7781836986541748,
+            "ood": false,
+            "exit_threshold": null,
+            "accepted": false,
+            "prediction_index": 0,
+            "probabilities": [
+              0.5176921486854553,
+              0.0012496492126956582,
+              0.2878849506378174,
+              0.001003130804747343,
+              0.18779107928276062,
+              0.004379067569971085
+            ],
+            "decision_head_ms": 0.02704199869185686,
+            "ood_ms": 0.29791699489578605,
+            "router_ms": 0.0
+          },
+          {
+            "layer": 14,
+            "confidence": 0.9825572371482849,
+            "ood_score": 0.8829893469810486,
+            "ood": false,
+            "exit_threshold": 0.44425147771835327,
+            "accepted": true,
+            "prediction_index": 0,
+            "probabilities": [
+              0.9825572371482849,
+              0.0002192020765505731,
+              0.011048815213143826,
+              3.4486856748117134e-05,
+              0.00558274844661355,
+              0.00055761105613783
+            ],
+            "decision_head_ms": 0.026458001229912043,
+            "ood_ms": 0.28558399935718626,
+            "router_ms": 0.19079199410043657
+          }
+        ],
+        "action": "REQUEST_INFORMATION"
+      },
+      "adaptive_c": {
+        "action_index": 0,
+        "exit_layer": 7,
+        "actual_layer_calls": 7,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.9221503138542175,
+            "ood_score": 0.7781836986541748,
+            "ood": false,
+            "exit_threshold": 0.975710173594662,
+            "accepted": true,
+            "prediction_index": 0,
+            "probabilities": [
+              0.9221503138542175,
+              0.0001659200934227556,
+              0.05488470196723938,
+              1.8565155187388882e-05,
+              0.021908175200223923,
+              0.0008724146755412221
+            ],
+            "decision_head_ms": 0.02837499778252095,
+            "ood_ms": 0.29150000773370266,
+            "router_ms": 0.2056660014204681
+          }
+        ],
+        "action": "REQUEST_INFORMATION"
+      }
+    },
+    {
+      "row_index": 333,
+      "label": "ANALYZE",
+      "full_depth_action_a": "ANALYZE",
+      "full_depth_action_c": "ANALYZE",
+      "adaptive_a": {
+        "action_index": 1,
+        "exit_layer": 14,
+        "actual_layer_calls": 14,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.7213496565818787,
+            "ood_score": 0.5354443192481995,
+            "ood": false,
+            "exit_threshold": null,
+            "accepted": false,
+            "prediction_index": 1,
+            "probabilities": [
+              0.06021777540445328,
+              0.7213496565818787,
+              0.002588886534795165,
+              0.0125536248087883,
+              0.0675119012594223,
+              0.13577821850776672
+            ],
+            "decision_head_ms": 0.022124993847683072,
+            "ood_ms": 0.2911670017056167,
+            "router_ms": 0.0
+          },
+          {
+            "layer": 14,
+            "confidence": 0.7465776205062866,
+            "ood_score": 0.6812083721160889,
+            "ood": false,
+            "exit_threshold": 0.44425147771835327,
+            "accepted": true,
+            "prediction_index": 1,
+            "probabilities": [
+              0.0309902410954237,
+              0.7465776205062866,
+              0.001408442622050643,
+              0.008802901022136211,
+              0.06025959178805351,
+              0.15196125209331512
+            ],
+            "decision_head_ms": 0.025083005311898887,
+            "ood_ms": 0.3200409992132336,
+            "router_ms": 0.18766600987873971
+          }
+        ],
+        "action": "ANALYZE"
+      },
+      "adaptive_c": {
+        "action_index": 1,
+        "exit_layer": 7,
+        "actual_layer_calls": 7,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.7929415702819824,
+            "ood_score": 0.5354443192481995,
+            "ood": false,
+            "exit_threshold": 0.975710173594662,
+            "accepted": true,
+            "prediction_index": 1,
+            "probabilities": [
+              0.02623807266354561,
+              0.7929415702819824,
+              0.002705727005377412,
+              0.005325174890458584,
+              0.04734843224287033,
+              0.12544099986553192
+            ],
+            "decision_head_ms": 0.025666988221928477,
+            "ood_ms": 0.30108400096651167,
+            "router_ms": 0.22162499953992665
+          }
+        ],
+        "action": "ANALYZE"
+      }
+    },
+    {
+      "row_index": 132,
+      "label": "SIMULATE",
+      "full_depth_action_a": "SIMULATE",
+      "full_depth_action_c": "SIMULATE",
+      "adaptive_a": {
+        "action_index": 2,
+        "exit_layer": 21,
+        "actual_layer_calls": 21,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.41742441058158875,
+            "ood_score": 0.5189836621284485,
+            "ood": false,
+            "exit_threshold": null,
+            "accepted": false,
+            "prediction_index": 5,
+            "probabilities": [
+              0.08372733741998672,
+              0.005173058714717627,
+              0.20436055958271027,
+              5.6004453654168174e-05,
+              0.2892586588859558,
+              0.41742441058158875
+            ],
+            "decision_head_ms": 0.022916006855666637,
+            "ood_ms": 0.29475000337697566,
+            "router_ms": 0.0
+          },
+          {
+            "layer": 14,
+            "confidence": 0.9709171652793884,
+            "ood_score": 0.5286086797714233,
+            "ood": false,
+            "exit_threshold": 0.44425147771835327,
+            "accepted": false,
+            "prediction_index": 2,
+            "probabilities": [
+              0.0063881524838507175,
+              5.811327719129622e-05,
+              0.9709171652793884,
+              3.634642416727729e-05,
+              0.003979251254349947,
+              0.018620898947119713
+            ],
+            "decision_head_ms": 0.02462499833200127,
+            "ood_ms": 0.31291700724978,
+            "router_ms": 0.1937079941853881
+          },
+          {
+            "layer": 21,
+            "confidence": 0.7310161590576172,
+            "ood_score": 0.591356098651886,
+            "ood": false,
+            "exit_threshold": 0.26802849769592285,
+            "accepted": true,
+            "prediction_index": 2,
+            "probabilities": [
+              0.08134641498327255,
+              0.00018238238408230245,
+              0.7310161590576172,
+              4.5117023546481505e-05,
+              0.07017157226800919,
+              0.1172383576631546
+            ],
+            "decision_head_ms": 0.024208013201132417,
+            "ood_ms": 0.3013749956153333,
+            "router_ms": 0.19366700144018978
+          }
+        ],
+        "action": "SIMULATE"
+      },
+      "adaptive_c": {
+        "action_index": 2,
+        "exit_layer": 7,
+        "actual_layer_calls": 7,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.5823140740394592,
+            "ood_score": 0.5189836621284485,
+            "ood": false,
+            "exit_threshold": 0.975710173594662,
+            "accepted": true,
+            "prediction_index": 2,
+            "probabilities": [
+              0.053607068955898285,
+              0.0007316727424040437,
+              0.5823140740394592,
+              1.9313387383590452e-05,
+              0.061294879764318466,
+              0.302033007144928
+            ],
+            "decision_head_ms": 0.02808301360346377,
+            "ood_ms": 0.2887079899664968,
+            "router_ms": 0.1874590088846162
+          }
+        ],
+        "action": "SIMULATE"
+      }
+    },
+    {
+      "row_index": 1191,
+      "label": "OPTIMIZE",
+      "full_depth_action_a": "OPTIMIZE",
+      "full_depth_action_c": "OPTIMIZE",
+      "adaptive_a": {
+        "action_index": 3,
+        "exit_layer": 14,
+        "actual_layer_calls": 14,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.6109328866004944,
+            "ood_score": 0.5335187911987305,
+            "ood": false,
+            "exit_threshold": null,
+            "accepted": false,
+            "prediction_index": 3,
+            "probabilities": [
+              0.059289395809173584,
+              0.005501660984009504,
+              0.0017041913233697414,
+              0.6109328866004944,
+              0.23326896131038666,
+              0.0893029272556305
+            ],
+            "decision_head_ms": 0.02316600875928998,
+            "ood_ms": 0.3178340120939538,
+            "router_ms": 0.0
+          },
+          {
+            "layer": 14,
+            "confidence": 0.5609151124954224,
+            "ood_score": 0.5891416072845459,
+            "ood": false,
+            "exit_threshold": 0.44425147771835327,
+            "accepted": true,
+            "prediction_index": 3,
+            "probabilities": [
+              0.007537532597780228,
+              0.0028257619123905897,
+              0.0004751468659378588,
+              0.5609151124954224,
+              0.12345270812511444,
+              0.30479374527931213
+            ],
+            "decision_head_ms": 0.026124995201826096,
+            "ood_ms": 0.31466700602322817,
+            "router_ms": 0.1897919864859432
+          }
+        ],
+        "action": "OPTIMIZE"
+      },
+      "adaptive_c": {
+        "action_index": 3,
+        "exit_layer": 7,
+        "actual_layer_calls": 7,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.7477864623069763,
+            "ood_score": 0.5335187911987305,
+            "ood": false,
+            "exit_threshold": 0.975710173594662,
+            "accepted": true,
+            "prediction_index": 3,
+            "probabilities": [
+              0.01505136676132679,
+              0.006683983374387026,
+              0.0004441391793079674,
+              0.7477864623069763,
+              0.08302099257707596,
+              0.1470131129026413
+            ],
+            "decision_head_ms": 0.027999994927085936,
+            "ood_ms": 0.31187500280793756,
+            "router_ms": 0.23087499721441418
+          }
+        ],
+        "action": "OPTIMIZE"
+      }
+    },
+    {
+      "row_index": 178,
+      "label": "REQUEST_REVIEW",
+      "full_depth_action_a": "REQUEST_INFORMATION",
+      "full_depth_action_c": "REQUEST_INFORMATION",
+      "adaptive_a": {
+        "action_index": 0,
+        "exit_layer": 14,
+        "actual_layer_calls": 14,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.5004236102104187,
+            "ood_score": 0.8123974204063416,
+            "ood": false,
+            "exit_threshold": null,
+            "accepted": false,
+            "prediction_index": 0,
+            "probabilities": [
+              0.5004236102104187,
+              0.04173602536320686,
+              0.006621280685067177,
+              0.00022529243142344058,
+              0.06103825941681862,
+              0.3899555802345276
+            ],
+            "decision_head_ms": 0.023208005586639047,
+            "ood_ms": 0.3015839902218431,
+            "router_ms": 0.0
+          },
+          {
+            "layer": 14,
+            "confidence": 0.7537694573402405,
+            "ood_score": 0.6673824787139893,
+            "ood": false,
+            "exit_threshold": 0.44425147771835327,
+            "accepted": true,
+            "prediction_index": 0,
+            "probabilities": [
+              0.7537694573402405,
+              0.004825720563530922,
+              0.0031266016885638237,
+              8.986283501144499e-05,
+              0.03869810327887535,
+              0.19949021935462952
+            ],
+            "decision_head_ms": 0.024541994207538664,
+            "ood_ms": 0.3067920042667538,
+            "router_ms": 0.18512499809730798
+          }
+        ],
+        "action": "REQUEST_INFORMATION"
+      },
+      "adaptive_c": {
+        "action_index": 0,
+        "exit_layer": 7,
+        "actual_layer_calls": 7,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.8932833671569824,
+            "ood_score": 0.8123974204063416,
+            "ood": false,
+            "exit_threshold": 0.975710173594662,
+            "accepted": true,
+            "prediction_index": 0,
+            "probabilities": [
+              0.8932833671569824,
+              0.0011532449861988425,
+              5.3071453294251114e-05,
+              1.3064543054497335e-05,
+              0.007679861970245838,
+              0.0978173166513443
+            ],
+            "decision_head_ms": 0.026583002181723714,
+            "ood_ms": 0.2997499977936968,
+            "router_ms": 0.22062499192543328
+          }
+        ],
+        "action": "REQUEST_INFORMATION"
+      }
+    },
+    {
+      "row_index": 198,
+      "label": "ABSTAIN",
+      "full_depth_action_a": "REQUEST_REVIEW",
+      "full_depth_action_c": "REQUEST_REVIEW",
+      "adaptive_a": {
+        "action_index": 4,
+        "exit_layer": 14,
+        "actual_layer_calls": 14,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.9356663227081299,
+            "ood_score": 0.6424893736839294,
+            "ood": false,
+            "exit_threshold": null,
+            "accepted": false,
+            "prediction_index": 4,
+            "probabilities": [
+              0.00024386917357333004,
+              0.00418120389804244,
+              0.0005697909509763122,
+              0.00011539863044163212,
+              0.9356663227081299,
+              0.05922345072031021
+            ],
+            "decision_head_ms": 0.02054200740531087,
+            "ood_ms": 0.2160419971914962,
+            "router_ms": 0.0
+          },
+          {
+            "layer": 14,
+            "confidence": 0.9248406291007996,
+            "ood_score": 0.6487987041473389,
+            "ood": false,
+            "exit_threshold": 0.44425147771835327,
+            "accepted": true,
+            "prediction_index": 4,
+            "probabilities": [
+              4.9635797040537e-05,
+              6.183233927004039e-05,
+              7.270452442753594e-06,
+              2.6681826170715794e-07,
+              0.9248406291007996,
+              0.07504040747880936
+            ],
+            "decision_head_ms": 0.016749996575526893,
+            "ood_ms": 0.24750000739004463,
+            "router_ms": 0.1494169991929084
+          }
+        ],
+        "action": "REQUEST_REVIEW"
+      },
+      "adaptive_c": {
+        "action_index": 4,
+        "exit_layer": 7,
+        "actual_layer_calls": 7,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.8814302682876587,
+            "ood_score": 0.6424893736839294,
+            "ood": false,
+            "exit_threshold": 0.975710173594662,
+            "accepted": true,
+            "prediction_index": 4,
+            "probabilities": [
+              2.9408269256236963e-05,
+              0.0018022145377472043,
+              0.00010732125520007685,
+              0.001055403146892786,
+              0.8814302682876587,
+              0.1155753806233406
+            ],
+            "decision_head_ms": 0.018417005776427686,
+            "ood_ms": 0.1888330007204786,
+            "router_ms": 0.17679198936093599
+          }
+        ],
+        "action": "REQUEST_REVIEW"
+      }
+    },
+    {
+      "row_index": 241,
+      "label": "REQUEST_INFORMATION",
+      "full_depth_action_a": "REQUEST_INFORMATION",
+      "full_depth_action_c": "REQUEST_INFORMATION",
+      "adaptive_a": {
+        "action_index": 0,
+        "exit_layer": 14,
+        "actual_layer_calls": 14,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.5161559581756592,
+            "ood_score": 0.6639280915260315,
+            "ood": false,
+            "exit_threshold": null,
+            "accepted": false,
+            "prediction_index": 0,
+            "probabilities": [
+              0.5161559581756592,
+              0.3296177387237549,
+              0.03107619099318981,
+              0.00010605952411424369,
+              0.10570787638425827,
+              0.017336267977952957
+            ],
+            "decision_head_ms": 0.01750000228639692,
+            "ood_ms": 0.23733300622552633,
+            "router_ms": 0.0
+          },
+          {
+            "layer": 14,
+            "confidence": 0.9730647206306458,
+            "ood_score": 0.7770653963088989,
+            "ood": false,
+            "exit_threshold": 0.44425147771835327,
+            "accepted": true,
+            "prediction_index": 0,
+            "probabilities": [
+              0.9730647206306458,
+              0.014429575763642788,
+              0.0001475263707106933,
+              8.934381185099483e-06,
+              0.009131690487265587,
+              0.0032174864318221807
+            ],
+            "decision_head_ms": 0.015541008906438947,
+            "ood_ms": 0.24129200028255582,
+            "router_ms": 0.15441600407939404
+          }
+        ],
+        "action": "REQUEST_INFORMATION"
+      },
+      "adaptive_c": {
+        "action_index": 0,
+        "exit_layer": 7,
+        "actual_layer_calls": 7,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.7614648938179016,
+            "ood_score": 0.6639280915260315,
+            "ood": false,
+            "exit_threshold": 0.975710173594662,
+            "accepted": true,
+            "prediction_index": 0,
+            "probabilities": [
+              0.7614648938179016,
+              0.17923393845558167,
+              0.0007924165693111718,
+              6.219044735189527e-05,
+              0.050592534244060516,
+              0.007854034192860126
+            ],
+            "decision_head_ms": 0.020625011529773474,
+            "ood_ms": 0.21520799782592803,
+            "router_ms": 0.15670800348743796
+          }
+        ],
+        "action": "REQUEST_INFORMATION"
+      }
+    },
+    {
+      "row_index": 349,
+      "label": "ANALYZE",
+      "full_depth_action_a": "ANALYZE",
+      "full_depth_action_c": "ANALYZE",
+      "adaptive_a": {
+        "action_index": 1,
+        "exit_layer": 14,
+        "actual_layer_calls": 14,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.5835910439491272,
+            "ood_score": 0.9066855311393738,
+            "ood": false,
+            "exit_threshold": null,
+            "accepted": false,
+            "prediction_index": 1,
+            "probabilities": [
+              0.0620068721473217,
+              0.5835910439491272,
+              0.005643671378493309,
+              0.00016654253704473376,
+              0.18669316172599792,
+              0.16189870238304138
+            ],
+            "decision_head_ms": 0.019500002963468432,
+            "ood_ms": 0.24112500250339508,
+            "router_ms": 0.0
+          },
+          {
+            "layer": 14,
+            "confidence": 0.848261296749115,
+            "ood_score": 1.005637764930725,
+            "ood": false,
+            "exit_threshold": 0.44425147771835327,
+            "accepted": true,
+            "prediction_index": 1,
+            "probabilities": [
+              0.01761160045862198,
+              0.848261296749115,
+              0.00830396730452776,
+              0.0009330179891549051,
+              0.057127662003040314,
+              0.06776245683431625
+            ],
+            "decision_head_ms": 0.015416007954627275,
+            "ood_ms": 0.23462499666493386,
+            "router_ms": 0.1575839996803552
+          }
+        ],
+        "action": "ANALYZE"
+      },
+      "adaptive_c": {
+        "action_index": 1,
+        "exit_layer": 7,
+        "actual_layer_calls": 7,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.7267801761627197,
+            "ood_score": 0.9066855311393738,
+            "ood": false,
+            "exit_threshold": 0.975710173594662,
+            "accepted": true,
+            "prediction_index": 1,
+            "probabilities": [
+              0.01514995563775301,
+              0.7267801761627197,
+              0.006497940979897976,
+              0.0008088661124929786,
+              0.04568896442651749,
+              0.20507414638996124
+            ],
+            "decision_head_ms": 0.01979200169444084,
+            "ood_ms": 0.2750410058069974,
+            "router_ms": 0.20612499793060124
+          }
+        ],
+        "action": "ANALYZE"
+      }
+    },
+    {
+      "row_index": 154,
+      "label": "SIMULATE",
+      "full_depth_action_a": "SIMULATE",
+      "full_depth_action_c": "SIMULATE",
+      "adaptive_a": {
+        "action_index": 2,
+        "exit_layer": 14,
+        "actual_layer_calls": 14,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.7286180853843689,
+            "ood_score": 0.7250957489013672,
+            "ood": false,
+            "exit_threshold": null,
+            "accepted": false,
+            "prediction_index": 2,
+            "probabilities": [
+              0.04822518303990364,
+              0.00975293479859829,
+              0.7286180853843689,
+              0.009255118668079376,
+              0.15972991287708282,
+              0.04441872984170914
+            ],
+            "decision_head_ms": 0.023082990082912147,
+            "ood_ms": 0.24541698803659528,
+            "router_ms": 0.0
+          },
+          {
+            "layer": 14,
+            "confidence": 0.8863202333450317,
+            "ood_score": 0.7326043844223022,
+            "ood": false,
+            "exit_threshold": 0.44425147771835327,
+            "accepted": true,
+            "prediction_index": 2,
+            "probabilities": [
+              0.004133695270866156,
+              4.5429685997078195e-05,
+              0.8863202333450317,
+              0.000489750353153795,
+              0.05470212548971176,
+              0.05430889502167702
+            ],
+            "decision_head_ms": 0.01620799594093114,
+            "ood_ms": 0.23749998945277184,
+            "router_ms": 0.1530410081613809
+          }
+        ],
+        "action": "SIMULATE"
+      },
+      "adaptive_c": {
+        "action_index": 2,
+        "exit_layer": 7,
+        "actual_layer_calls": 7,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.8825006484985352,
+            "ood_score": 0.7250957489013672,
+            "ood": false,
+            "exit_threshold": 0.975710173594662,
+            "accepted": true,
+            "prediction_index": 2,
+            "probabilities": [
+              0.0053117116913199425,
+              0.002109561115503311,
+              0.8825006484985352,
+              0.004663851112127304,
+              0.06922151148319244,
+              0.03619278222322464
+            ],
+            "decision_head_ms": 0.02025000867433846,
+            "ood_ms": 0.43533300049602985,
+            "router_ms": 0.3908340004272759
+          }
+        ],
+        "action": "SIMULATE"
+      }
+    },
+    {
+      "row_index": 1383,
+      "label": "OPTIMIZE",
+      "full_depth_action_a": "OPTIMIZE",
+      "full_depth_action_c": "OPTIMIZE",
+      "adaptive_a": {
+        "action_index": 3,
+        "exit_layer": 14,
+        "actual_layer_calls": 14,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.7975938320159912,
+            "ood_score": 0.6641108989715576,
+            "ood": false,
+            "exit_threshold": null,
+            "accepted": false,
+            "prediction_index": 3,
+            "probabilities": [
+              0.05960485339164734,
+              0.00029951956821605563,
+              0.06206689029932022,
+              0.7975938320159912,
+              0.04027548432350159,
+              0.040159329771995544
+            ],
+            "decision_head_ms": 0.01999999221879989,
+            "ood_ms": 0.27312499878462404,
+            "router_ms": 0.0
+          },
+          {
+            "layer": 14,
+            "confidence": 0.7009311318397522,
+            "ood_score": 0.7829851508140564,
+            "ood": false,
+            "exit_threshold": 0.44425147771835327,
+            "accepted": true,
+            "prediction_index": 3,
+            "probabilities": [
+              0.027106614783406258,
+              3.053851287404541e-06,
+              0.09181300550699234,
+              0.7009311318397522,
+              0.07825871556997299,
+              0.101887546479702
+            ],
+            "decision_head_ms": 0.01575000351294875,
+            "ood_ms": 0.2321659994777292,
+            "router_ms": 0.16387499636039138
+          }
+        ],
+        "action": "OPTIMIZE"
+      },
+      "adaptive_c": {
+        "action_index": 3,
+        "exit_layer": 7,
+        "actual_layer_calls": 7,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.9276573657989502,
+            "ood_score": 0.6641108989715576,
+            "ood": false,
+            "exit_threshold": 0.975710173594662,
+            "accepted": true,
+            "prediction_index": 3,
+            "probabilities": [
+              0.013233540579676628,
+              4.442026329343207e-05,
+              0.03749803081154823,
+              0.9276573657989502,
+              0.007360739633440971,
+              0.014205804094672203
+            ],
+            "decision_head_ms": 0.01966700074262917,
+            "ood_ms": 0.24333300825674087,
+            "router_ms": 0.17250000382773578
+          }
+        ],
+        "action": "OPTIMIZE"
+      }
+    },
+    {
+      "row_index": 230,
+      "label": "REQUEST_REVIEW",
+      "full_depth_action_a": "SIMULATE",
+      "full_depth_action_c": "SIMULATE",
+      "adaptive_a": {
+        "action_index": 2,
+        "exit_layer": 14,
+        "actual_layer_calls": 14,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.9063575267791748,
+            "ood_score": 0.6145689487457275,
+            "ood": false,
+            "exit_threshold": null,
+            "accepted": false,
+            "prediction_index": 2,
+            "probabilities": [
+              0.02158529683947563,
+              0.0023134818766266108,
+              0.9063575267791748,
+              0.003718144493177533,
+              0.01240135170519352,
+              0.05362415313720703
+            ],
+            "decision_head_ms": 0.01995899947360158,
+            "ood_ms": 0.20266699721105397,
+            "router_ms": 0.0
+          },
+          {
+            "layer": 14,
+            "confidence": 0.9000744223594666,
+            "ood_score": 0.7766708731651306,
+            "ood": false,
+            "exit_threshold": 0.44425147771835327,
+            "accepted": true,
+            "prediction_index": 2,
+            "probabilities": [
+              0.0066268788650631905,
+              3.938506051781587e-05,
+              0.9000744223594666,
+              0.002542834961786866,
+              0.024889398366212845,
+              0.06582712382078171
+            ],
+            "decision_head_ms": 0.01562500256113708,
+            "ood_ms": 0.2144169993698597,
+            "router_ms": 0.14437500794883817
+          }
+        ],
+        "action": "SIMULATE"
+      },
+      "adaptive_c": {
+        "action_index": 2,
+        "exit_layer": 7,
+        "actual_layer_calls": 7,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.8597309589385986,
+            "ood_score": 0.6145689487457275,
+            "ood": false,
+            "exit_threshold": 0.975710173594662,
+            "accepted": true,
+            "prediction_index": 2,
+            "probabilities": [
+              0.02017860673367977,
+              0.001337096793577075,
+              0.8597309589385986,
+              0.0020111999474465847,
+              0.023952344432473183,
+              0.09278975427150726
+            ],
+            "decision_head_ms": 0.01837499439716339,
+            "ood_ms": 0.23720800527371466,
+            "router_ms": 0.17595899407751858
+          }
+        ],
+        "action": "SIMULATE"
+      }
+    },
+    {
+      "row_index": 321,
+      "label": "ABSTAIN",
+      "full_depth_action_a": "ABSTAIN",
+      "full_depth_action_c": "ABSTAIN",
+      "adaptive_a": {
+        "action_index": 5,
+        "exit_layer": 21,
+        "actual_layer_calls": 21,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.39419257640838623,
+            "ood_score": 0.7601156234741211,
+            "ood": false,
+            "exit_threshold": null,
+            "accepted": false,
+            "prediction_index": 0,
+            "probabilities": [
+              0.39419257640838623,
+              0.06004977226257324,
+              0.008084509521722794,
+              0.008817820809781551,
+              0.1379944533109665,
+              0.3908608853816986
+            ],
+            "decision_head_ms": 0.01995899947360158,
+            "ood_ms": 0.42883300920948386,
+            "router_ms": 0.0
+          },
+          {
+            "layer": 14,
+            "confidence": 0.8583781123161316,
+            "ood_score": 0.8819125294685364,
+            "ood": false,
+            "exit_threshold": 0.44425147771835327,
+            "accepted": false,
+            "prediction_index": 5,
+            "probabilities": [
+              0.022566378116607666,
+              0.016385894268751144,
+              0.00292035355232656,
+              0.0019855722784996033,
+              0.09776366502046585,
+              0.8583781123161316
+            ],
+            "decision_head_ms": 0.015208992408588529,
+            "ood_ms": 0.21583400666713715,
+            "router_ms": 0.15470899234060198
+          },
+          {
+            "layer": 21,
+            "confidence": 0.7886981964111328,
+            "ood_score": 0.8741214275360107,
+            "ood": false,
+            "exit_threshold": 0.26802849769592285,
+            "accepted": true,
+            "prediction_index": 5,
+            "probabilities": [
+              0.056327298283576965,
+              0.012821848504245281,
+              0.04489339143037796,
+              0.005134492181241512,
+              0.09212478995323181,
+              0.7886981964111328
+            ],
+            "decision_head_ms": 0.01445900124963373,
+            "ood_ms": 0.23400000645779073,
+            "router_ms": 0.14745800581295043
+          }
+        ],
+        "action": "ABSTAIN"
+      },
+      "adaptive_c": {
+        "action_index": 5,
+        "exit_layer": 7,
+        "actual_layer_calls": 7,
+        "ood_at_exit": false,
+        "trace": [
+          {
+            "layer": 7,
+            "confidence": 0.64771968126297,
+            "ood_score": 0.7601156234741211,
+            "ood": false,
+            "exit_threshold": 0.975710173594662,
+            "accepted": true,
+            "prediction_index": 5,
+            "probabilities": [
+              0.13396792113780975,
+              0.11618456989526749,
+              0.0029846790712326765,
+              0.001225820742547512,
+              0.09791737794876099,
+              0.64771968126297
+            ],
+            "decision_head_ms": 0.016874997527338564,
+            "ood_ms": 0.2544169983593747,
+            "router_ms": 0.17608300549909472
+          }
+        ],
+        "action": "ABSTAIN"
+      }
+    }
+  ],
+  "safety": {
+    "ood_gate_in_runtime": true,
+    "ood_early_exit_violation_count": 0,
+    "research_api_changed": false,
+    "workflow_triggered": false,
+    "production_router_changed": false,
+    "synthetic_certification_promoted": false,
+    "external_scientific_validation": "PENDING"
+  },
+  "hook_evidence": {
+    "per_run_calls_match_reported_exit_layer": true,
+    "full_depth_calls_per_run": 28,
+    "candidate_layer_call_distribution": {
+      "A": {
+        "14": 24,
+        "21": 5,
+        "28": 1
+      },
+      "C": {
+        "7": 28,
+        "14": 1,
+        "28": 1
+      }
+    }
+  },
+  "limitations": [
+    "Thirty synthetic frozen cases are a runtime diagnostic, not a risk certificate.",
+    "This benchmark calls the existing Qwen layer loop directly and does not expose a public API.",
+    "Sandbox actions are not experimental authorization; human approval and Research provenance gates remain unchanged."
+  ]
+}

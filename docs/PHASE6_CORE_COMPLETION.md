@@ -62,3 +62,11 @@ Actual local Qwen3-0.6B revision `c1899de289a04d12100db370d81485cdf75e47ca` full
 ## Final regression and CI record for Early Exit research — 2026-11-01
 
 Local regression after the import fix: backend **253 passed** (357 pre-existing/dependency warnings), frontend production build passed, browser E2E **6 passed**. Latest GitHub Actions for commit `14b62922928dec5d7867216f6b0fb1dd0ef3c4f8`: [run 41267630400](https://github.com/alfred0105/lab-process-rag/actions/runs/41267630400) passed backend, frontend and browser-e2e jobs. The first CI run exposed an optional PyTorch import at module load; commit `14b6292` moved it into the research-run entry point, and the following CI run passed.
+
+## Minimal Adaptive Early Exit Runtime — 2026-11-01
+
+The sandbox runtime now rehydrates Candidate A (PABEE) and Candidate C (Fusion + EEFP) from a locally generated, contract-checked tensor artifact and runs the existing pinned Qwen3-0.6B checkpoint. On 30 balanced frozen synthetic inputs, token IDs matched 30/30; hidden states matched exactly at layers 7/14/21/28; probability maximum error was below `9e-7` against a `2e-4` tolerance; actions and exit layers matched offline routing 30/30 for each candidate. Forward hooks confirmed each adaptive call count matched its exit layer and the full-depth path called all 28 layers.
+
+Synchronized MPS FP16 p50/p95: Full `85.25/87.63 ms`; A `45.38/68.34 ms` (1.88× p50); C `26.97/40.41 ms` (3.16× p50). Candidate C preserved full-depth macro F1 (`0.8283`), matched full-depth actions on 30/30, and had zero OOD early-exit violations and zero unsafe `OPTIMIZE` false positives in this diagnostic slice. It is selected only for the isolated sandbox comparison. No runtime router was added to Research API, no workflow ran, and this sample is not a new certificate or scientific validation.
+
+Artifacts: `backend/reports/phase6_ee_runtime_parity.json`, `phase6_ee_actual_runtime.json`, `phase6_ee_runtime_selection.json`. Full regression and CI for this commit are tracked in the latest repository checks after push. Phase 6 remains `IN_PROGRESS`; Phase 7 remains `NOT_STARTED`; external scientific validation remains pending.

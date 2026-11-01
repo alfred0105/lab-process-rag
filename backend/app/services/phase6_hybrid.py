@@ -34,6 +34,23 @@ ROUTE_REVIEW = "REQUEST_REVIEW"
 ROUTE_ABSTAIN = "ABSTAIN"
 
 
+def _evaluate_sandbox_exit_router(exit_router, layer: int, probabilities, traces) -> bool:
+    """Run an optional sandbox router; exceptions fail closed to continuation."""
+    if exit_router is None:
+        return False
+    try:
+        return bool(exit_router(layer, probabilities, tuple(traces)))
+    except Exception:
+        return False
+
+
+def _early_exit_gate(*, allow_early_exit: bool, input_valid: bool, layer: int,
+                     layer_count: int, ood: bool, threshold, router_accepts: bool) -> bool:
+    """Shared fail-closed policy gate for intermediate decoder exits."""
+    return bool(allow_early_exit and input_valid and layer < layer_count and not ood
+                and threshold is not None and router_accepts)
+
+
 class Phase6Unavailable(RuntimeError):
     pass
 
@@ -396,8 +413,14 @@ class SharedTransformerBackbone:
                 "executed_layers": self.layer_count, "token_count": int(input_ids.shape[1])}
 
     def early_hidden(self, input_ids, attention_mask, *, decision_heads, gates, input_valid: bool, ood_thresholds,
-                     allow_early_exit: bool = True):
-        """Execute until a calibrated, supported early head accepts or final depth."""
+                     allow_early_exit: bool = True, exit_router=None):
+        """Execute until a calibrated, supported early head accepts or final depth.
+
+        ``exit_router`` is an optional sandbox/evaluation policy callback. It is
+        invoked only at configured exit layers with current probabilities and
+        already-observed exit traces. It cannot override OOD, provenance, or
+        caller permission gates. The production API does not pass this callback.
+        """
         from transformers.masking_utils import create_causal_mask
 
         torch = self.torch
@@ -416,15 +439,35 @@ class SharedTransformerBackbone:
             if layer_index not in self.exit_layers:
                 continue
             state = core.norm(hidden[:, -1, :])
+            head_started = time.perf_counter()
             logits = decision_heads[str(layer_index)](state.float())
+            head_ms = (time.perf_counter() - head_started) * 1000
             probs = gates["temperatures"][str(layer_index)](logits)
             confidence = float(probs.max().item())
+            ood_started = time.perf_counter()
             ood_score = gates["ood"][str(layer_index)].score(state)
+            ood_ms = (time.perf_counter() - ood_started) * 1000
             ood = ood_score > ood_thresholds[str(layer_index)]
             threshold = gates["exit_thresholds"].get(str(layer_index))
-            can_exit = allow_early_exit and layer_index < self.layer_count and input_valid and not ood and threshold is not None and confidence >= threshold
+            router_accepts = False
+            router_ms = 0.0
+            if threshold is not None:
+                if exit_router is None:
+                    router_accepts = confidence >= threshold
+                else:
+                    router_started = time.perf_counter()
+                    current_probabilities = probs[0].detach().float().cpu().numpy()
+                    router_accepts = _evaluate_sandbox_exit_router(exit_router, layer_index,
+                        current_probabilities, traces)
+                    router_ms = (time.perf_counter() - router_started) * 1000
+            can_exit = _early_exit_gate(allow_early_exit=allow_early_exit, input_valid=input_valid,
+                layer=layer_index, layer_count=self.layer_count, ood=ood, threshold=threshold,
+                router_accepts=router_accepts)
             traces.append({"layer": layer_index, "confidence": confidence, "ood_score": ood_score,
-                           "ood": bool(ood), "exit_threshold": threshold, "accepted": bool(can_exit)})
+                           "ood": bool(ood), "exit_threshold": threshold, "accepted": bool(can_exit),
+                           "prediction_index": int(probs.argmax(dim=-1)[0].item()),
+                           "probabilities": probs[0].detach().float().cpu().tolist(),
+                           "decision_head_ms": head_ms, "ood_ms": ood_ms, "router_ms": router_ms})
             if can_exit:
                 return {"hidden": state, "logits": logits, "probabilities": probs, "exit_layer": layer_index,
                         "executed_layers": layer_index, "trace": traces, "ood_score": ood_score, "ood": bool(ood)}

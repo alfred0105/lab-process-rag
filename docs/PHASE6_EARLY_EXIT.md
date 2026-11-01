@@ -1,5 +1,25 @@
 # Phase 6 Early Exit
 
+## Actual sandbox runtime — 2026-11-01
+
+The cached synthetic candidates are now connected to an isolated runtime artifact and the pinned local Qwen3-0.6B decoder. This is a technical runtime check only: the Research API does not pass the sandbox router, no workflow was triggered, no synthetic certificate was promoted, and external scientific validation remains pending.
+
+On the same 30 balanced rows from the existing 384-row frozen synthetic partition, using Qwen revision `c1899de289a04d12100db370d81485cdf75e47ca`, MPS FP16, three warmups, synchronized timings and forward hooks:
+
+| Path | Mean actual layers | p50 | p95 | p50 speedup | Agreement with full-depth | Macro F1 |
+|---|---:|---:|---:|---:|---:|---:|
+| Full-depth | 28.00 | 85.25 ms | 87.63 ms | 1.00× | reference | A: 0.7990 / C: 0.8283 |
+| Candidate A — PABEE | 15.63 | 45.38 ms | 68.34 ms | 1.88× | 96.67% | 0.8283 |
+| Candidate C — Fusion + EEFP | 7.93 | 26.97 ms | 40.41 ms | 3.16× | 100% | 0.8283 |
+
+Hooks confirmed that actual decoder calls equaled the reported exit depth on every adaptive input; full-depth ran all 28 layers. OOD was detected in 5 A traces and 4 C traces and blocked the exit in all those traces; both candidates had zero OOD early-exit violations and zero false-positive `OPTIMIZE` recommendations on this small synthetic slice. Candidate C is selected for the sandbox runtime comparison because it matched its full-depth macro F1, matched all full-depth actions, and had the lower measured latency. Thirty samples are descriptive runtime evidence, not a statistical safety certificate or evidence of laboratory accuracy. MPS peak allocation is not exposed by the installed PyTorch build; current allocator and driver allocation are recorded instead.
+
+Parity used identical token IDs and the same pinned checkpoint/cache. Exact token match was 30/30; intermediate hidden-state maximum absolute error was 0 at layers 7/14/21/28; maximum probability error was `5.66e-7` for A and `8.94e-7` for C against a `2e-4` tolerance; action and exit-layer parity were 30/30 for both. The runtime tensors are generated locally from the existing synthetic cache and loaded with `weights_only=True`.
+
+Reports: `backend/reports/phase6_ee_runtime_parity.json`, `backend/reports/phase6_ee_actual_runtime.json`, and `backend/reports/phase6_ee_runtime_selection.json`. Reproduce with `backend/scripts/phase6_ee_runtime_parity.py` on the configured local machine with the pinned checkpoint and research cache present.
+
+`P6-007` is now technically verified for isolated synthetic sandbox runtime only. Phase 6 remains `IN_PROGRESS`; Phase 7 remains `NOT_STARTED`; `EXTERNAL_SCIENTIFIC_VALIDATION_PENDING` remains open. Research-mode early exit and equipment/workflow execution remain disabled.
+
 Backbone layer loop는 7/14/21층에서 calibrated confidence, valid provenance, in-calibration OOD score, pending-review gate를 모두 만족할 때 실제 다음 decoder layer 실행을 생략한다. layer 28은 최종 fallback이다. Sandbox 요청은 비검증 입력이므로 early exit을 허용하지 않는다. 별도 강제 full-depth 비교 경로가 동일한 입력에서 전체 층을 계산한다.
 
 2026-11-01 실제 Qwen layer forward hook을 붙인 구조 테스트는 강제 0.0 test-only threshold로 layer 7에서 멈췄고, 28개 중 7개 layer call이 실제 실행되어 나머지 21개를 생략했다. 이는 구조 검증에만 해당하며 안전한 confidence threshold가 아니다. 120개 합성 사례의 독립 calibration 24개에서 모든 layer의 threshold가 `null`이었고, 실제 calibrated early-exit 비율은 19개 연구 입력 중 0/19, 평균 28/28층, 추정 절감 0%다. Early/full-depth p50은 87.8/87.4ms였으며 개선 증거가 아니다. 그러므로 P6-007은 `PARTIAL`이다. 안전/출처 gate는 높은 softmax confidence로 우회하지 않는다. 수치는 `phase6_early_exit_benchmark.json` 및 `phase6_early_exit_revalidation.json`에 보관한다.

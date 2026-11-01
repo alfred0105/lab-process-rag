@@ -1,0 +1,290 @@
+{
+  "status": "PHASE_6_SANDBOX_RUNTIME_VERIFIED",
+  "candidate_results": {
+    "A": {
+      "policy": "PABEE",
+      "early_exit_count": 29,
+      "early_exit_rate": 0.9666666666666667,
+      "mean_executed_layers": 15.633333333333333,
+      "actual_layer_calls": [
+        14,
+        14,
+        14,
+        14,
+        21,
+        14,
+        14,
+        14,
+        14,
+        28,
+        21,
+        14,
+        14,
+        21,
+        14,
+        14,
+        14,
+        14,
+        14,
+        14,
+        21,
+        14,
+        14,
+        14,
+        14,
+        14,
+        14,
+        14,
+        14,
+        21
+      ],
+      "latency_p50_ms": 45.38095850148238,
+      "latency_p95_ms": 68.3426355906704,
+      "speedup_vs_shared_full_depth_p50": 1.8784443259019632,
+      "speedup_vs_shared_full_depth_p95": 1.2822272480538202,
+      "mean_head_ms": 0.05011533648939803,
+      "mean_ood_gate_ms": 0.7497710335883312,
+      "mean_router_ms": 0.21472913455606127,
+      "full_depth_metrics": {
+        "count": 30,
+        "accuracy": 0.8,
+        "balanced_accuracy": 0.7999999999999999,
+        "macro_f1": 0.798989898989899,
+        "per_class": {
+          "REQUEST_INFORMATION": {
+            "precision": 0.6666666666666666,
+            "recall": 0.8,
+            "f1": 0.7272727272727273,
+            "support": 5
+          },
+          "ANALYZE": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 5
+          },
+          "SIMULATE": {
+            "precision": 0.8,
+            "recall": 0.8,
+            "f1": 0.8,
+            "support": 5
+          },
+          "OPTIMIZE": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 5
+          },
+          "REQUEST_REVIEW": {
+            "precision": 0.75,
+            "recall": 0.6,
+            "f1": 0.6666666666666666,
+            "support": 5
+          },
+          "ABSTAIN": {
+            "precision": 0.6,
+            "recall": 0.6,
+            "f1": 0.6,
+            "support": 5
+          }
+        }
+      },
+      "adaptive_metrics": {
+        "count": 30,
+        "accuracy": 0.8333333333333334,
+        "balanced_accuracy": 0.8333333333333331,
+        "macro_f1": 0.8282828282828283,
+        "per_class": {
+          "REQUEST_INFORMATION": {
+            "precision": 0.6666666666666666,
+            "recall": 0.8,
+            "f1": 0.7272727272727273,
+            "support": 5
+          },
+          "ANALYZE": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 5
+          },
+          "SIMULATE": {
+            "precision": 0.8333333333333334,
+            "recall": 1.0,
+            "f1": 0.9090909090909091,
+            "support": 5
+          },
+          "OPTIMIZE": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 5
+          },
+          "REQUEST_REVIEW": {
+            "precision": 0.75,
+            "recall": 0.6,
+            "f1": 0.6666666666666666,
+            "support": 5
+          },
+          "ABSTAIN": {
+            "precision": 0.75,
+            "recall": 0.6,
+            "f1": 0.6666666666666666,
+            "support": 5
+          }
+        }
+      },
+      "prediction_agreement_with_full_depth": 0.9666666666666667,
+      "unsafe_optimize_false_positive_count": 0,
+      "review_or_abstain_recall": 0.7,
+      "ood_detection_count": 5,
+      "ood_exit_block_count": 5,
+      "ood_early_exit_violation_count": 0
+    },
+    "C": {
+      "policy": "Fusion + EEFP",
+      "early_exit_count": 29,
+      "early_exit_rate": 0.9666666666666667,
+      "mean_executed_layers": 7.933333333333334,
+      "actual_layer_calls": [
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        28,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        14,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7
+      ],
+      "latency_p50_ms": 26.967582998622674,
+      "latency_p95_ms": 40.413383697887134,
+      "speedup_vs_shared_full_depth_p50": 3.161039830876049,
+      "speedup_vs_shared_full_depth_p95": 2.168360615712359,
+      "mean_head_ms": 0.02839993345939244,
+      "mean_ood_gate_ms": 0.4381388003821485,
+      "mean_router_ms": 0.2282944978408826,
+      "full_depth_metrics": {
+        "count": 30,
+        "accuracy": 0.8333333333333334,
+        "balanced_accuracy": 0.8333333333333331,
+        "macro_f1": 0.8282828282828283,
+        "per_class": {
+          "REQUEST_INFORMATION": {
+            "precision": 0.6666666666666666,
+            "recall": 0.8,
+            "f1": 0.7272727272727273,
+            "support": 5
+          },
+          "ANALYZE": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 5
+          },
+          "SIMULATE": {
+            "precision": 0.8333333333333334,
+            "recall": 1.0,
+            "f1": 0.9090909090909091,
+            "support": 5
+          },
+          "OPTIMIZE": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 5
+          },
+          "REQUEST_REVIEW": {
+            "precision": 0.75,
+            "recall": 0.6,
+            "f1": 0.6666666666666666,
+            "support": 5
+          },
+          "ABSTAIN": {
+            "precision": 0.75,
+            "recall": 0.6,
+            "f1": 0.6666666666666666,
+            "support": 5
+          }
+        }
+      },
+      "adaptive_metrics": {
+        "count": 30,
+        "accuracy": 0.8333333333333334,
+        "balanced_accuracy": 0.8333333333333331,
+        "macro_f1": 0.8282828282828283,
+        "per_class": {
+          "REQUEST_INFORMATION": {
+            "precision": 0.6666666666666666,
+            "recall": 0.8,
+            "f1": 0.7272727272727273,
+            "support": 5
+          },
+          "ANALYZE": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 5
+          },
+          "SIMULATE": {
+            "precision": 0.8333333333333334,
+            "recall": 1.0,
+            "f1": 0.9090909090909091,
+            "support": 5
+          },
+          "OPTIMIZE": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 5
+          },
+          "REQUEST_REVIEW": {
+            "precision": 0.75,
+            "recall": 0.6,
+            "f1": 0.6666666666666666,
+            "support": 5
+          },
+          "ABSTAIN": {
+            "precision": 0.75,
+            "recall": 0.6,
+            "f1": 0.6666666666666666,
+            "support": 5
+          }
+        }
+      },
+      "prediction_agreement_with_full_depth": 1.0,
+      "unsafe_optimize_false_positive_count": 0,
+      "review_or_abstain_recall": 0.7,
+      "ood_detection_count": 4,
+      "ood_exit_block_count": 4,
+      "ood_early_exit_violation_count": 0
+    }
+  },
+  "selection_rule": "Select only a candidate whose parity passes, no worse safety gate, lower decision error than full depth, actual layer calls decrease, and measured p50 improves.",
+  "selected_candidate": "C",
+  "phase6_status": "IN_PROGRESS",
+  "phase7_status": "NOT_STARTED",
+  "runtime_parity": "PASS",
+  "external_scientific_validation": "PENDING",
+  "performance_status": "PHASE_6_PERFORMANCE_TARGET_MET"
+}

@@ -5,9 +5,38 @@ import pytest
 from app.services.phase6_hybrid import (
     ScientificContextError, build_scientific_prompt, build_decision_context,
     build_explanation_context, _safe_evidence, artifact_is_compatible,
-    explanation_schema, validate_generated_explanation,
+    explanation_schema, validate_generated_explanation, _early_exit_gate,
+    _evaluate_sandbox_exit_router,
 )
 from app.services.scientific_state_v2 import SCIENTIFIC_STATE_SCHEMA_VERSION
+
+
+def test_early_exit_sandbox_router_fails_closed_on_exception():
+    accepted = _evaluate_sandbox_exit_router(
+        lambda *_args: (_ for _ in ()).throw(RuntimeError("router failure")),
+        7, [0.9, 0.1], [],
+    )
+    assert accepted is False
+
+
+@pytest.mark.parametrize("overrides", [
+    {"allow_early_exit": False},
+    {"input_valid": False},
+    {"layer": 28},
+    {"ood": True},
+    {"threshold": None},
+    {"router_accepts": False},
+])
+def test_early_exit_safety_gates_fail_closed(overrides):
+    values = {"allow_early_exit": True, "input_valid": True, "layer": 7,
+        "layer_count": 28, "ood": False, "threshold": 0.8, "router_accepts": True}
+    values.update(overrides)
+    assert _early_exit_gate(**values) is False
+
+
+def test_early_exit_safety_gate_allows_supported_sandbox_candidate():
+    assert _early_exit_gate(allow_early_exit=True, input_valid=True, layer=7,
+        layer_count=28, ood=False, threshold=0.8, router_accepts=True) is True
 
 
 def valid_state():
