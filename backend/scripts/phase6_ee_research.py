@@ -14,7 +14,6 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 import numpy as np
-import torch
 from scipy.stats import beta
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, balanced_accuracy_score, f1_score, precision_recall_fscore_support
@@ -183,6 +182,9 @@ def _route(probs, layers, thresholds, method="max_softmax", patience=2, eefp=Non
 
 
 def main():
+    # Keep utility functions importable by the base CI environment; the optional
+    # Phase 6 model runtime installs PyTorch separately from backend/requirements.txt.
+    import torch
     REPORTS.mkdir(exist_ok=True)
     audit_scales=[]
     for size in SIZES:
