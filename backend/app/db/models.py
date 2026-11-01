@@ -419,6 +419,61 @@ class OptimizationRecommendationRun(Base):
     approval_status: Mapped[str] = mapped_column(String(30), default="PENDING_RESEARCHER_REVIEW")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
 
+class ExperimentCampaign(Base):
+    """Persistent, approval-gated optimization campaign controller state."""
+    __tablename__ = "experiment_campaigns"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    topic_id: Mapped[int] = mapped_column(ForeignKey("research_topics.id", ondelete="CASCADE"), index=True)
+    experiment_id: Mapped[int | None] = mapped_column(ForeignKey("experiments.id", ondelete="SET NULL"), nullable=True, index=True)
+    method_version_id: Mapped[int | None] = mapped_column(ForeignKey("method_versions.id", ondelete="SET NULL"), nullable=True, index=True)
+    mode: Mapped[str] = mapped_column(String(20), index=True)
+    goal: Mapped[str] = mapped_column(Text)
+    target_property: Mapped[str] = mapped_column(String(200))
+    direction: Mapped[str] = mapped_column(String(20))
+    variables_json: Mapped[list] = mapped_column(JSON, default=list)
+    fixed_conditions_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    max_iterations: Mapped[int] = mapped_column(Integer, default=5)
+    iteration_count: Mapped[int] = mapped_column(Integer, default=0)
+    state: Mapped[str] = mapped_column(String(40), default="CREATED", index=True)
+    selected_action: Mapped[str] = mapped_column(String(40), default="")
+    decision_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    current_workflow_id: Mapped[int | None] = mapped_column(ForeignKey("workflow_runs.id", ondelete="SET NULL"), nullable=True, index=True)
+    current_model_run_id: Mapped[int | None] = mapped_column(ForeignKey("optimization_model_runs.id", ondelete="SET NULL"), nullable=True)
+    current_recommendation_id: Mapped[int | None] = mapped_column(ForeignKey("optimization_recommendation_runs.id", ondelete="SET NULL"), nullable=True)
+    candidate_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    review_status: Mapped[str] = mapped_column(String(40), default="NOT_REQUESTED")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, index=True)
+
+class CampaignEvent(Base):
+    """Append-only campaign event history with idempotent event keys."""
+    __tablename__ = "campaign_events"
+    __table_args__ = (UniqueConstraint("campaign_id", "idempotency_key", name="uq_campaign_event_idempotency"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    campaign_id: Mapped[int] = mapped_column(ForeignKey("experiment_campaigns.id", ondelete="CASCADE"), index=True)
+    event_type: Mapped[str] = mapped_column(String(60), index=True)
+    status: Mapped[str] = mapped_column(String(40))
+    idempotency_key: Mapped[str] = mapped_column(String(160))
+    payload_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+class CampaignObservation(Base):
+    """Campaign-local feedback; synthetic values never enter ScientificObservation."""
+    __tablename__ = "campaign_observations"
+    __table_args__ = (UniqueConstraint("campaign_id", "idempotency_key", name="uq_campaign_observation_idempotency"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    campaign_id: Mapped[int] = mapped_column(ForeignKey("experiment_campaigns.id", ondelete="CASCADE"), index=True)
+    conditions_json: Mapped[list] = mapped_column(JSON, default=list)
+    target_value: Mapped[float] = mapped_column(Float)
+    target_unit: Mapped[str] = mapped_column(String(100), default="dimensionless")
+    source_type: Mapped[str] = mapped_column(String(40), index=True)
+    review_status: Mapped[str] = mapped_column(String(30), default="PENDING", index=True)
+    idempotency_key: Mapped[str] = mapped_column(String(160))
+    reviewer: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    review_reason: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
 class DecisionCase(Base):
     """Versioned decision example; synthetic labels are never represented as lab truth."""
     __tablename__ = "decision_cases"

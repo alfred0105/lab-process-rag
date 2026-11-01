@@ -77,7 +77,7 @@ Phase 3 remains `CORE_COMPLETE`, Phase 4 remains `CORE_COMPLETE`, Phase 5 remain
 | Phase 4 — Gaussian Process & Bayesian Optimization | 승인된 실험 관측 계약, 단일·다목적 GP/BO 핵심, 노이즈·제약·Pareto 및 후보 검토 | `PHASE_4_CORE_COMPLETE`; 확장 backlog와 실제 연구 외부 검증은 별도 문서. 실제 성능 주장 금지 |
 | Phase 5 — Learned JEV Decision Head | 버전된 ScientificState→Feature Contract, 검토 라벨, 학습 head, calibration/OOD/abstention, rule baseline, shadow mode, 피드백·데이터·모델 버전관리 | `IN_PROGRESS`; Stage 1 [`PHASE5_STAGE1.md`](PHASE5_STAGE1.md), Stage 2 [`PHASE5_STAGE2.md`](PHASE5_STAGE2.md), Stage 3 [`PHASE5_STAGE3.md`](PHASE5_STAGE3.md) |
 | Phase 6 — Shared Transformer / Early Exit / Conditional LM | 공유 백본 및 decision/LM head, hidden state reuse, confidence gating, conditional generation, layerwise early exit, KV·quantization·memory, MLX/Ollama 비교, M5 24GB latency/열·전력 측정 | `IN_PROGRESS`; actual local checkpoint and shadow API present. Transformer computation reduction and scientific decision quality remain unverified |
-| Phase 7 — Autonomous Experiment Optimization Loop | 데이터→ScientificState→JEV→tool/simulation→검증→BO→후보→사람 검토→실험 결과·학습 갱신 | 실제 장비 실행은 안전 제어와 연구자 승인 필요; `NOT_STARTED` |
+| Phase 7 — Autonomous Experiment Optimization Loop | 데이터→ScientificState→DecisionPolicy→tool/simulation→검증→BO→후보→사람 검토→실험 결과·학습 갱신 | 단일 Campaign core 구현·검증 진행 중; 훈련된 JEV 연결 및 실제 연구 검증은 미완료 |
 | Phase 8 — Unified Laboratory UX & Productization | 하나의 연구자 인터페이스에서 실험→측정→분석→추천 흐름, progressive disclosure, 접근성·성능·복구 | `NOT_STARTED`; 설계 원칙은 [`PHASE8_UX_PRINCIPLES.md`](PHASE8_UX_PRINCIPLES.md)
 
 ### 이전 Phase 표기의 이관
@@ -412,9 +412,22 @@ Phase 5 — Learned JEV Decision Head is `IN_PROGRESS`; Stage 1 is `PHASE_5_STAG
 | TEST-007 | 회귀 매트릭스에 PDF transaction rollback, FK/migration/backup restore, 잘못된 simulation 입력 및 OpenFOAM 실패복구, evidence ID 존재, JEV abstain, BO constraint·data leakage, API/UI 승인과 모델 비활성 폴백 포함 | P0 | IN_PROGRESS | backend/tests/, frontend tests | 일부 PDF/API/migration/tool tests가 현재 81개 통과 | 0ccad66 | restore, FK 전체검사, optimizer, evidence adversarial, OpenFOAM restart, UI fallback tests 추가 |
 | TEST-008 | 최소 비교군은 규칙 tool selection, Gemma candidate-token, learned JEV, JEV+Early Exit, Random Search, Ridge, GP+BO, JEV+BO; 같은 데이터/예산으로 accuracy뿐 아니라 tool success, abstention, calibration, regret/target, constraint, latency, RAM 평가 | P1 | NOT_STARTED | benchmark scripts/reports | 문헌 Ridge preliminary report만 존재 | existing report | 실제 decision/optimizer 구현 후 공정군별 holdout benchmark |
 | TEST-009 | CI에서 Python tests, static analysis, TypeScript checks, frontend build, 핵심 API integration 수행; 외부 서비스는 분리된 integration job과 명시 fixture 사용 | P1 | IN_PROGRESS | .github/workflows/ci.yml | backend pytest와 frontend build job 구현 | 0ccad66 | lint/static analysis 및 API job 분리, 원격 Actions run 증거 |
-| LOOP-001 | 연구 주제, method version, evidence, observation, analysis, simulation, JEV choice, BO proposal, human decision, outcome을 campaign으로 재현 가능하게 연결 | P0 | NOT_STARTED | future campaign data/API/UI | 전체 폐루프 없음 | — | Phase 1–7 |
+| LOOP-001 | 연구 주제, method version, evidence, observation, analysis, simulation, JEV choice, BO proposal, human decision, outcome을 campaign으로 재현 가능하게 연결 | P0 | IN_PROGRESS | `backend/app/api/campaigns.py`, `backend/app/db/models.py`, `frontend/src/components/CampaignPanel.tsx`, `docs/PHASE7_CORE_IMPLEMENTATION.md` | Sandbox 핵심 흐름은 Worker→검증→GP/BO→사람 승인→검토된 피드백까지 구현. 테스트 증거는 Phase 7 변경 검증 후 기록 | 현재 변경 | 학습 JEV, 동적 분석·시뮬레이션 routing, Research full loop, 외부 과학적 검증은 남음 |
 | LOOP-002 | 새로운 연구/실험 조건에서 목표 개선량·비용·안전준수율을 반복 실제실험으로 검증; 분류 정확도/속도만으로 성공 결론 금지 | P0 | NOT_STARTED | validation protocol/report | 실제 campaign 검증 없음 | — | 승인된 장기 실험자료/연구자 프로토콜 |
 | LOOP-003 | 장기 실행에서 backup/restore, 재시작, 모델 reload, resource contention, 누적데이터 및 권한 운영 점검 | P1 | NOT_STARTED | future operations scripts | 운영 시험 없음 | — | final runtime and worker |
+
+### Phase 7 구현 추적 항목 — 단일 Campaign Core
+
+| ID | 요구사항 | 우선순위 | 상태 | 관련 구현 | 완료 조건 / 현재 검증 | 커밋 | 남은 작업 |
+|---|---|---:|---|---|---|---|---|
+| P7-001 | 목표·토픽·실험·Method Version·조정 변수 범위·고정 조건·데이터 모드와 반복 횟수를 영속 Campaign에 저장 | P0 | VERIFIED | `backend/app/api/campaigns.py`, model/migration | Campaign 생성·조회 및 저장 schema 검증; 전체 backend 264 tests 통과 | 다음 커밋 | — |
+| P7-002 | ScientificState를 구성하고 기존 DecisionPolicy를 통해 초기 도구와 이후 최적화 action을 안전하게 routing; 훈련된 JEV가 없으면 안전 경로 사용 | P0 | IN_PROGRESS | `campaigns.py`, `decision_head.py`, `tool_registry.py` | FeatureExtractor 호환 벡터와 read-only gate, rule policy fallback을 사용. 학습형 JEV/COMBO-C 출력은 실제 Campaign action routing에 연결하지 않음 | 다음 커밋 | 활성 shadow model을 제한된 추천 입력으로 연계하되 policy/gate가 실행 권한 유지 |
+| P7-003 | ToolRegistry/ValidationGate/Worker/ResultValidator를 통해 하나 이상의 도구를 실행·검증하고 Campaign history에 연결 | P0 | VERIFIED | `campaigns.py`, `worker.py`, `tool_registry.py` | 기존 실험 기록 품질검증 도구를 Durable Worker로 실행, 결과 검증; end-to-end test 통과 | 다음 커밋 | 분석기·시뮬레이터 자동 조합은 후속 |
+| P7-004 | 기존 Gaussian Process와 EI를 사용해 범위 내 후보·불확도·출처를 생성하고 추천·모델 실행을 저장 | P0 | VERIFIED (Sandbox) | `campaigns.py`, `gpbo.py`, optimization models | Branin sandbox의 bounded EI 후보, uncertainty, provenance, recommendation/model persistence 및 다음 반복 검증 | 다음 커밋 | Research real-data Campaign 통합테스트 및 다중 제약 |
+| P7-005 | 후보 승인·거절·수정, 결과 입력/연결과 관측 검토 후 다음 반복을 명시적으로 진행; 장비 자동 실행 금지 | P0 | VERIFIED (Sandbox) | `campaigns.py`, Campaign UI | 후보 승인 뒤 WAITING_FOR_RESULT, pending 결과 검토, accepted feedback만 다음 GP에 반영, 다음 후보 검증 | 다음 커밋 | reviewer 인증/권한은 별도 AUTH 작업 |
+| P7-006 | 상태, 모델, 후보, Worker ID 및 append-only history를 영속화하고 중복 요청을 방지; pause/resume/cancel 제공 | P0 | IMPLEMENTED | migration, `campaigns.py` | schema migration 반복 안전성 및 advance idempotency 검증; status endpoint 추가 | 다음 커밋 | pause/resume/cancel별 재시작·lease 복구 테스트 |
+| P7-007 | 기존 다국어 앱에 Campaign 생성·상태·후보 검토·피드백 UI를 최소 추가 | P1 | VERIFIED (Build) | `CampaignPanel.tsx`, `App.tsx`, `client.ts`, `language.tsx` | TypeScript 검사와 frontend production build 성공 | 다음 커밋 | 브라우저 E2E/접근성 점검 |
+| P7-008 | Sandbox 전체 1회 폐루프를 합성값 표기로 실증하고 Research/Sandbox 관측을 격리 | P0 | VERIFIED (Core smoke) | `backend/tests/test_phase7_campaign_loop.py` | Worker→검증→GP/BO→후보승인→Sandbox feedback 검토→다음 후보 및 `ScientificObservation` 격리; 전체 264 tests 통과 | 다음 커밋 | 실제 연구 데이터 실증은 별도 |
 
 ## 사용자 확정 제품 구조도 계속 보존
 
