@@ -15,7 +15,7 @@ import numpy as np
 from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.covariance import LedoitWolf
 from sklearn.neighbors import NearestNeighbors
-from sklearn.metrics import roc_auc_score, average_precision_score
+from sklearn.metrics import roc_auc_score, average_precision_score, roc_curve
 
 from app.services.decision_head import ACTIONS, LearnedDecisionHead, calibration_metrics, rule_metrics, encode_state
 from app.services.phase5_stage3 import SEEDS, generate_scenarios, split_groups
@@ -241,6 +241,27 @@ def _ood_variant_matrix(x, feature_schema, seed):
     return types
 
 
+def _fpr_at_target_tpr(id_scores, ood_scores, *, target_tpr=0.95):
+    """Descriptive ROC FPR at target OOD TPR; never used to select an operating threshold."""
+    id_values=np.asarray(id_scores,dtype=float);ood_values=np.asarray(ood_scores,dtype=float)
+    if (id_values.ndim!=1 or ood_values.ndim!=1 or not len(id_values) or not len(ood_values)
+            or not np.isfinite(id_values).all() or not np.isfinite(ood_values).all()
+            or not 0 < target_tpr <= 1):
+        return {"value":None,"threshold":None,"status":"INSUFFICIENT_OR_INVALID_DATA"}
+    labels=np.concatenate([np.zeros(len(id_values),dtype=int),np.ones(len(ood_values),dtype=int)])
+    scores=np.concatenate([id_values,ood_values])
+    fpr,tpr,thresholds=roc_curve(labels,scores,pos_label=1,drop_intermediate=False)
+    eligible=np.flatnonzero(tpr>=target_tpr)
+    if not len(eligible):
+        return {"value":None,"threshold":None,"status":"TARGET_TPR_UNREACHABLE"}
+    # At tied ROC points choose the highest threshold among the minimum-FPR choices.
+    min_fpr=float(np.min(fpr[eligible]));best=eligible[np.isclose(fpr[eligible],min_fpr)]
+    idx=int(best[np.argmax(thresholds[best])])
+    return {"value":float(fpr[idx]),"threshold":float(thresholds[idx]),"status":"MEASURED_ON_EVALUATION_LABELS",
+        "achieved_tpr":float(tpr[idx]),"id_count":int(len(id_values)),"ood_count":int(len(ood_values)),
+        "operational_threshold_selection_uses_evaluation_data":False}
+
+
 def _score_ood_detectors(x_train,x_cal,x_test,ood_test,embedding_train,embedding_cal,embedding_test,embedding_ood,shift_slices=None):
     # All scalers/thresholds are derived from fit and a separate ID calibration set.
     mean=x_train.mean(axis=0);scale=x_train.std(axis=0);scale[scale<1e-8]=1.0
@@ -268,14 +289,17 @@ def _score_ood_detectors(x_train,x_cal,x_test,ood_test,embedding_train,embedding
         idscore=score(idtest);oodscore=score(oodtest);all_scores=np.r_[idscore,oodscore]
         pred=all_scores>=threshold
         latency=(time.perf_counter()-timer)*1000/max(1,len(idscore)+len(oodscore))
-        tpr95_threshold=float(np.quantile(idscore,.05,method="lower"))
+        roc95=_fpr_at_target_tpr(idscore,oodscore,target_tpr=.95)
         result[name]={"threshold":threshold,"threshold_source":"ID_CALIBRATION_ONLY","calibration_count":len(cal),
             "id_false_positive_rate":float(np.mean(idscore>=threshold)),"shift_detection_rate":float(np.mean(oodscore>=threshold)),
             "auroc":float(roc_auc_score(labels,all_scores)) if len(np.unique(labels))>1 else None,
             "auprc":float(average_precision_score(labels,all_scores)) if len(np.unique(labels))>1 else None,
             "tpr_at_prespecified_id_fpr":float(np.mean(oodscore>=threshold)),
-            "fpr_at_95_percent_tpr_threshold":tpr95_threshold,
-            "fpr_at_95_percent_tpr":float(np.mean(idscore>=tpr95_threshold)),
+            "fpr_at_95_percent_tpr_threshold":roc95["threshold"],
+            "fpr_at_95_percent_tpr":roc95["value"],
+            "fpr_at_95_percent_tpr_achieved_tpr":roc95.get("achieved_tpr"),
+            "fpr_at_95_percent_tpr_status":roc95["status"],
+            "fpr_at_95_percent_tpr_semantics":"Descriptive ROC metric using evaluation ID/OOD labels; does not select the operating threshold.",
             "ood_detection_latency_ms_per_case":latency,"id_score_quantiles":{str(q):float(np.quantile(idscore,q)) for q in (0,.5,.9,.95,.99,1)},
             "ood_score_quantiles":{str(q):float(np.quantile(oodscore,q)) for q in (0,.5,.9,.95,.99,1)},
             "id_count":len(idscore),"ood_count":len(oodscore)}
@@ -504,7 +528,10 @@ def run_stage4_suite(*,seeds=SEEDS,samples_per_seed=576,final_samples=576):
                 "generalization":"Fresh evaluation uses a separate rule/data recipe; still synthetic and not laboratory evidence."}},
         "comparison":{"report_version":STAGE4_VERSION,"schema_version":FEATURE_SCHEMA_VERSION_V2,"seeds":[int(s) for s in seeds],
             "per_seed":development,"summary":development_summary,"selection_rule":"best development Macro-F1 among rule/V1/V2/tree candidates whose mean accuracy is within 0.05 of best candidate; no final-set tuning."},
-        "reliability":{"report_version":STAGE4_VERSION,"risk_target":RISK_TARGET,"id_fpr_target":ID_FPR_TARGET,
+        "reliability":{"report_version":STAGE4_VERSION,"metric_revision":"roc-ood-positive-label-v1",
+            "supersedes_metric_revision":"id-calibration-lower-quantile-mislabeled-as-fpr95-v0",
+            "metric_revision_note":"FPR@95%TPR is selected from the evaluation-label ROC curve; operational thresholds remain selected on ID calibration only.",
+            "risk_target":RISK_TARGET,"id_fpr_target":ID_FPR_TARGET,
             "ood_detectors_by_seed":ood_seed_reports,"selective_prediction_by_seed":selective_reports,
             "safety_reasoning":"Scientific validity gates, distribution shift, and low classification confidence are reported separately.",
             "limitation":"Constructed synthetic shifts do not cover all deployment OOD states."},

@@ -1,6 +1,6 @@
 # Phase 6 Readiness Contract (Phase 5 Stage 4 output)
 
-**Phase 6 status: `NOT_STARTED`.** This document specifies an integration boundary only. No Transformer, Early Exit, conditional language head, model-weight download, or autonomous tool execution is implemented here.
+**Phase 6 status: `IN_PROGRESS`.** This readiness contract remains the boundary reference. A local Qwen3 shared-backbone path, learned sandbox heads, conditional generation and API/UI wiring now exist; see [`PHASE6_ARCHITECTURE.md`](PHASE6_ARCHITECTURE.md). Early-exit savings, complete performance comparison, full integration regression and research-label accuracy remain unverified. No autonomous tool execution is implemented.
 
 ## Input: `ScientificRepresentation`
 
@@ -44,4 +44,4 @@ Required fields:
 
 ## Contract validation status
 
-Stage 4 specifies these fields and validates the existing V2 representation/inference safety behavior. It does **not** provide a complete executable Transformer adapter or prove compatibility with future hidden states. Phase 6 remains `NOT_STARTED` until its own implementation plan, data contract, adapter tests and resource benchmark are approved.
+Stage 4's prior readiness contract did not itself provide a Transformer adapter. Phase 6 now has a separate executable implementation and tests, but the twelve acceptance gates have not all passed. Do not interpret this status as research performance validation or model promotion.

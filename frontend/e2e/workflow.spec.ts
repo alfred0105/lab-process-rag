@@ -1,5 +1,17 @@
 import { expect, test } from '@playwright/test';
 
+test('Phase 6 shared-transformer panel reads checkpoint status without enabling execution', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /Playwright isolated synthetic topic/ }).click();
+  await page.locator('.primary-more > button').click();
+  await page.locator('.primary-more-menu [role="menuitem"]').filter({ hasText: /Decision|Next-step decision|다음 단계 판단/ }).click();
+  await expect(page.getByText('공유 Transformer 판단 실험')).toBeVisible();
+  await expect(page.getByText(/체크포인트/)).toBeVisible();
+  const models = await page.request.get('/api/decisions/hybrid/models');
+  expect(models.ok()).toBeTruthy();
+  expect(await models.json()).toMatchObject({ model_id: 'Qwen/Qwen3-0.6B', workflow_triggered: false });
+});
+
 test('isolated topic can plan, enqueue, reload, and inspect a durable XRD run', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: '연구 주제 선택' })).toBeVisible();

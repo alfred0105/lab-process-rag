@@ -1,0 +1,3 @@
+# Phase 6 Local Benchmark
+
+실행 환경: Apple Silicon MacBook Air M5 / 24GB unified memory, macOS arm64. Checkpoint: pinned Qwen3-0.6B, MPS float16. `backend/scripts/train_phase6_sandbox.py`는 실제 hidden-state extraction, decision-head train/load, early/full-depth 비교, decision-only token count, conditional explanation gate, KV bytes 및 device memory를 기록한다. MPS 메모리 값은 peak이 아닌 실행 종료 후 Metal driver allocation으로 표기한다. 신뢰할 수 있는 process peak RSS, 직접 FLOPs/전력/열, int4/int8, RTX 4060 Ti를 실행하지 않은 값은 `NOT_MEASURED` 또는 `NOT_SUPPORTED`로 남기며 추정값을 실측으로 쓰지 않는다. 산출물은 `backend/reports/phase6_{decision,early_exit,generation,memory_latency}.json`이다.

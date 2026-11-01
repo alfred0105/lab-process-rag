@@ -180,8 +180,8 @@
               "mean_confidence": 0.9320578278933558
             }
           ],
-          "fit_runtime_ms": 38.65820799546782,
-          "inference_latency_ms_per_case": 0.00842555338749662,
+          "fit_runtime_ms": 38.83208299521357,
+          "inference_latency_ms_per_case": 0.008235000035104653,
           "model_size_bytes": 7294,
           "parameter_count": 342
         },
@@ -536,8 +536,8 @@
               }
             ]
           },
-          "fit_runtime_ms": 67.48250000237022,
-          "inference_latency_ms_per_case": 0.05108028000298267,
+          "fit_runtime_ms": 68.47529200604185,
+          "inference_latency_ms_per_case": 0.04492861335165799,
           "model_size_bytes": 26346,
           "parameter_count": 1392,
           "temperature": 0.35,
@@ -849,9 +849,9 @@
               "mean_confidence": 0.971906747684766
             }
           ],
-          "fit_runtime_ms": 1051.218250009697,
+          "fit_runtime_ms": 997.3716670065187,
           "calibration_temperature": 1.1241837317741739,
-          "inference_latency_ms_per_case": 11.389295833262926,
+          "inference_latency_ms_per_case": 12.616293606697582,
           "model_size_bytes": 746878,
           "parameter_count": null
         }
@@ -1056,8 +1056,8 @@
               "mean_confidence": 0.9581252610497352
             }
           ],
-          "fit_runtime_ms": 45.31183298968244,
-          "inference_latency_ms_per_case": 0.008555553310240308,
+          "fit_runtime_ms": 40.98616600094829,
+          "inference_latency_ms_per_case": 0.008643333276268095,
           "model_size_bytes": 7273,
           "parameter_count": 342
         },
@@ -1419,8 +1419,8 @@
               }
             ]
           },
-          "fit_runtime_ms": 113.93070800113492,
-          "inference_latency_ms_per_case": 0.046144166650871433,
+          "fit_runtime_ms": 77.21545800450258,
+          "inference_latency_ms_per_case": 0.05515971997131904,
           "model_size_bytes": 26438,
           "parameter_count": 1392,
           "temperature": 0.5061617263596535,
@@ -1739,9 +1739,9 @@
               "mean_confidence": 0.9572941805982431
             }
           ],
-          "fit_runtime_ms": 623.9304159971653,
+          "fit_runtime_ms": 1799.2551250063116,
           "calibration_temperature": 1.2711050028856283,
-          "inference_latency_ms_per_case": 10.922953333356418,
+          "inference_latency_ms_per_case": 13.376586113396721,
           "model_size_bytes": 720636,
           "parameter_count": null
         }
@@ -1953,8 +1953,8 @@
               "mean_confidence": 0.9174874088337553
             }
           ],
-          "fit_runtime_ms": 41.05816700030118,
-          "inference_latency_ms_per_case": 0.008564446664725741,
+          "fit_runtime_ms": 41.05845800950192,
+          "inference_latency_ms_per_case": 0.008626666676718742,
           "model_size_bytes": 7267,
           "parameter_count": 342
         },
@@ -2330,8 +2330,8 @@
               }
             ]
           },
-          "fit_runtime_ms": 70.65899998997338,
-          "inference_latency_ms_per_case": 0.060319719971933715,
+          "fit_runtime_ms": 71.0138340073172,
+          "inference_latency_ms_per_case": 0.05467500004063671,
           "model_size_bytes": 26432,
           "parameter_count": 1392,
           "temperature": 0.35,
@@ -2643,9 +2643,9 @@
               "mean_confidence": 0.9450729316682678
             }
           ],
-          "fit_runtime_ms": 669.2123750108294,
+          "fit_runtime_ms": 911.3571670022793,
           "calibration_temperature": 1.5282613353922865,
-          "inference_latency_ms_per_case": 11.577352780053237,
+          "inference_latency_ms_per_case": 24.44438027324698,
           "model_size_bytes": 712660,
           "parameter_count": null
         }
@@ -2857,8 +2857,8 @@
               "mean_confidence": 0.9387301587044036
             }
           ],
-          "fit_runtime_ms": 44.459666998591274,
-          "inference_latency_ms_per_case": 0.009361946722492576,
+          "fit_runtime_ms": 40.34599999431521,
+          "inference_latency_ms_per_case": 0.009467226724761227,
           "model_size_bytes": 7286,
           "parameter_count": 342
         },
@@ -3220,8 +3220,8 @@
               }
             ]
           },
-          "fit_runtime_ms": 69.968957992387,
-          "inference_latency_ms_per_case": 0.05061471999700492,
+          "fit_runtime_ms": 66.8669170117937,
+          "inference_latency_ms_per_case": 0.057984446660460286,
           "model_size_bytes": 26457,
           "parameter_count": 1392,
           "temperature": 0.6021262236709549,
@@ -3540,9 +3540,9 @@
               "mean_confidence": 0.9508360659938271
             }
           ],
-          "fit_runtime_ms": 929.0577919891803,
+          "fit_runtime_ms": 1361.530500013032,
           "calibration_temperature": 1.5598696720941891,
-          "inference_latency_ms_per_case": 12.000380273384508,
+          "inference_latency_ms_per_case": 24.508781946691062,
           "model_size_bytes": 720949,
           "parameter_count": null
         }
@@ -3754,8 +3754,8 @@
               "mean_confidence": 0.9477246215052678
             }
           ],
-          "fit_runtime_ms": 45.438874993124045,
-          "inference_latency_ms_per_case": 0.008573606707310924,
+          "fit_runtime_ms": 44.31254199880641,
+          "inference_latency_ms_per_case": 0.00922027335036546,
           "model_size_bytes": 7303,
           "parameter_count": 342
         },
@@ -4124,8 +4124,8 @@
               }
             ]
           },
-          "fit_runtime_ms": 71.21245899179485,
-          "inference_latency_ms_per_case": 0.06551749994590257,
+          "fit_runtime_ms": 78.00104099442251,
+          "inference_latency_ms_per_case": 0.06301472002329926,
           "model_size_bytes": 26381,
           "parameter_count": 1392,
           "temperature": 0.5286142453168552,
@@ -4444,9 +4444,9 @@
               "mean_confidence": 0.9627634673707207
             }
           ],
-          "fit_runtime_ms": 648.7745829945197,
+          "fit_runtime_ms": 1558.713541002362,
           "calibration_temperature": 1.4372276369904249,
-          "inference_latency_ms_per_case": 11.56681527335119,
+          "inference_latency_ms_per_case": 14.34473250003066,
           "model_size_bytes": 741462,
           "parameter_count": null
         }

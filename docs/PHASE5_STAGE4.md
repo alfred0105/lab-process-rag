@@ -1,86 +1,17 @@
-# Phase 5 Stage 4 — Decision Reliability, OOD Robustness & Generalization
+# Phase 5 Stage 4 — 최종 보정
 
-**Status:** `PHASE_5_STAGE_4_VERIFIED` for software acceptance; reviewed laboratory validity remains open.
-**Scope:** P5-S4-001–012, software-only decision reliability evaluation.
-**Data limitation:** every Stage 4 label, shift and final holdout is synthetic. Results do not measure scientific correctness or real laboratory performance.
+상태: `PHASE_5_STAGE_4_VERIFIED` (소프트웨어·synthetic protocol 한정; 과학적 일반화 아님)
 
-## Executive result
+## FPR@95%TPR 정정
 
-Stage 4 adds repeatable five-seed comparisons, feature diagnostics and ablations, class imbalance experiments, V2-Fusion comparison, five OOD scores, calibration and risk-coverage reporting, and a fresh final synthetic split. It does not promote or activate a candidate.
+기존 ID calibration 5% 분위수는 운영 threshold 후보에 해당하며 FPR@95%TPR가 아니었다. 수정본은 OOD를 positive로 두고 평가 partition의 ROC curve에서 TPR ≥ 0.95를 만족하는 점의 최소 FPR로 계산한다. 이 보고용 ROC 지표는 평가 라벨을 기술 통계 계산에만 사용하며 운영 threshold 선정에는 사용하지 않는다. 운영 TPR@5% ID-FPR은 계속 ID calibration에서 threshold를 고른 뒤 독립 평가한다. 이전 잘못된 필드는 `id-calibration-lower-quantile-mislabeled-as-fpr95-v0`로 식별하고 최신 공식 값은 `roc-ood-positive-label-v1`이다.
 
-The five-seed development comparison retained the previously reported V1/V2 behavior: V1 mean accuracy **0.569** and macro-F1 **0.366**; V2 mean accuracy **0.591** and macro-F1 **0.326**. V2's seed-to-seed macro-F1 standard deviation was **0.137**, so the small accuracy advantage does not make V2 a stable winner. Class-weighted V2 achieved mean macro-F1 **0.510** and balanced accuracy **0.607**, while mean accuracy was **0.579**. Group-aware balanced sampling achieved macro-F1 **0.486** and accuracy **0.584**. These are synthetic-label tradeoffs, not evidence that either training strategy improves experimental decisions.
+회귀 검증: 완전 분리, 반대 순서, 겹침, 동일 점수 tie, 잘못된 NaN 입력, sklearn ROC 동등성 및 운영 threshold 비사용을 검사한다. 최종 로컬 회귀에서 backend 전체 233개 테스트, production build, 6개 browser E2E가 통과했다.
 
-HistGradientBoosting scored development mean accuracy **0.864** and macro-F1 **0.839** and was selected under the predeclared development-only rule: maximize mean macro-F1 among candidates whose mean accuracy is within 0.05 of the best. On the frozen fresh synthetic v3 holdout it scored accuracy **0.861**, macro-F1 **0.722**; V1 scored accuracy **0.748**, V2 **0.722**, class-weighted V2 **0.626**, balanced-sampled V2 **0.661**, core-subset V2 **0.609**, and Fusion **0.548**. This holdout uses a separate synthetic recipe, but its labels still derive from a programmed rule. These figures verify software behavior against that rule only; they are not research evidence and do not justify model activation.
+## Zero-shot 교차 공정
 
-## Protocol and data isolation
+`phase5-stage4-zero-shot-cross-recipe-v1`은 source recipe에서만 fit/calibrate한 모델을 별도 target recipe 평가셋에 그대로 적용한다. 같은 target test에 대한 target-trained 대조군도 별도로 만든다. source/target group overlap은 없고, target test 라벨로 학습·정규화·선택하지 않는다. 보고 파일 `backend/reports/phase5_stage4_cross_recipe_transfer.json`의 모든 레이블과 recipe는 합성 software fixture다. 이 결과를 연구실 일반화 능력이나 물질 특성으로 해석하지 않는다.
 
-- Development uses seeds `11, 29, 47, 71, 101`, 576 independent groups per seed and group-disjoint fit/calibration/evaluation splits.
-- Fresh final data uses protocol `phase5-stage4-fresh-synthetic-protocol-v3`, generation seed `90422`, a different state-generation recipe, 576 unique groups, then a fixed grouped fit/calibration/evaluation split. Protocol v1/v2 runs were preliminary and are not the final evidence: the v1 label construction was too directly coupled to its scenario branch, and v2 was replaced to freeze the complete candidate set before final scoring. V3 is the final frozen score; later CI reruns check deterministic reproducibility only and are not used to tune models or thresholds.
-- Final dataset SHA-256: `9cf6023aa69cfa69f96648bd399b248d8e06ebcfc735c8804980da35ad5fe2aa`.
-- Final evaluation SHA-256 is recorded in `phase5_stage4_final_evaluation.json` and the baseline contract.
-- Hash input rounds encoded features to eight decimal places before canonical JSON hashing, preventing insignificant floating-point serialization differences across local and CI dependency/platform builds. Labels and group IDs remain exact.
-- No generated label is sourced from a paper or lab record. All candidates remain shadow-only; none triggers a workflow.
+두 프로토콜의 독립 단위 테스트 및 전체 backend regression은 통과했다. GitHub Actions 결과는 변경사항 push 이후 갱신한다.
 
-## Findings by acceptance item
-
-| ID | Finding / outcome | Implementation and evidence | Status |
-|---|---|---|---|
-| P5-S4-001 | Per-class precision/recall, FP/FN, confusion matrix, NLL, Brier, ECE, high-confidence errors and raw-vs-safe action counts are emitted. | `backend/app/services/phase5_stage4.py`; diagnostics and comparison JSON | VERIFIED |
-| P5-S4-002 | Per-feature missingness/constant/unique/mean/std/train-evaluation shift/correlation and nine predeclared group ablations are measured. Full, core, core+missing-mask and V1 18-feature subsets are compared. | Feature ablations are fitted on development fit rows, calibrated on calibration rows; final set is not used for selection. | VERIFIED |
-| P5-S4-003 | Rule, V1, V2 and HistGradientBoosting are evaluated on the same grouped partitions; fit time, per-case latency, model size and parameters where applicable are recorded. | HistGradientBoosting is a diagnostic candidate only. | VERIFIED |
-| P5-S4-004 | Inverse-frequency weighted V2 and group-aware balanced sampling increase synthetic macro-F1 over plain V2, with accuracy tradeoffs. | Weights and sampling are derived only from fit labels. No duplicate experiment-group identity is split across partitions. | VERIFIED |
-| P5-S4-005 | A 32-unit Fusion layer was evaluated on identical splits; its mean macro-F1 (**0.116**) was below plain V2 (**0.326**). | Not selected as a default. | VERIFIED |
-| P5-S4-006 | The old RMS distance's `max(6, 1.25 × train q99)` floor is contrasted with calibration-derived detector thresholds; full ID and OOD score quantiles are included. Synthetic constructed shifts, rather than source-code inspection alone, determine results. | Diagnostics report the existing threshold, held-out ID FPR and constructed-shift detection for each seed. | VERIFIED |
-| P5-S4-007 | Standardized RMS, maximum deviation, numeric KNN, shrinkage Mahalanobis on the V2 embedding, and embedding KNN are compared. Eight synthetic shift patterns include extreme/mild, unseen combinations, missingness, categorical, contradictory, unsupported and provenance failures. | Thresholds derive from the separate ID calibration partition; per-shift rates, AUROC/AUPRC, fixed-ID-FPR TPR, FPR at 95% TPR and measured scoring latency are recorded. | VERIFIED |
-| P5-S4-008 | Temperature scaling is measured against uncalibrated probabilities. A calibration-only threshold maximizes coverage subject to a Wilson 95% upper risk bound at target 0.20 and at least 24 calibration cases. Risk-coverage curves, reliability metrics and scenario-family slices are emitted. | Insufficient calibration evidence returns no threshold; no safety claim follows from the experimental target. | VERIFIED |
-| P5-S4-009 | One fresh, recipe-versioned synthetic evaluation is group-independent from development and is never used for candidate or threshold selection. | Final counts, hashes, group overlap and candidate metrics are frozen in final JSON. | VERIFIED |
-| P5-S4-010 | The development-only rule selects the compact-enough score winner among candidates within 0.05 of best mean accuracy. | The selected diagnostic baseline is HistGradientBoosting. It is not activated; V1/V2 production shadow behavior remains unchanged. | VERIFIED |
-| P5-S4-011 | Phase 6 input/output, versioning, validity, calibration/OOD hooks and safe-action contract are specified without implementing a Transformer, Early Exit or conditional LM. | [`PHASE6_READINESS.md`](PHASE6_READINESS.md) | VERIFIED |
-| P5-S4-012 | Existing source isolation, frozen evaluation, V1/V2, safe action and shadow constraints are protected by full backend, frontend, E2E, migration and CI regressions. | Full backend, frontend, browser E2E, migration and final v3 benchmark passed locally/CI; v3 hash matches. | VERIFIED |
-
-## OOD result and limits
-
-The average across five seeds for the constructed mixture of shift probes was:
-
-| Detector | ID false-positive rate | Shift detection rate | AUROC | Mean scoring latency per case |
-|---|---:|---:|---:|---:|
-| Standardized RMS | 0.061 | 0.154 | 0.622 | <0.001 ms |
-| Maximum standardized deviation | 0.096 | 0.298 | 0.628 | <0.001 ms |
-| Numeric KNN | 0.054 | 0.220 | 0.643 | 0.004 ms |
-| Shrinkage Mahalanobis, V2 embedding | 0.075 | 0.729 | 0.889 | 0.003 ms |
-| Embedding KNN | 0.071 | 0.559 | 0.817 | 0.002 ms |
-
-Thresholds target 5% ID FPR on calibration data; measured evaluation FPR varies around that target on finite samples. The mixed probe distribution and synthetic feature representation materially determine these metrics. Detection is not the same as identifying a scientifically invalid state. The reported OOD abstention rate is explicitly **counterfactual** (the rate that would abstain if a detector flag were wired to ABSTAIN); the detectors are not connected to or modifying the safe-action policy. Scientific validity gates remain separate and authoritative.
-
-## Model selection and Phase 6 boundary
-
-The selection is a **benchmark reference**, not a production champion. Tree-based performance is not directly transferable to a Transformer-compatible decision head. No artifact is activated, no researcher review is bypassed, and no workflow execution is added. The report records the selection rule, schema, data/evaluation hashes, calibration and OOD policies, known failures and serialization boundary. The current model registry and V1/V2 activation policy remain unchanged.
-
-## Files
-
-- Service: `backend/app/services/phase5_stage4.py`
-- Reproduction command: `backend/scripts/benchmark_phase5_stage4.py`
-- Reports: `backend/reports/phase5_stage4_diagnostics.json`, `phase5_stage4_model_comparison.json`, `phase5_stage4_reliability.json`, `phase5_stage4_final_evaluation.json`
-- Tests: `backend/tests/test_phase5_stage4.py`; Stage 3 integrity tests remain in `backend/tests/test_phase5_stage3.py`
-- CI executes the benchmark after backend pytest.
-
-## Remaining limits
-
-1. No reviewed research/lab decision dataset exists in this validation path; real decision accuracy is unknown.
-2. Synthetic labels represent a software contract, not expert truth.
-3. Constructed OOD patterns do not cover deployment shift or arbitrary malformed input.
-4. The risk target is an experiment setting and is not a safety guarantee.
-5. The chosen tree baseline is not a Transformer Decision Head, and is not activated.
-6. Phase 6 implementation remains `NOT_STARTED`.
-
-## Local verification record — 2026-10-31
-
-- Backend full suite: **223 passed** locally; no skips. The previous protocol-v2 CI run reported 223 backend tests passed (deprecation warnings only); protocol-v3 CI verification is pending.
-- Focused Stage 3 and Stage 4 regressions: **15 passed** before the final hash regression was added; the final backend suite includes the added hash stability regression.
-- Stage 3 API cycle: V1 → frozen evaluation group → V2 with three excluded new cases → JSON DB round-trip → V2 retrain/artifact → V3; frozen hash/version and group isolation preserved.
-- Stage 4 benchmark: five seeds, 576 development examples per seed, 576 fresh final synthetic examples, final evaluation `115` examples. Protocol v3 is the frozen final report; the checked-in script also runs in CI for reproducibility.
-- Final dataset SHA-256: `9cf6023aa69cfa69f96648bd399b248d8e06ebcfc735c8804980da35ad5fe2aa`. Feature vectors are rounded to 8 decimal places for cross-platform hash stability; the evaluation SHA-256 is stored in the final report and selected baseline contract.
-- Frontend production build: passed locally and in CI (Vite 6.4.5; 1,760 modules). Browser E2E: **5 passed** locally and in CI. The multi-objective five-seed browser test receives a 240-second ceiling because a shared CI runner exceeded the former 90-second limit; its assertions remain enabled.
-- Migration regression: **1 passed**; no schema migration was required.
-- Final protocol-v3 CI [run 41210175232](https://github.com/alfred0105/lab-process-rag/actions/runs/41210175232) passed all three jobs. Backend reported **223 passed, 332 deprecation warnings**; frontend production build passed; browser E2E reported **5 passed**; CI benchmark reproduced dataset SHA-256 `9cf6023aa69cfa69f96648bd399b248d8e06ebcfc735c8804980da35ad5fe2aa`, exactly matching the checked-in report. The multi-objective E2E completed in 1.5 minutes under its 240-second ceiling; assertions remain enabled. The prior protocol-v2 run is historical and superseded.
-- Implementation commits: `9ad141e` (Stage 3 JSON closure and Stage 4), `107d73c` (cross-platform hash stability), `6382c8d` (CI E2E timeout allowance), `c5d6ef2` (frozen final v3 evaluation and reports). Deprecation warnings are non-failing; they include Python `datetime.utcnow()` use in existing code/tests and GitHub Actions' Node 20 transition notice.
+교차 공정 테스트(115 target test rows, 모두 합성): V1 zero-shot accuracy/Macro-F1 0.235/0.127, target-retrained 0.791/0.573; V2 0.261/0.154 대 0.774/0.547; class-weighted V2 0.461/0.414 대 0.643/0.559; HistGradientBoosting 0.539/0.432 대 0.878/0.731. 이는 새로운 합성 recipe 규칙 간 이전 격차를 보여줄 뿐 실제 실험 재현성·연구실 일반화 성능을 나타내지 않는다. Source/target group overlap은 0이고 source 모델 digest는 target 추론 전후 동일했다.

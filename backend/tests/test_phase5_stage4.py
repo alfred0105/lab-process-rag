@@ -4,6 +4,7 @@ import numpy as np
 from app.services.phase5_stage4 import (
     _make_fresh_final,
     _hash_feature_records,
+    _fpr_at_target_tpr,
     _metric_report,
     _ood_variant_matrix,
     _risk_coverage,
@@ -11,6 +12,36 @@ from app.services.phase5_stage4 import (
     _wilson_upper,
 )
 from app.services.scientific_state_v2 import ACTION_NAMES, FEATURE_SCHEMA, extract_features
+
+
+def test_fpr95_uses_ood_positive_roc_and_is_not_the_operating_threshold():
+    perfect = _fpr_at_target_tpr([0.1, 0.2, 0.3], [0.7, 0.8, 0.9])
+    assert perfect["value"] == 0.0
+    assert perfect["achieved_tpr"] == 1.0
+    reversed_scores = _fpr_at_target_tpr([0.7, 0.8, 0.9], [0.1, 0.2, 0.3])
+    assert reversed_scores["value"] == 1.0
+    overlap = _fpr_at_target_tpr([0.1, 0.4, 0.6, 0.9], [0.3, 0.5, 0.7, 0.8])
+    assert 0.0 <= overlap["value"] <= 1.0
+    assert overlap["achieved_tpr"] >= 0.95
+    tied = _fpr_at_target_tpr([0.5] * 4, [0.5] * 4)
+    assert tied["value"] == 1.0
+    assert tied["threshold"] == 0.5
+    invalid = _fpr_at_target_tpr([np.nan], [0.1])
+    assert invalid["status"] == "INSUFFICIENT_OR_INVALID_DATA"
+
+
+def test_fpr95_matches_sklearn_roc_reference_without_using_operating_threshold():
+    from sklearn.metrics import roc_curve
+
+    id_scores=np.array([0.1, 0.4, 0.6, 0.9])
+    ood_scores=np.array([0.3, 0.5, 0.7, 0.8])
+    labels=np.r_[np.zeros(len(id_scores),dtype=int),np.ones(len(ood_scores),dtype=int)]
+    fpr,tpr,_=roc_curve(labels,np.r_[id_scores,ood_scores],pos_label=1,drop_intermediate=False)
+    expected=float(np.min(fpr[tpr>=.95]))
+    got=_fpr_at_target_tpr(id_scores,ood_scores)
+    assert got["value"] == expected
+    assert got["operational_threshold_selection_uses_evaluation_data"] is False
+    assert got["status"] == "MEASURED_ON_EVALUATION_LABELS"
 
 
 def test_fresh_final_uses_state_derived_labels_and_independent_groups():

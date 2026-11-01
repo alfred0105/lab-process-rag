@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Experiment } from '../types';
-import { learnedDecisionApi } from '../api/client';
+import { hybridDecisionApi, learnedDecisionApi } from '../api/client';
 import { useLanguage } from '../language';
 
 const ACTIONS=['REQUEST_INFORMATION','ANALYZE','SIMULATE','OPTIMIZE','REQUEST_REVIEW','ABSTAIN'] as const;
@@ -18,6 +18,7 @@ export default function DecisionPanel({topicId,experiments}:{topicId:number;expe
   const [caseId,setCaseId]=useState<number>(0);const [datasetId,setDatasetId]=useState<number>(0);const [action,setAction]=useState<string>('');
   const [feedbackType,setFeedbackType]=useState<'ACCEPT'|'CORRECT'|'REJECT'|'UNSURE'>('ACCEPT');const [reviewer,setReviewer]=useState('');
   const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [notice,setNotice]=useState('');
+  const [hybridStatus,setHybridStatus]=useState<any>(null);const [hybridResult,setHybridResult]=useState<any>(null);const [hybridError,setHybridError]=useState('');const [hybridBusy,setHybridBusy]=useState(false);
   const t=(koText:string,enText:string)=>ko?koText:enText;
   const experimentsForTopic=useMemo(()=>experiments.filter(x=>!x.demo),[experiments]);
   const load=async()=>{
@@ -31,6 +32,7 @@ export default function DecisionPanel({topicId,experiments}:{topicId:number;expe
     }catch(e){setError(e instanceof Error?e.message:String(e))}
   };
   useEffect(()=>{void load()},[topicId,mode]);
+  useEffect(()=>{hybridDecisionApi.models().then(setHybridStatus).catch(e=>setHybridError(e instanceof Error?e.message:String(e)))},[]);
   useEffect(()=>{learnedDecisionApi.stage3Schema().then(setStage3Schema).catch(e=>setError(e instanceof Error?e.message:String(e)))},[]);
   useEffect(()=>{if(!experimentsForTopic.some(x=>x.id===experimentId)&&experimentsForTopic.length)setExperimentId(experimentsForTopic[0].id)},[experimentsForTopic,experimentId]);
   const run=async(task:()=>Promise<any>,message?:string)=>{
@@ -66,6 +68,7 @@ export default function DecisionPanel({topicId,experiments}:{topicId:number;expe
   const trainV2=()=>void run(async()=>{if(!stage3Dataset?.dataset_version_id)throw new Error(t('먼저 V2 데이터셋을 만드세요.','Build a V2 dataset first.'));const v=await learnedDecisionApi.stage3Retrain({dataset_version_id:stage3Dataset.dataset_version_id,seed:7,parent_model_id:null});setStage3Model(v);return v});
   const predictV2=()=>void run(async()=>{if(!stage3Model?.model_id)throw new Error(t('먼저 V2 모델을 학습하세요.','Train a V2 model first.'));const v=await learnedDecisionApi.stage3Predict(stage3Model.model_id,{topic_id:topicId,...(mode==='research'?{experiment_id:experimentId}:{case_id:caseId})});setStage3Prediction(v);return v});
   const benchmarkV2=()=>void run(async()=>{const v=await learnedDecisionApi.stage3Benchmark();setStage3Benchmark(v);return v},t('5개 고정 시드 벤치마크를 완료했습니다. 합성 소프트웨어 검증이며 실제 연구 성능이 아닙니다.','Five-seed benchmark completed. This is synthetic software validation, not real research performance.'));
+  const runHybrid=async(explain:boolean)=>{setHybridBusy(true);setHybridError('');try{const fn=explain?hybridDecisionApi.explain:hybridDecisionApi.infer;setHybridResult(await fn({topic_id:topicId,experiment_id:experimentId,user_request:explain?'실험 기록과 검증된 근거를 바탕으로 판단 이유와 부족한 정보를 설명해 주세요.':'이 기록에서 다음에 필요한 연구 작업을 선택해 주세요.'}))}catch(e){setHybridError(e instanceof Error?e.message:String(e))}finally{setHybridBusy(false)}};
   const metrics=model?.metrics;
   const selectedDataset=datasets.find(x=>x.dataset_version_id===datasetId);
   return <div className="decision-panel">
@@ -116,6 +119,12 @@ export default function DecisionPanel({topicId,experiments}:{topicId:number;expe
       <small>{t('승인·수정·거부·보류 이력은 누적됩니다. 정답이 명확한 승인·수정과 최종 행동을 고른 거부만 학습 레이블이 될 수 있습니다.','Feedback revisions are append-only. Accept/correct and reject-with-final-action can become labels; unsure and label-free rejection cannot.')}</small>
       {feedbackHistory.length>0&&<div className="decision-feedback-history"><b>{t('최근 피드백 이력','Recent feedback history')}</b>{feedbackHistory.slice(0,5).map((item:any)=><span key={item.feedback_id}>#{item.feedback_id} · {item.feedback_type} v{item.revision} · {item.reviewer_identity_status} · {new Date(item.created_at).toLocaleString(ko?'ko-KR':'en-US')}</span>)}</div>}
     </section>}
+
+    <section className="card phase6-hybrid-card"><div className="card-head"><div><div className="card-title">{t('공유 Transformer 판단 실험','Shared Transformer decision preview')}</div><div className="card-sub">{t('하나의 로컬 Qwen 백본에서 학습된 판단 헤드가 먼저 동작합니다. 설명은 요청할 때만 생성하며, 합성 학습 결과는 연구 판단 성능을 뜻하지 않습니다.','A learned decision head runs first on one local Qwen backbone. Text is generated only when requested; synthetic training does not establish research decision performance.')}</div></div><span className="history-tag">{hybridStatus?.decision_head_trained?'READY':'SETUP REQUIRED'}</span></div>
+      <div className="decision-baselines"><b>{hybridStatus?.model_id??'Qwen/Qwen3-0.6B'} · {hybridStatus?.revision?.slice(0,12)??'—'}</b><span>{t('체크포인트','Checkpoint')}: {hybridStatus?.checkpoint_downloaded?t('로컬 설치됨','downloaded locally'):t('없음','missing')} · {t('학습 헤드','Trained head')}: {hybridStatus?.decision_head_trained?t('준비됨','ready'):t('아직 없음','not trained')}</span></div>
+      <div className="decision-controls"><button className="button secondary" disabled={hybridBusy||!hybridStatus?.decision_head_trained||!experimentId} onClick={()=>void runHybrid(false)}>{hybridBusy?t('실행 중…','Running…'):t('실험 기록으로 판단','Decide from experiment')}</button><button className="button secondary" disabled={hybridBusy||!hybridStatus?.decision_head_trained||!experimentId} onClick={()=>void runHybrid(true)}>{t('판단과 설명 생성','Decide and explain')}</button></div>
+      {hybridError&&<p className="error">{hybridError}</p>}{hybridResult&&<><div className="decision-result-summary"><article><small>{t('안전 게이트 적용 결과','Final safe action')}</small><b>{ko?ACTION_KO[hybridResult.final_safe_action]??hybridResult.final_safe_action:hybridResult.final_safe_action}</b><span>{hybridResult.ood_status} · {hybridResult.calibration_status}</span></article><article><small>{t('실행 경로','Execution trace')}</small><b>{hybridResult.executed_layers}/{hybridResult.backbone?.layer_count??'—'} {t('레이어','layers')}</b><span>{Number(hybridResult.decision_latency_ms).toFixed(1)} ms · {hybridResult.generated_token_count} tokens</span></article></div>{hybridResult.generated_text&&<p className="decision-result">{hybridResult.generated_text}</p>}<small>{t('그림자 추천 전용이며 과정·도구·장비를 실행하지 않습니다.','Shadow recommendation only; no process, tool or instrument is executed.')}</small></>}
+    </section>
 
     {datasets.length>0&&<section className="card"><div className="card-head"><div><div className="card-title">{t('Champion · Challenger 검토','Champion · Challenger review')}</div><div className="card-sub">{t('동일한 고정 평가 데이터만 사용합니다. 모드가 다른 모델은 비교하거나 승격할 수 없습니다.','Uses the same frozen evaluation set. Models from different modes cannot be compared or promoted together.')}</div></div></div>
       <div className="decision-readiness"><article><small>{t('현재 Shadow 모델','Active shadow model')}</small><b>{active?.model?.model_version??t('아직 없음','None')}</b><span>{active?.model?.model_id?`${active.model.model_id} · ${active.model.dataset_version}`:t('최초 모델은 평가 후 명시적으로 선택','First model requires explicit selection')}</span></article><article><small>{t('후보 모델','Challenger')}</small><b>{model?.model_version??'—'}</b><span>{model?.dataset_version??'—'}</span></article><article><small>{t('마지막 비교','Latest comparison')}</small><b>{comparison?.status??'—'}</b><span>{comparison?.reason??'—'}</span></article></div>
