@@ -6,7 +6,7 @@ import { useLanguage } from '../language';
 import type { ResearchTopic } from '../types';
 export { TopicHome } from './MethodWorkspaceArchive';
 
-type Props = { topic: ResearchTopic; onChanged: () => void; startRun?: boolean; onRunStarted?: () => void; startCreate?: boolean; onCreateStarted?: () => void };
+type Props = { topic: ResearchTopic; onChanged: () => void; startRun?: boolean; onRunStarted?: () => void; startCreate?: boolean; onCreateStarted?: () => void; activeExperimentId?: number };
 
 export default function MethodWorkspace(props: Props) {
   const { topic, onChanged, startRun = false, onRunStarted, startCreate = false, onCreateStarted } = props;
@@ -27,5 +27,5 @@ export default function MethodWorkspace(props: Props) {
     <MethodWorkspaceArchive topic={topic} onChanged={onChanged} startRun={startRun || launchRun} onRunStarted={() => { setLaunchRun(false); onRunStarted?.(); }} startCreate={startCreate || launchCreate} onCreateStarted={() => { setLaunchCreate(false); onCreateStarted?.(); }}/>
   </div>;
 
-  return <ProcessTimeline topic={topic} onArchive={() => setShowArchive(true)} onChanged={onChanged}/>;
+  return <ProcessTimeline topic={topic} onArchive={() => setShowArchive(true)} onChanged={onChanged} activeExperimentId={props.activeExperimentId}/>;
 }

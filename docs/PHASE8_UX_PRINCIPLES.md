@@ -1,6 +1,6 @@
 # Phase 8 — Unified Laboratory UX & Productization
 
-**Status:** `NOT_STARTED` (registered; design principles fixed)
+**Status:** `PHASE_8_CORE_IMPLEMENTED` · `PHASE_8_CORE_SMOKE_TESTED` (core workspace; see [`PHASE8_CORE_IMPLEMENTATION.md`](PHASE8_CORE_IMPLEMENTATION.md))
 **Official name:** Phase 8 — Unified Laboratory UX & Productization
 
 ## Goal

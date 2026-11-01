@@ -4,6 +4,15 @@
 **저장소:** [alfred0105/lab-process-rag](https://github.com/alfred0105/lab-process-rag)
 **검토 기준:** `main` at `86b8d84df7fbc748dffbfc2570ee7d6d068038f8` before Phase 5 Stage 2. Earlier entries preserve their historical commit references; the current Phase 4/5 state is recorded in the closure sections below.
 
+## Latest official status — Phase 7 core closure / Phase 8 core / Phase 9 registration (2026-11-01)
+
+Current development register is based on `main` after Phase 7 final integration (`7987488070c450afe0e39ac92f4d0df645aa8d0f`) and the Phase 8 workspace implementation commit when recorded. Historical status snapshots below are retained as history and do not override this newest register.
+
+- **Phase 7:** `PHASE_7_CORE_IMPLEMENTED` and `PHASE_7_CORE_SMOKE_TESTED`. This means the persistent Campaign core and software integration flow passed. It does **not** mean scientific validity or external laboratory validation. Research-qualified JEV, richer Campaign scientific state, dynamic PHREEQC, and other extensions are linked to Phase 9. Details: [`PHASE7_CORE_IMPLEMENTATION.md`](PHASE7_CORE_IMPLEMENTATION.md).
+- **Phase 8:** `PHASE_8_CORE_IMPLEMENTED`, `PHASE_8_CORE_SMOKE_TESTED`, `PHASE_8_EXTENSION_DEFERRED_TO_PHASE_9`. The experiment-first workspace links process, analysis, decision, optimization, and Campaign views using the active topic and experiment context. Formal WCAG/user studies, performance at scale, and authentication remain incomplete. Details: [`PHASE8_CORE_IMPLEMENTATION.md`](PHASE8_CORE_IMPLEMENTATION.md), [`PHASE8_UX_PRINCIPLES.md`](PHASE8_UX_PRINCIPLES.md).
+- **Phase 9:** `REGISTERED_NOT_STARTED`. The master backlog and scope are [`PHASE9_MASTER_BACKLOG.md`](PHASE9_MASTER_BACKLOG.md) and [`PHASE9_SCOPE.md`](PHASE9_SCOPE.md). No Phase 9 feature development is claimed in this registration.
+- **External scientific validation:** `EXTERNAL_VALIDATION_PENDING`; unavailability of reviewed research data must never be reported as a passed validation.
+
 ## Current register — Phase 5 Stage 4 closure (2026-10-31)
 
 Phase 5 remains `IN_PROGRESS` because reviewed laboratory decision validity is unverified. Stage 3 remains `PHASE_5_STAGE_3_IMPLEMENTED`; its final JSON canonicalization and V1→V2→retrain→V3 regressions are verified. Stage 4 is `PHASE_5_STAGE_4_VERIFIED` for software acceptance: the FPR@95%TPR definition is corrected and a separate zero-shot transfer protocol is added. Phase 6 remains `IN_PROGRESS`. The 2026-11-01 closure work enforces loopback-only local Research access (multi-user mode fails closed), schema-constrained Qwen explanation generation, and group-disjoint head/calibration/controller/evaluation diagnostics. Four of five generated fixture outputs passed structured validation; malicious conflicting-action text was rejected. A PABEE policy met the 0.20 synthetic-only risk certificate, but generated labels cannot authorize Research routing and no adaptive runtime skip was measured; production therefore still runs full depth. No authenticated user identity or reviewed research labels exist. See [`PHASE6_CORE_COMPLETION.md`](PHASE6_CORE_COMPLETION.md). Synthetic metrics are not research accuracy and no diagnostic model is promoted.
@@ -77,8 +86,9 @@ Phase 3 remains `CORE_COMPLETE`, Phase 4 remains `CORE_COMPLETE`, Phase 5 remain
 | Phase 4 — Gaussian Process & Bayesian Optimization | 승인된 실험 관측 계약, 단일·다목적 GP/BO 핵심, 노이즈·제약·Pareto 및 후보 검토 | `PHASE_4_CORE_COMPLETE`; 확장 backlog와 실제 연구 외부 검증은 별도 문서. 실제 성능 주장 금지 |
 | Phase 5 — Learned JEV Decision Head | 버전된 ScientificState→Feature Contract, 검토 라벨, 학습 head, calibration/OOD/abstention, rule baseline, shadow mode, 피드백·데이터·모델 버전관리 | `IN_PROGRESS`; Stage 1 [`PHASE5_STAGE1.md`](PHASE5_STAGE1.md), Stage 2 [`PHASE5_STAGE2.md`](PHASE5_STAGE2.md), Stage 3 [`PHASE5_STAGE3.md`](PHASE5_STAGE3.md) |
 | Phase 6 — Shared Transformer / Early Exit / Conditional LM | 공유 백본 및 decision/LM head, hidden state reuse, confidence gating, conditional generation, layerwise early exit, KV·quantization·memory, MLX/Ollama 비교, M5 24GB latency/열·전력 측정 | `IN_PROGRESS`; actual local checkpoint and shadow API present. Transformer computation reduction and scientific decision quality remain unverified |
-| Phase 7 — Autonomous Experiment Optimization Loop | 데이터→ScientificState→DecisionPolicy→tool/simulation→검증→BO→후보→사람 검토→실험 결과·학습 갱신 | 단일 Campaign core 구현·검증 진행 중; 훈련된 JEV 연결 및 실제 연구 검증은 미완료 |
-| Phase 8 — Unified Laboratory UX & Productization | 하나의 연구자 인터페이스에서 실험→측정→분석→추천 흐름, progressive disclosure, 접근성·성능·복구 | `NOT_STARTED`; 설계 원칙은 [`PHASE8_UX_PRINCIPLES.md`](PHASE8_UX_PRINCIPLES.md)
+| Phase 7 — Autonomous Experiment Optimization Loop | 데이터→ScientificState→DecisionPolicy→tool/simulation→검증→BO→후보→사람 검토→실험 결과·학습 갱신 | `PHASE_7_CORE_IMPLEMENTED` + `PHASE_7_CORE_SMOKE_TESTED`; 외부 과학 검증 및 확장은 Phase 9 |
+| Phase 8 — Unified Laboratory UX & Productization | 하나의 연구자 인터페이스에서 실험→측정→분석→추천 흐름, progressive disclosure, 접근성·성능·복구 | `PHASE_8_CORE_IMPLEMENTED` + `PHASE_8_CORE_SMOKE_TESTED`; 확장은 Phase 9 |
+| Phase 9 — System Integration, Advanced Optimization & Scientific Validation | 이전 단계의 확장·통합·최적화·실증·제품 안정화 | `REGISTERED_NOT_STARTED`; [`PHASE9_SCOPE.md`](PHASE9_SCOPE.md) · [`PHASE9_MASTER_BACKLOG.md`](PHASE9_MASTER_BACKLOG.md) |
 
 ### 이전 Phase 표기의 이관
 

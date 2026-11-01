@@ -11,11 +11,11 @@ const unitChoices=(unit:string)=>{
   return equivalents[unit]??[unit];
 };
 
-export default function OptimizationPanel({topic}:{topic:ResearchTopic}){
+export default function OptimizationPanel({topic,initialMethodVersionId}:{topic:ResearchTopic;initialMethodVersionId?:number}){
   const {t}=useLanguage();
-  const [mode,setMode]=useState<'sandbox'|'research'>('sandbox');
+  const [mode,setMode]=useState<'sandbox'|'research'>(initialMethodVersionId?'research':'sandbox');
   const [sandboxKind,setSandboxKind]=useState<'branin'|'noisy'|'constrained'>('branin');
-  const [methodVersionId,setMethodVersionId]=useState<number>(topic.methods?.[0]?.versions?.[0]?.id??0);
+  const [methodVersionId,setMethodVersionId]=useState<number>(initialMethodVersionId??topic.methods?.[0]?.versions?.[0]?.id??0);
   const [options,setOptions]=useState<OptimizationDatasetOptions|null>(null);
   const [featureIds,setFeatureIds]=useState<string[]>([]);
   const [targetId,setTargetId]=useState('');
@@ -42,8 +42,9 @@ export default function OptimizationPanel({topic}:{topic:ResearchTopic}){
   const versions=useMemo(()=>topic.methods?.flatMap(method=>method.versions.map(version=>({id:version.id,label:`${method.name} · v${version.version_label??version.version_number}`})))??[],[topic]);
 
   useEffect(()=>{
-    setMethodVersionId(topic.methods?.[0]?.versions?.[0]?.id??0);setOptions(null);setModel(null);setCandidates([]);setDatasetSummary(null);
-  },[topic.id,topic.methods]);
+    setMethodVersionId(initialMethodVersionId??topic.methods?.[0]?.versions?.[0]?.id??0);setOptions(null);setModel(null);setCandidates([]);setDatasetSummary(null);
+    if(initialMethodVersionId)setMode('research');
+  },[topic.id,initialMethodVersionId]);
   useEffect(()=>{
     if(mode!=='research'||!topic.id||!methodVersionId){setOptions(null);return}
     let active=true;

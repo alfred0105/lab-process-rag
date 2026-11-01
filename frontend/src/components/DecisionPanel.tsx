@@ -8,12 +8,12 @@ const ACTION_KO:Record<string,string>={REQUEST_INFORMATION:'추가 정보 요청
 const FEEDBACK_KO:Record<string,string>={ACCEPT:'추천 승인',CORRECT:'다른 행동으로 수정',REJECT:'추천 거부',UNSURE:'판단 보류'};
 type Mode='sandbox'|'research';
 
-export default function DecisionPanel({topicId,experiments}:{topicId:number;experiments:Experiment[]}){
+export default function DecisionPanel({topicId,experiments,initialExperimentId}:{topicId:number;experiments:Experiment[];initialExperimentId?:number}){
   const {language}=useLanguage();const ko=language==='ko';
   const [mode,setMode]=useState<Mode>('sandbox');
   const [readiness,setReadiness]=useState<any>(null);const [cases,setCases]=useState<any[]>([]);const [datasets,setDatasets]=useState<any[]>([]);const [feedbackHistory,setFeedbackHistory]=useState<any[]>([]);
   const [active,setActive]=useState<any>(null);const [model,setModel]=useState<any>(null);const [comparison,setComparison]=useState<any>(null);
-  const [result,setResult]=useState<any>(null);const [experimentId,setExperimentId]=useState<number>(experiments.find(x=>!x.demo)?.id??0);
+  const [result,setResult]=useState<any>(null);const [experimentId,setExperimentId]=useState<number>(initialExperimentId??experiments.find(x=>!x.demo)?.id??0);
   const [stage3Schema,setStage3Schema]=useState<any>(null);const [stage3Features,setStage3Features]=useState<any>(null);const [stage3Benchmark,setStage3Benchmark]=useState<any>(null);const [stage3Dataset,setStage3Dataset]=useState<any>(null);const [stage3Model,setStage3Model]=useState<any>(null);const [stage3Prediction,setStage3Prediction]=useState<any>(null);
   const [caseId,setCaseId]=useState<number>(0);const [datasetId,setDatasetId]=useState<number>(0);const [action,setAction]=useState<string>('');
   const [feedbackType,setFeedbackType]=useState<'ACCEPT'|'CORRECT'|'REJECT'|'UNSURE'>('ACCEPT');const [reviewer,setReviewer]=useState('');

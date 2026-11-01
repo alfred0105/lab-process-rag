@@ -7,7 +7,7 @@ import type { StageExperiment } from '../types';
 type BranchDraft={methodId:number;methodName:string;methodDescription:string;version:MethodVersion;branchPointIndex:number;processMap:MethodVersion['process_map'];conditionDefinitions:MethodCondition[]};
 const BRANCH_UNIT_OPTIONS=['s','min','h','day','cycles','°C','K','°F','%','µg','mg','g','kg','µL','mL','L','µmol','mmol','mol','µM','mM','M','rpm','Pa','kPa','bar','atm','V','mV','A','mA','W','mW','nm','µm','mm','cm','pH'];
 
-export default function ProcessTimeline({ topic, onArchive, onChanged }: { topic: ResearchTopic; onArchive: () => void; onChanged: () => void }) {
+export default function ProcessTimeline({ topic, onArchive, onChanged, activeExperimentId }: { topic: ResearchTopic; onArchive: () => void; onChanged: () => void; activeExperimentId?: number }) {
   const { t, language } = useLanguage();
   const [runs, setRuns] = useState<Experiment[]>([]);
   const [analysisRuns, setAnalysisRuns] = useState<AnalysisRun[]>([]);
@@ -58,10 +58,11 @@ export default function ProcessTimeline({ topic, onArchive, onChanged }: { topic
       const [items, measurements] = await Promise.all([api.experiments(topic.id), api.analysisRuns(topic.id)]);
       setRuns(items);
       setAnalysisRuns(measurements);
-      setSelectedId((current) => items.some((run) => run.id === current) ? current : null);
+      setSelectedId((current) => activeExperimentId && items.some((run) => run.id === activeExperimentId) ? activeExperimentId : items.some((run) => run.id === current) ? current : null);
     } catch (cause) { setError(String(cause)); }
   };
   useEffect(() => { void reload(); }, [topic.id]);
+  useEffect(() => { if (activeExperimentId && runs.some((run) => run.id === activeExperimentId)) setSelectedId(activeExperimentId); }, [activeExperimentId, runs]);
   const orderedSteps = useMemo(() => [...(selected?.steps ?? [])].sort((a, b) => a.order_index - b.order_index), [selected]);
   const runDuration = (minutes?: number | null) => {
     if (minutes == null) return t('Duration not recorded');

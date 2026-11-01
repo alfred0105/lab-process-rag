@@ -152,7 +152,7 @@ function historicalGuidanceFor(base:Experiment,pool:Experiment[]):HistoricalGuid
   return {sampleSize:terminal.length,successes,failures,excludedOutcomes:sameMethod.length-terminal.length,successRate:terminal.length?successes/terminal.length*100:null,interval:terminal.length?wilsonInterval(successes,terminal.length):null,reference,processVariantCount:processVariants.length,processVariantExamples:processVariants.slice(0,3).map(item=>`${item.code} · ${item.name}`),changedConditions};
 }
 
-export default function AnalysisPanel({ experiments, topicId, onExperimentCreated, onOpenMethods }: { experiments: Experiment[]; topicId: number; onExperimentCreated?: () => void; onOpenMethods?: () => void }) {
+export default function AnalysisPanel({ experiments, topicId, initialExperimentId, onExperimentCreated, onOpenMethods }: { experiments: Experiment[]; topicId: number; initialExperimentId?: number; onExperimentCreated?: () => void; onOpenMethods?: () => void }) {
   const { t, language } = useLanguage();
   const [tools, setTools] = useState<AnalysisTools | null>(null);
   const [toolRecommendations,setToolRecommendations]=useState<ToolRecommendationResult|null>(null);
@@ -164,7 +164,7 @@ export default function AnalysisPanel({ experiments, topicId, onExperimentCreate
   const [runs, setRuns] = useState<AnalysisRun[]>([]);
   const [simulationRuns, setSimulationRuns] = useState<TopicSimulationRun[]>([]);
   const [integratedHistory, setIntegratedHistory] = useState<IntegratedAnalysisHistory[]>([]);
-  const [experimentId, setExperimentId] = useState('');
+  const [experimentId, setExperimentId] = useState(initialExperimentId ? String(initialExperimentId) : '');
   const [error, setError] = useState('');
   const [result, setResult] = useState<AnalysisRun | null>(null);
   const [goal, setGoal] = useState(() => language === 'ko' ? '이 연구 주제의 모든 실험 기록과 분석 완료 측정을 종합해줘. 같은 공정 안의 조건 차이와 공정 버전 간 차이를 구분하고, 확인된 관찰·논문 근거·불확실성·추가로 필요한 측정을 정리해줘. 근거 없이 원인이나 다음 조건을 단정하지 마.' : 'Synthesize all experiment records and completed measurements in this research topic. Separate condition changes within the same process from differences between process versions, and summarize observations, paper evidence, uncertainty, and additional measurements needed. Do not assert causes or next settings without evidence.');
