@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Upload
 from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import Session, selectinload
 from app.db.database import DATA_ROOT, ROOT, SessionLocal, get_db
-from app.db.models import Experiment, ExperimentMaterial, ExperimentMethod, MethodVersion, ResearchTopic, ResearchMaterial, Paper, EvidenceChunk, PaperSummary, ProcessStep, ProcessVariable, ExperimentResult, FailureObservation, ExperimentEnvironmentRecord, ProcessStepLog, ExperimentAttachment, ProcessStageExperiment, AssistantInteraction, MaterialAnalysisRun, IntegratedAnalysisSession, SimulationRun, ScientificObservation, MeasurementReviewEvent
+from app.db.models import Experiment, ExperimentMaterial, ExperimentMethod, MethodVersion, ResearchTopic, ResearchMaterial, Paper, EvidenceChunk, PaperSummary, PaperStructuredAnalysis, ProcessStep, ProcessVariable, ExperimentResult, FailureObservation, ExperimentEnvironmentRecord, ProcessStepLog, ExperimentAttachment, ProcessStageExperiment, AssistantInteraction, MaterialAnalysisRun, IntegratedAnalysisSession, SimulationRun, ScientificObservation, MeasurementReviewEvent
 from app.schemas.core import AssistantAsk, SimulationInputReviewRequest, ProcessVariableUpdate, ExperimentMaterialIn, AnalysisExplanation, IntegratedAnalysisRequest, IntegratedAnalysisClaim, DecisionBrief, DecisionOption, DecisionChoiceRequest, MeasurementReviewRequest, Claim, EvidenceStatus, ExperimentIn, ResearchTopicIn, ResearchMaterialIn, MethodIn, DesignRequest, ProcessChange, StepLogIn, StageExperimentIn, PHEstimateRequest, AqueousEquilibriumRequest, AqueousSweepRequest, StirredReactionPathRequest, ToolExecutionRequest, OpenFOAMRunRequest
 from app.services.ingestion.pdf import MAX_PDF_SIZE_BYTES, ingest_pdf
 from app.services.ingestion.paper_metadata import extract_paper_metadata, normalize_doi
@@ -35,6 +35,7 @@ from app.services.simulation.spin_coating import estimate_spin_coated_film
 from app.services.simulation.film_postprocess import solvent_catalog, simulate_film_drying, simulate_thermal_cycle
 from app.services.simulation.coating_prefill import apply_gemma_coating_map, make_gemma_mapping_record
 from app.services.llm import AISettings, LLMUnavailable, configured_provider, inference_semaphore
+from app.services.paper_analysis.structured import select_evidence, validate_analysis
 from app.services.material_analysis.service import AnalysisInputError, sha256 as sha256_bytes, convert_xrd_result_axis
 from app.services.artifacts import artifact_manifest, read_verified_artifact
 from app.services.tool_adapters import MaterialAnalysisAdapter, PHREEQCAdapter
@@ -1469,6 +1470,62 @@ def paper_summary(paper_id:int,db:Session=Depends(get_db)):
     if not summary: raise HTTPException(404,"Paper summary not found")
     sources=db.query(EvidenceChunk).filter(EvidenceChunk.id.in_(summary.source_chunk_ids)).order_by(EvidenceChunk.page,EvidenceChunk.chunk_index).all()
     return {"paper_id":paper.id,"title":paper.title,"summary":summary.summary,"topics":summary.topics,"method":summary.method,"source_pages":sorted({chunk.page for chunk in sources}),"evidence_ids":[chunk.id for chunk in sources]}
+
+def _serialize_structured_analysis(db:Session, paper:Paper, saved:PaperStructuredAnalysis):
+    ids={int(value) for value in (saved.used_evidence_ids or []) if str(value).isdigit()}
+    chunks=db.query(EvidenceChunk).filter(EvidenceChunk.paper_id==paper.id,EvidenceChunk.id.in_(ids)).order_by(EvidenceChunk.page,EvidenceChunk.chunk_index).all() if ids else []
+    return {"status":"completed","paper_id":paper.id,"title":paper.title,"analysis":saved.analysis_json,
+            "analysis_version":saved.analysis_version,"provider":saved.provider,"model":saved.model,
+            "generated_at":saved.created_at.isoformat()+"Z",
+            "sources":[{"evidence_id":chunk.id,"page":chunk.page,"section":chunk.section} for chunk in chunks]}
+
+@router.get("/papers/{paper_id}/structured-analysis")
+def get_structured_paper_analysis(paper_id:int,topic_id:int,db:Session=Depends(get_db)):
+    paper=db.get(Paper,paper_id)
+    if not paper or paper.topic_id!=topic_id: raise HTTPException(404,"Paper not found in this research topic")
+    saved=db.query(PaperStructuredAnalysis).filter_by(paper_id=paper.id).first()
+    return _serialize_structured_analysis(db,paper,saved) if saved else {"status":"not_generated","paper_id":paper.id,"analysis":None,"sources":[]}
+
+@router.post("/papers/{paper_id}/structured-analysis")
+def create_structured_paper_analysis(paper_id:int,topic_id:int, payload:dict|None=None,db:Session=Depends(get_db)):
+    paper=db.get(Paper,paper_id)
+    if not paper or paper.topic_id!=topic_id: raise HTTPException(404,"Paper not found in this research topic")
+    saved=db.query(PaperStructuredAnalysis).filter_by(paper_id=paper.id).first()
+    if saved and not bool((payload or {}).get("reanalyze")):
+        return _serialize_structured_analysis(db,paper,saved)
+    settings=AISettings.from_environment()
+    try: provider=configured_provider(settings)
+    except ValueError as exc: raise HTTPException(503,str(exc)) from exc
+    if provider is None: raise HTTPException(503,"Local Gemma is unavailable. Enable the configured Ollama model to analyze this paper.")
+    excerpts=select_evidence(db,paper,retrieval,maximum=16)
+    if not excerpts: raise HTTPException(422,"This paper has no indexed text excerpts to analyze.")
+    per_excerpt_chars=max(250,min(1000,(settings.context_tokens*2)//max(1,len(excerpts))))
+    context=[{"evidence_id":item.id,"page":item.page,"section":item.section,"text":item.text[:per_excerpt_chars]} for item in excerpts]
+    semaphore=inference_semaphore()
+    if not semaphore.acquire(timeout=30): raise HTTPException(503,"Another local AI request is running. Try again shortly.")
+    try:
+        raw=provider.analyze_paper_structure(paper.title,context)
+    except LLMUnavailable as exc:
+        raise HTTPException(502,str(exc)) from exc
+    finally:
+        semaphore.release()
+    try: analysis=validate_analysis(raw,{item.id for item in excerpts})
+    except ValueError as exc: raise HTTPException(502,f"Structured analysis failed evidence validation: {exc}") from exc
+    ids=sorted({evidence_id for items in analysis.values() if isinstance(items,list) for item in items if isinstance(item,dict) for evidence_id in item.get("evidence_ids",[])})
+    # Commit only a fully validated new result; a failed reanalysis leaves the previous result intact.
+    if saved:
+        saved.analysis_json=analysis; saved.provider=settings.provider; saved.model=settings.ollama_model
+        saved.used_evidence_ids=ids; saved.analysis_status="COMPLETED"; saved.created_at=datetime.utcnow()
+    else:
+        saved=PaperStructuredAnalysis(paper_id=paper.id,analysis_version="1",analysis_json=analysis,provider=settings.provider,
+            model=settings.ollama_model,used_evidence_ids=ids,analysis_status="COMPLETED")
+        db.add(saved)
+    try:
+        db.commit(); db.refresh(saved)
+    except Exception:
+        db.rollback(); raise HTTPException(409,"Could not save structured paper analysis.")
+    return _serialize_structured_analysis(db,paper,saved)
+
 @router.get("/papers/{paper_id}/evidence")
 def paper_evidence(paper_id:int,topic_id:int|None=None,db:Session=Depends(get_db)):
     paper=db.get(Paper,paper_id)

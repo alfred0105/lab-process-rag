@@ -41,6 +41,19 @@ class PaperSummary(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     paper: Mapped[Paper] = relationship()
 
+class PaperStructuredAnalysis(Base):
+    __tablename__ = "paper_structured_analyses"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    paper_id: Mapped[int] = mapped_column(ForeignKey("papers.id", ondelete="CASCADE"), unique=True, index=True)
+    analysis_version: Mapped[str] = mapped_column(String(40), default="1")
+    analysis_json: Mapped[dict] = mapped_column(JSON)
+    provider: Mapped[str] = mapped_column(String(80))
+    model: Mapped[str] = mapped_column(String(200))
+    used_evidence_ids: Mapped[list] = mapped_column(JSON, default=list)
+    analysis_status: Mapped[str] = mapped_column(String(30), default="COMPLETED")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    paper: Mapped[Paper] = relationship()
+
 class Experiment(Base):
     __tablename__ = "experiments"
     id: Mapped[int] = mapped_column(primary_key=True)
