@@ -1,7 +1,7 @@
 # Phase 8 Dark Scientific Workstation Redesign
 
 Date: 2026-11-02
-Status: `IMPLEMENTED`; the focused local browser checks and production build passed.
+Status: `IMPLEMENTED`; the focused local browser checks and production build passed. The UI consolidation follow-up is recorded below.
 This is an additive UI redesign. The prior Phase 8 core status remains unchanged.
 
 ## Implemented
@@ -47,4 +47,15 @@ This is an additive UI redesign. The prior Phase 8 core status remains unchanged
 - Measurement comparison remains in the existing Analysis panel; this canvas only indicates step/run linkage and does not fabricate XRD overlays or microscopy metrics.
 - Method editing continues to use the existing `MethodWorkspace`/`ProcessTimeline` editor. This UI does not add arbitrary directed graph editing or merge operations.
 - Formal WCAG contrast/screen-reader audit, broad viewport review, usability study, and real Research data scientific validation remain open.
-- No commit or push was made.
+- Base implementation commit: `becb2d6fe4051342e2d7ec74b71ba4adba0123a1` (pushed to `main`). The cleanup follow-up described below is local and uncommitted.
+
+## UI consolidation follow-up — 2026-11-02
+
+- Removed the nested `workstation-nav`; the App sidebar is the only module navigation. Analysis, Decision, Optimization, and Campaign each have one rendered owner.
+- Removed the canvas-embedded MethodWorkspace editor. The process edit action now opens the existing Methods & Runs editor with the selected Method and Version, and opens the version editor directly. No process timeline is inserted below the canvas.
+- Removed the duplicate Overview ProcessGraph and its run-trend chart, which previously combined runs from different methods. Overview now summarizes research counts, the existing workflow explanation, recent runs, and failure review.
+- Removed the duplicated Run A selector. The top context selection is the active Run; comparison is opt-in and reveals only Run B selection. Run context is handed to Analysis, Decision, Campaign, and Optimization when navigating away.
+- Removed unused horizontal navigation and workstation-internal-menu styles, expanded the canvas/Inspector layout, and raised key node and Inspector text sizes. The legacy method editor receives dark surface and text styling when opened as its own page.
+- Updated E2E navigation selectors and added assertions for a single sidebar, no nested menu, server comparison results, and direct Method/Version editor entry.
+- Latest local verification: `cd frontend && npm run build` passed; focused Playwright scenarios for workstation navigation, saved conditions/API comparison/editor entry, and the Phase 6 Decision route passed (**3 passed**).
+- Not run in this follow-up: the full E2E suite, formal WCAG audit, or broad device/viewport matrix. No database, backend API, research records, or approval rules changed.

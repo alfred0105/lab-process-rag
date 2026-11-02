@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 test('Phase 6 shared-transformer panel reads checkpoint status without enabling execution', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: /Playwright isolated synthetic topic/ }).click();
-  await page.locator('.app-nav-item').filter({ hasText: /Decision|Next-step decision|다음 단계 판단/ }).click();
+  await page.locator('.app-nav-item').filter({ hasText: 'AI 판단' }).click();
   await expect(page.getByText('공유 Transformer 판단 실험')).toBeVisible();
   await expect(page.getByText(/체크포인트/)).toBeVisible();
   const models = await page.request.get('/api/decisions/hybrid/models');

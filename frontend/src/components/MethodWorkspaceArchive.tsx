@@ -7,7 +7,7 @@ import { techniqueCategories, techniqueTemplates, type TechniqueTemplate } from 
 import type { AnalysisTools, Experiment, ExperimentMethod, MethodCondition, MethodMaterial, MethodVersion, ResearchTopic, SavedMaterial, PHEstimateDraft, PHEstimateResult } from '../types';
 
 type AnalysisRequestDraft={file:File;modality:string;toolId:string;resultKey:string;stepIndex:number|null};
-type Props = { topic: ResearchTopic; onChanged: () => void; startRun?: boolean; onRunStarted?: () => void; startCreate?: boolean; onCreateStarted?: () => void };
+type Props = { topic: ResearchTopic; onChanged: () => void; startRun?: boolean; onRunStarted?: () => void; startCreate?: boolean; onCreateStarted?: () => void; initialMethodId?: number; initialVersionId?: number; openEditor?: boolean; onEditorOpened?: () => void };
 const localDate = () => { const today=new Date(); return `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`; };
 const materialUnits=['µg','mg','g','kg','µL','mL','L','µmol','mmol','mol','µM','mM','M','%','pieces'];
 const quantityUnits:Record<string,{base:string;factor:number}>={µg:{base:'g',factor:1e-6},ug:{base:'g',factor:1e-6},mg:{base:'g',factor:1e-3},g:{base:'g',factor:1},kg:{base:'g',factor:1e3},'µL':{base:'mL',factor:1e-3},'μL':{base:'mL',factor:1e-3},uL:{base:'mL',factor:1e-3},mL:{base:'mL',factor:1},L:{base:'mL',factor:1e3}};
@@ -99,11 +99,11 @@ export function TopicHome({ topics, onSelect, onCreate }: { topics: ResearchTopi
   return <main className="topic-home"><div className="topic-home-brand"><span>⚗</span><div><b>Lab Process RAG</b><small>{t('Research spaces')}</small></div><div className="topic-home-language">{t('Choose a research topic to open its methods, runs, and papers.')}</div><button type="button" className="language-toggle" aria-label={t('Language')} onClick={()=>setLanguage(language==='ko'?'en':'ko')}>{language==='ko'?'한국어 · EN':'KO · English'}</button></div><div className="topic-home-body"><div className="eyebrow">LAB PROCESS · WORKSPACES</div><h1>{t('Choose a research topic')}</h1><p>{t('Each topic keeps its methods, experiment records, and evidence organized together.')}</p><div className="topic-cards">{topics.map((topic) => <button className="topic-card" type="button" key={topic.id} onClick={() => onSelect(topic.id)}><span className="topic-card-mark">⌁</span><b>{topic.name}</b><small>{topic.description || t('Research topic workspace')}</small><span className="topic-card-meta">{topic.methods.length} {t('methods')} · {topic.run_count} {t('runs')}</span></button>)}</div><form className="new-topic-form" onSubmit={submit}><h2>{t('Create a research topic')}</h2><div className="topic-form-row"><input required value={name} onChange={(e) => setName(e.target.value)} placeholder={t('e.g. ZnO nanowire research')} /><input value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('Short description (optional)')} /><button className="button primary" disabled={busy}><Plus size={14}/>{t('Create topic')}</button></div>{error&&<div className="error topic-error">{error}</div>}</form></div></main>;
 }
 
-export default function MethodWorkspace({ topic, onChanged, startRun=false, onRunStarted, startCreate=false, onCreateStarted }: Props) {
+export default function MethodWorkspace({ topic, onChanged, startRun=false, onRunStarted, startCreate=false, onCreateStarted, initialMethodId, initialVersionId, openEditor=false, onEditorOpened }: Props) {
   const { t } = useLanguage();
   const [methods, setMethods] = useState<ExperimentMethod[]>(topic.methods);
-  const [selectedMethodId, setSelectedMethodId] = useState<number | null>(null);
-  const [selectedVersionId, setSelectedVersionId] = useState<number | null>(null);
+  const [selectedMethodId, setSelectedMethodId] = useState<number | null>(initialMethodId ?? null);
+  const [selectedVersionId, setSelectedVersionId] = useState<number | null>(initialVersionId ?? null);
   const [editing, setEditing] = useState(false);
   const [versionParent, setVersionParent] = useState<number | null>(null);
   const [runs, setRuns] = useState<Experiment[]>([]);
@@ -117,6 +117,15 @@ export default function MethodWorkspace({ topic, onChanged, startRun=false, onRu
   const selectedVersion = selectedMethod?.versions.find((item) => item.id === selectedVersionId) ?? selectedMethod?.versions.at(-1) ?? null;
   const refresh = async () => { try { const all = await api.topics(); const found = all.find((item) => item.id === topic.id); const next = found?.methods ?? []; setMethods(next); const method = next.find((item) => item.id === selectedMethodId) ?? next[0] ?? null; if (method) { setSelectedMethodId(method.id); setSelectedVersionId(method.versions.at(-1)?.id ?? null); setRuns(await api.methodRuns(method.id)); } else { setSelectedMethodId(null); setRuns([]); } onChanged(); } catch (cause) { setError(String(cause)); } };
   useEffect(() => { setMethods(topic.methods); if (!topic.methods.some((item)=>item.id===selectedMethodId)) { const first=topic.methods[0]??null; setSelectedMethodId(first?.id??null); setSelectedVersionId(first?.versions.at(-1)?.id??null); } }, [topic.id, topic.methods, selectedMethodId]);
+  useEffect(() => {
+    if (!openEditor || !initialMethodId) return;
+    const method = methods.find(item => item.id === initialMethodId);
+    if (!method) return;
+    const version = method.versions.find(item => item.id === initialVersionId) ?? method.versions.at(-1) ?? null;
+    setSelectedMethodId(method.id);
+    setSelectedVersionId(version?.id ?? null);
+    if (version) { setVersionParent(version.id); setEditing(true); onEditorOpened?.(); }
+  }, [openEditor, initialMethodId, initialVersionId, methods]);
   useEffect(() => { if (!selectedMethodId) { setRuns([]); return; } api.methodRuns(selectedMethodId).then(setRuns).catch((cause) => setError(String(cause))); }, [selectedMethodId]);
   useEffect(() => { if(startRun&&selectedMethod&&selectedVersion){setShowRun(true);onRunStarted?.()} },[startRun,selectedMethod?.id,selectedVersion?.id]);
   const openNew = () => { setVersionParent(null); setEditing(true); };

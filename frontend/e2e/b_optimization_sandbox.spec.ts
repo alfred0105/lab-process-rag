@@ -69,7 +69,7 @@ test('multiobjective sandbox trains two GPs, shows Pareto hypervolume and persis
 test('decision feedback learning builds versions, compares shadow models and rolls back safely', async ({page})=>{
   await page.goto('/');
   await page.getByRole('button',{name:/Playwright isolated synthetic topic/}).click();
-  await page.locator('.app-nav-item').filter({hasText:'Decision'}).click();
+  await page.locator('.app-nav-item').filter({hasText:'AI 판단'}).click();
   const seedResponse=page.waitForResponse(response=>response.url().includes('/decisions/learned/sandbox/seed')&&response.request().method()==='POST');
   await page.getByRole('button',{name:'합성 테스트 데이터 만들기'}).click();
   expect((await seedResponse).ok()).toBeTruthy();
