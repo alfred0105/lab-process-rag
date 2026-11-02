@@ -15,6 +15,7 @@ from app.db.database import DATA_ROOT, ROOT, SessionLocal, get_db
 from app.db.models import Experiment, ExperimentMaterial, ExperimentMethod, MethodVersion, ResearchTopic, ResearchMaterial, Paper, EvidenceChunk, PaperSummary, ProcessStep, ProcessVariable, ExperimentResult, FailureObservation, ExperimentEnvironmentRecord, ProcessStepLog, ExperimentAttachment, ProcessStageExperiment, AssistantInteraction, MaterialAnalysisRun, IntegratedAnalysisSession, SimulationRun, ScientificObservation, MeasurementReviewEvent
 from app.schemas.core import AssistantAsk, SimulationInputReviewRequest, ProcessVariableUpdate, ExperimentMaterialIn, AnalysisExplanation, IntegratedAnalysisRequest, IntegratedAnalysisClaim, DecisionBrief, DecisionOption, DecisionChoiceRequest, MeasurementReviewRequest, Claim, EvidenceStatus, ExperimentIn, ResearchTopicIn, ResearchMaterialIn, MethodIn, DesignRequest, ProcessChange, StepLogIn, StageExperimentIn, PHEstimateRequest, AqueousEquilibriumRequest, AqueousSweepRequest, StirredReactionPathRequest, ToolExecutionRequest, OpenFOAMRunRequest
 from app.services.ingestion.pdf import MAX_PDF_SIZE_BYTES, ingest_pdf
+from app.services.ingestion.paper_metadata import extract_paper_metadata, normalize_doi
 from app.services.retrieval.provider import SQLiteFTSProvider
 from app.services.experiment.compare import compare
 from app.services.failure_analysis.service import analyze
@@ -1278,8 +1279,23 @@ def failure_analysis(experiment_id:int,comparison_mode:str=Query("same_version",
     e=exp_query(db).filter_by(id=experiment_id).first()
     if not e: raise HTTPException(404,"Experiment not found")
     pool=exp_query(db).filter(Experiment.topic_id==e.topic_id).all(); return analyze(e,pool,comparison_mode=comparison_mode)
+@router.post("/papers/metadata-preview")
+def preview_paper_metadata(file:UploadFile=File(...)):
+    filename=(file.filename or "").replace("\\", "/").rsplit("/", 1)[-1].strip()
+    if not filename.lower().endswith(".pdf"):
+        raise HTTPException(400,"PDF files only")
+    try:
+        payload=file.file.read(MAX_PDF_SIZE_BYTES+1)
+        if len(payload)>MAX_PDF_SIZE_BYTES:
+            raise HTTPException(413,"PDF exceeds the 50 MB upload limit")
+        return extract_paper_metadata(payload,filename)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(400,f"Unable to inspect PDF: {exc}") from exc
+
 @router.post("/papers")
-def upload_paper(file:UploadFile=File(...),topic_id:int=Form(...),title:str|None=Form(None),authors:str=Form(""),year:int|None=Form(None),db:Session=Depends(get_db)):
+def upload_paper(file:UploadFile=File(...),topic_id:int=Form(...),title:str|None=Form(None),authors:str=Form(""),year:int|None=Form(None),doi:str|None=Form(None),abstract:str|None=Form(None),metadata_sources:str|None=Form(None),db:Session=Depends(get_db)):
     filename = (file.filename or "").replace("\\", "/").rsplit("/", 1)[-1].strip()
     if not filename.lower().endswith(".pdf"): raise HTTPException(400,"PDF files only")
     if not db.get(ResearchTopic,topic_id): raise HTTPException(404,"Research topic not found")
@@ -1287,7 +1303,24 @@ def upload_paper(file:UploadFile=File(...),topic_id:int=Form(...),title:str|None
         payload = file.file.read(MAX_PDF_SIZE_BYTES + 1)
         if len(payload) > MAX_PDF_SIZE_BYTES:
             raise HTTPException(413, "PDF exceeds the 50 MB upload limit")
-        p=ingest_pdf(db,payload,filename,title,authors,year)
+        extracted=extract_paper_metadata(payload,filename) if not title or not doi or not abstract else {}
+        effective_title=title.strip() if title and title.strip() else extracted.get("title")
+        effective_authors=authors.strip() if authors and authors.strip() else extracted.get("authors","")
+        effective_year=year if year is not None else extracted.get("year")
+        effective_doi=normalize_doi(doi) or extracted.get("doi")
+        effective_abstract=abstract.strip() if abstract and abstract.strip() else extracted.get("abstract")
+        try:
+            submitted_sources=json.loads(metadata_sources) if metadata_sources else {}
+        except (json.JSONDecodeError, TypeError):
+            submitted_sources={}
+        if not isinstance(submitted_sources,dict):
+            submitted_sources={}
+        effective_sources={**extracted.get("metadata_sources",{}),**submitted_sources}
+        if not metadata_sources:
+            for field,value in (("title",title),("authors",authors),("year",year),("doi",doi),("abstract",abstract)):
+                if value is not None and str(value).strip():
+                    effective_sources[field]="user_edited"
+        p=ingest_pdf(db,payload,filename,effective_title,effective_authors,effective_year,effective_doi,effective_abstract,effective_sources)
         p.topic_id=topic_id; db.flush()
         chunks=db.query(EvidenceChunk).filter_by(paper_id=p.id).order_by(EvidenceChunk.chunk_index).all()
         # One compact catalog summary points back to exact source chunks. Full text
@@ -1319,7 +1352,7 @@ def upload_paper(file:UploadFile=File(...),topic_id:int=Form(...),title:str|None
         db.rollback()
         raise
     except Exception as exc: db.rollback(); raise HTTPException(400,f"Unable to parse PDF: {exc}")
-    return {"id":p.id,"title":p.title,"filename":p.filename,"pages":len({c.page for c in chunks}),"chunks":len(chunks),"summary":summary_text,"summary_method":method,"topics":topics}
+    return {"id":p.id,"title":p.title,"authors":p.authors,"year":p.year,"doi":p.doi,"abstract":p.abstract,"metadata_sources":p.metadata_sources,"filename":p.filename,"pages":len({c.page for c in chunks}),"chunks":len(chunks),"summary":summary_text,"summary_method":method,"topics":topics}
 @router.get("/papers")
 def papers(topic_id:int,db:Session=Depends(get_db)):
     items=[]
@@ -1334,7 +1367,7 @@ def papers(topic_id:int,db:Session=Depends(get_db)):
         source_pages=[]
         if summary and summary.source_chunk_ids:
             source_pages=sorted({row[0] for row in db.query(EvidenceChunk.page).filter(EvidenceChunk.id.in_(summary.source_chunk_ids)).all()})
-        items.append({"id":p.id,"title":p.title,"authors":p.authors,"year":p.year,"filename":p.filename,"chunk_count":len(p.chunks),"summary":summary.summary if summary else None,"topics":summary.topics if summary else [],"summary_method":summary.method if summary else None,"summary_source_pages":source_pages})
+        items.append({"id":p.id,"title":p.title,"authors":p.authors,"year":p.year,"doi":p.doi,"abstract":p.abstract,"metadata_sources":p.metadata_sources or {},"filename":p.filename,"chunk_count":len(p.chunks),"summary":summary.summary if summary else None,"topics":summary.topics if summary else [],"summary_method":summary.method if summary else None,"summary_source_pages":source_pages})
     if added_summary:
         db.commit(); retrieval._fts_ready=False
     return items

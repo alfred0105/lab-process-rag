@@ -8,7 +8,7 @@ MAX_PDF_SIZE_BYTES = 50 * 1024 * 1024
 MAX_PDF_PAGES = 500
 
 
-def ingest_pdf(db: Session, payload: bytes, filename: str, title: str | None = None, authors: str = "", year: int | None = None):
+def ingest_pdf(db: Session, payload: bytes, filename: str, title: str | None = None, authors: str = "", year: int | None = None, doi: str | None = None, abstract: str | None = None, metadata_sources: dict | None = None):
     if not payload:
         raise ValueError("The uploaded PDF is empty.")
     if len(payload) > MAX_PDF_SIZE_BYTES:
@@ -23,7 +23,7 @@ def ingest_pdf(db: Session, payload: bytes, filename: str, title: str | None = N
         if doc.page_count > MAX_PDF_PAGES:
             raise ValueError(f"PDF exceeds the {MAX_PDF_PAGES}-page processing limit.")
 
-        paper=Paper(title=title or safe_filename.rsplit('.',1)[0],authors=authors,year=year,filename=safe_filename)
+        paper=Paper(title=title or safe_filename.rsplit('.',1)[0],authors=authors,year=year,doi=doi,abstract=abstract,metadata_sources=metadata_sources or {},filename=safe_filename)
         db.add(paper); db.flush()
         idx=0
         for page_no,page in enumerate(doc,1):

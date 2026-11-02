@@ -1,6 +1,25 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 export type Language = 'ko' | 'en';
+const KoreanPapers: Record<string, string> = {
+  'Choose a PDF to extract and review its metadata before indexing.':'PDF를 선택하면 정보를 추출하고 색인 전에 확인할 수 있습니다.',
+  'Choose PDF':'PDF 선택','PDF up to 50 MB and 500 pages':'PDF 최대 50MB · 500페이지','Reading PDF and checking DOI metadata…':'PDF 및 DOI 정보 확인 중…',
+  'Could not read or save the PDF':'PDF를 읽거나 저장하지 못했습니다','Review paper details':'논문 정보 확인','Extracted fields are editable before saving':'추출된 정보는 저장 전에 수정할 수 있습니다.',
+  'Close':'닫기','Review needed':'확인이 필요합니다','PDF and Crossref values differ':'PDF와 Crossref 정보가 다릅니다.',
+  'Crossref value is prefilled; edit it to keep another value.':'Crossref 값이 입력되어 있습니다. 다른 값을 사용하려면 수정하세요.',
+  'Use PDF value':'PDF 값 사용','Use Crossref value':'Crossref 값 사용',
+  'Title':'제목','Authors':'저자','Authors not found':'저자 정보를 찾지 못했습니다','Publication year':'발행연도','Source':'출처',
+  'title':'제목','authors':'저자','year':'발행연도','abstract':'초록',
+  'Original abstract':'원문 초록','Abstract not found in the PDF or Crossref record':'PDF 또는 Crossref에서 초록을 찾지 못했습니다.',
+  'Original text, separate from the AI summary':'AI 요약과 구분되는 논문 원문입니다.','The PDF will be indexed and linked to this research topic.':'PDF를 색인하고 현재 연구 주제에 연결합니다.',
+  'Cancel':'취소','Saving paper…':'논문 저장 중…','Save and index paper':'저장 및 색인','ai':'AI 요약',
+  'pdf_metadata':'PDF 메타데이터','pdf_first_page':'PDF 첫 페이지','pdf_abstract_section':'PDF 초록 영역','crossref_doi':'Crossref DOI 조회',
+  'filename_fallback':'파일명 임시 사용','user_edited':'사용자 수정','Abstract was not found in the PDF or Crossref metadata.':'PDF 또는 Crossref 정보에서 초록을 찾지 못했습니다.',
+  'A reliable title was not found. Review the filename-based title.':'제목을 확실히 찾지 못해 파일명을 임시 제목으로 사용했습니다. 확인해 주세요.',
+  'Crossref DOI lookup was unavailable; local PDF extraction was used.':'Crossref DOI 조회가 되지 않아 PDF 추출 정보를 사용했습니다.',
+  'PDF and Crossref metadata differ. Review the conflicting fields.':'PDF와 Crossref 정보가 다릅니다. 서로 다른 항목을 확인해 주세요.',
+  'AI summary':'AI 요약'
+};
 const Korean: Record<string, string> = {
   'Run available linked simulations':'가능한 연결 시뮬레이션 실행','Running linked simulations…':'연결된 시뮬레이션 실행 중…','Linked simulation workflow':'연결 시뮬레이션 진행 상태','completed':'완료','needs_input':'입력 필요','blocked':'중단','waiting':'대기','unsupported':'적용 범위 밖','Need input':'필요 입력값',
   'Linked property-estimation simulator':'연결된 용액 물성 추산기','Solvent-matrix estimate':'용매 행렬 추산값','Not calculated · missing solids fraction':'고형분 분율이 없어 계산하지 않음','Saved records are used first. If missing, a solvent-matrix property model can estimate liquid density and viscosity; the precursor salt is excluded. Unknown solids fraction is not substituted.':'저장 기록값을 우선 사용합니다. 없으면 용매 행렬 물성 모델로 밀도와 점도를 추산하되 전구체 염은 제외합니다. 알 수 없는 고형분 분율은 대신 채우지 않습니다.',
@@ -198,7 +217,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setCurrentLanguage] = useState<Language>(() => localStorage.getItem('lab-process-language') === 'en' ? 'en' : 'ko');
   const setLanguage = (next: Language) => { localStorage.setItem('lab-process-language', next); setCurrentLanguage(next); };
   useEffect(() => { document.documentElement.lang = language; }, [language]);
-  const value = useMemo(() => ({ language, setLanguage, t: (english: string) => language === 'ko' ? KoreanOptimizationStage2[english] ?? KoreanOptimizationUi[english] ?? KoreanPolishUi[english] ?? Korean[english] ?? KoreanProcessUi[english] ?? KoreanSimulationUi[english] ?? english : english }), [language]);
+  const value = useMemo(() => ({ language, setLanguage, t: (english: string) => language === 'ko' ? KoreanPapers[english] ?? KoreanOptimizationStage2[english] ?? KoreanOptimizationUi[english] ?? KoreanPolishUi[english] ?? Korean[english] ?? KoreanProcessUi[english] ?? KoreanSimulationUi[english] ?? english : english }), [language]);
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
 }
 export function useLanguage() {
