@@ -54,8 +54,9 @@ try:
 from pathlib import Path
 import hashlib
 from datetime import date
+import pymupdf
 from app.db.database import SessionLocal, DATA_ROOT
-from app.db.models import ResearchTopic, Experiment, ExperimentMethod, MethodVersion, ProcessStep, ProcessVariable, MaterialAnalysisRun
+from app.db.models import ResearchTopic, Experiment, ExperimentMethod, MethodVersion, ProcessStep, ProcessVariable, MaterialAnalysisRun, Paper, EvidenceChunk, PaperSummary
 db=SessionLocal()
 topic=ResearchTopic(name="Playwright isolated synthetic topic",description="Disposable browser test data")
 db.add(topic);db.flush()
@@ -83,6 +84,19 @@ db.add(bad);db.flush()
 bad_content="this is intentionally malformed synthetic XRD data\n"
 bad_path=DATA_ROOT/"material-analysis"/"originals"/"e2e-xrd-invalid.xy";bad_path.write_text(bad_content)
 db.add(MaterialAnalysisRun(experiment_id=bad.id,topic_id=topic.id,modality="xrd",tool_id="xrd.peak_preview.v1",filename="synthetic-invalid-e2e.xy",sha256=hashlib.sha256(bad_content.encode()).hexdigest(),original_path=str(bad_path),artifact_path=None,result_json={"analysis_status":"pending","demo_data":True,"provenance":{"parameters":{"xrd_x_unit":"2theta_deg"}}},analysis_status="pending",result_key="synthetic_e2e_invalid_xrd"))
+paper_topic=ResearchTopic(name="Playwright paper reader fixture",description="Disposable synthetic PDF reader fixture")
+db.add(paper_topic);db.flush()
+pdf=pymupdf.open()
+first=pdf.new_page();first.insert_text((72,72),"A Test of a Physical Law",fontsize=18);first.insert_text((72,106),"A. Researcher",fontsize=10);first.insert_text((72,150),"Abstract",fontsize=12);first.insert_textbox((72,168,520,230),"This synthetic reader fixture verifies that an equation is rendered from the original PDF page, while indexed evidence retains its source page.",fontsize=10);first.insert_text((72,285),"Equation (1): E = mc^2",fontsize=15)
+second=pdf.new_page();second.insert_text((72,72),"Additional source page",fontsize=16);second.insert_text((72,110),"Recorded evidence from page two.",fontsize=11)
+pdf_bytes=pdf.tobytes();pdf.close()
+storage_key="papers/originals/e2e-equation-fixture.pdf";pdf_path=DATA_ROOT/storage_key;pdf_path.parent.mkdir(parents=True,exist_ok=True);pdf_path.write_bytes(pdf_bytes)
+paper=Paper(topic_id=paper_topic.id,title="A Test of a Physical Law",authors="A. Researcher",year=2025,doi="10.1234/e2e-paper",abstract="This synthetic reader fixture verifies the original PDF equation display.",filename="equation-fixture.pdf",metadata_sources={"title":"user_edited"},original_storage_key=storage_key,original_sha256=hashlib.sha256(pdf_bytes).hexdigest(),original_size_bytes=len(pdf_bytes))
+db.add(paper);db.flush()
+first_evidence=EvidenceChunk(paper_id=paper.id,page=1,section="Equation",text="Equation (1): E = mc^2",chunk_index=0)
+second_evidence=EvidenceChunk(paper_id=paper.id,page=2,section="Source",text="Recorded evidence from page two.",chunk_index=1)
+db.add_all([first_evidence,second_evidence]);db.flush()
+db.add(PaperSummary(paper_id=paper.id,summary="A disposable summary of the equation fixture.",topics=[],source_chunk_ids=[first_evidence.id],method="extractive"))
 db.commit();print(topic.id,exp.id,bad.id);db.close()
 '''
     subprocess.run([str(PYTHON), "-c", seed], cwd=BACKEND, env=env, check=True, stdout=subprocess.DEVNULL)

@@ -4,6 +4,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 from typing import Any
+from difflib import SequenceMatcher
 
 import httpx
 import pymupdf
@@ -28,6 +29,42 @@ def normalize_doi(value: str | None) -> str | None:
     candidate = candidate.rstrip(".,;:)]}")
     match = DOI_RE.search(candidate)
     return match.group(0).lower() if match else None
+
+
+def _primary_doi(pages: list[str]) -> str | None:
+    """Choose a DOI from the paper's opening metadata, avoiding later references."""
+    if not pages:
+        return None
+    first_page = pages[0]
+    references = re.search(r"(?im)^\s*(?:references|bibliography)\s*$", first_page)
+    searchable = first_page[:references.start()] if references else first_page
+    candidates: list[tuple[int, int, str]] = []
+    for match in DOI_RE.finditer(searchable):
+        line_start = searchable.rfind("\n", 0, match.start()) + 1
+        line_end = searchable.find("\n", match.end())
+        line_end = len(searchable) if line_end < 0 else line_end
+        line = searchable[line_start:line_end].casefold()
+        prefix = searchable[max(0, match.start() - 24):match.start()].casefold()
+        # Favor explicitly labeled DOI lines and publisher DOI URLs, then the earliest header candidate.
+        signal = 0 if ("doi" in line or "doi.org/" in prefix) else 1
+        doi = normalize_doi(match.group(0))
+        if doi:
+            candidates.append((signal, match.start(), doi))
+    return min(candidates)[2] if candidates else None
+
+
+def _normalize_title(value: str | None) -> str:
+    return " ".join(re.findall(r"[a-z0-9]+", (value or "").casefold()))
+
+
+def _titles_match(pdf_title: str | None, crossref_title: str | None) -> bool:
+    local, external = _normalize_title(pdf_title), _normalize_title(crossref_title)
+    if not local or not external:
+        return False
+    if local == external:
+        return True
+    ratio = SequenceMatcher(None, local, external).ratio()
+    return ratio >= 0.90 or (min(len(local), len(external)) >= 24 and (local in external or external in local))
 
 
 def _pdf_text(payload: bytes) -> tuple[dict[str, Any], list[str]]:
@@ -168,8 +205,7 @@ def extract_paper_metadata(payload: bytes, filename: str, *, lookup_crossref: bo
         authors = _first_page_authors(payload, title) or ""
     if authors:
         sources["authors"] = "pdf_metadata" if _clean(embedded.get("author")) else "pdf_first_page"
-    doi_match = DOI_RE.search("\n".join(pages[:2]))
-    doi = normalize_doi(doi_match.group(0)) if doi_match else None
+    doi = _primary_doi(pages)
     if doi:
         sources["doi"] = "pdf_first_page"
     year_match = YEAR_RE.search("\n".join(pages[:2]))
@@ -185,23 +221,32 @@ def extract_paper_metadata(payload: bytes, filename: str, *, lookup_crossref: bo
     if doi and lookup_crossref and crossref is None:
         warnings.append("Crossref DOI lookup was unavailable; local PDF extraction was used.")
     if crossref:
-        # DOI match is authoritative for bibliographic fields, but any disagreement remains visible.
-        local_values = {"title": title, "authors": authors, "year": year, "abstract": abstract}
-        for field, local in local_values.items():
-            external = crossref.get(field)
-            if local and external and (" ".join(local).casefold() if isinstance(local, list) else str(local).casefold()) != (" ".join(external).casefold() if isinstance(external, list) else str(external).casefold()):
-                conflicts[field] = {"pdf": local, "crossref": external}
-            if external:
-                if field == "title":
-                    title = external
-                elif field == "authors":
-                    authors = "; ".join(external)
-                elif field == "year":
-                    year = external
-                elif field == "abstract":
-                    abstract = external
-                sources[field] = "crossref_doi"
-        doi = normalize_doi(crossref.get("doi")) or doi
+        title_match = _titles_match(title, crossref.get("title"))
+        if title and crossref.get("title") and not title_match:
+            conflicts["title"] = {"pdf": title, "crossref": crossref["title"]}
+            conflicts["authors"] = {"pdf": authors or None, "crossref": crossref.get("authors")}
+            conflicts["year"] = {"pdf": year, "crossref": crossref.get("year")}
+            conflicts["abstract"] = {"pdf": abstract, "crossref": crossref.get("abstract")}
+            warnings.append("The DOI record title does not match the PDF title. Crossref values were not applied.")
+        else:
+            # Only a title-consistent DOI record can fill or correct bibliographic fields.
+            # Field differences remain visible for researcher review.
+            local_values = {"title": title, "authors": authors, "year": year, "abstract": abstract}
+            for field, local in local_values.items():
+                external = crossref.get(field)
+                if local and external and (" ".join(local).casefold() if isinstance(local, list) else str(local).casefold()) != (" ".join(external).casefold() if isinstance(external, list) else str(external).casefold()):
+                    conflicts[field] = {"pdf": local, "crossref": external}
+                if external:
+                    if field == "title":
+                        title = external
+                    elif field == "authors":
+                        authors = "; ".join(external)
+                    elif field == "year":
+                        year = external
+                    elif field == "abstract":
+                        abstract = external
+                    sources[field] = "crossref_doi"
+            doi = normalize_doi(crossref.get("doi")) or doi
     metadata_title = title or Path(filename).stem
     if not title:
         sources["title"] = "filename_fallback"

@@ -1,6 +1,7 @@
 import json
 import uuid
 import math
+import hashlib
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import os
@@ -9,7 +10,7 @@ import subprocess
 
 import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import Session, selectinload
 from app.db.database import DATA_ROOT, ROOT, SessionLocal, get_db
 from app.db.models import Experiment, ExperimentMaterial, ExperimentMethod, MethodVersion, ResearchTopic, ResearchMaterial, Paper, EvidenceChunk, PaperSummary, ProcessStep, ProcessVariable, ExperimentResult, FailureObservation, ExperimentEnvironmentRecord, ProcessStepLog, ExperimentAttachment, ProcessStageExperiment, AssistantInteraction, MaterialAnalysisRun, IntegratedAnalysisSession, SimulationRun, ScientificObservation, MeasurementReviewEvent
@@ -47,6 +48,34 @@ ANALYSIS_ROOT = DATA_ROOT / "material-analysis"
 MAX_ANALYSIS_UPLOAD_BYTES = 25 * 1024 * 1024
 ATTACHMENTS_ROOT = DATA_ROOT / "experiment-attachments"
 MAX_EXPERIMENT_IMAGE_BYTES = 15 * 1024 * 1024
+PAPER_ORIGINALS_ROOT = DATA_ROOT / "papers" / "originals"
+
+def _save_paper_original(payload:bytes)->tuple[str,str]:
+    PAPER_ORIGINALS_ROOT.mkdir(parents=True,exist_ok=True)
+    storage_key=f"papers/originals/{uuid.uuid4().hex}.pdf"
+    destination=(DATA_ROOT/storage_key).resolve()
+    if PAPER_ORIGINALS_ROOT.resolve() not in destination.parents:
+        raise ValueError("Paper storage path is outside the configured data directory")
+    temporary=destination.with_name(f".{destination.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        with temporary.open("xb") as stream:
+            stream.write(payload)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary,destination)
+    finally:
+        if temporary.exists(): temporary.unlink()
+    return storage_key,hashlib.sha256(payload).hexdigest()
+
+def _read_paper_original(paper:Paper)->bytes:
+    if not paper.original_storage_key or not paper.original_sha256 or paper.original_size_bytes is None:
+        raise FileNotFoundError("Original PDF is unavailable for this paper")
+    relative=Path(paper.original_storage_key)
+    if relative.is_absolute() or ".." in relative.parts or relative.suffix.lower()!=".pdf":
+        raise ValueError("Stored paper path is invalid")
+    path=DATA_ROOT/relative
+    manifest={"path":relative.as_posix(),"sha256":paper.original_sha256,"size_bytes":paper.original_size_bytes}
+    return read_verified_artifact(path=path,root=DATA_ROOT,manifest=manifest)
 
 def exp_query(db):
     return db.query(Experiment).options(selectinload(Experiment.steps).selectinload(ProcessStep.variables),selectinload(Experiment.materials),selectinload(Experiment.results),selectinload(Experiment.observations),selectinload(Experiment.environment_records).selectinload(ExperimentEnvironmentRecord.step),selectinload(Experiment.step_logs).selectinload(ProcessStepLog.step),selectinload(Experiment.attachments).selectinload(ExperimentAttachment.step),selectinload(Experiment.stage_experiments).selectinload(ProcessStageExperiment.step))
@@ -1295,20 +1324,33 @@ def preview_paper_metadata(file:UploadFile=File(...)):
         raise HTTPException(400,f"Unable to inspect PDF: {exc}") from exc
 
 @router.post("/papers")
-def upload_paper(file:UploadFile=File(...),topic_id:int=Form(...),title:str|None=Form(None),authors:str=Form(""),year:int|None=Form(None),doi:str|None=Form(None),abstract:str|None=Form(None),metadata_sources:str|None=Form(None),db:Session=Depends(get_db)):
+def upload_paper(file:UploadFile=File(...),topic_id:int=Form(...),title:str|None=Form(None),authors:str|None=Form(None),year:str|None=Form(None),doi:str|None=Form(None),abstract:str|None=Form(None),metadata_sources:str|None=Form(None),metadata_reviewed:bool=Form(False),db:Session=Depends(get_db)):
     filename = (file.filename or "").replace("\\", "/").rsplit("/", 1)[-1].strip()
     if not filename.lower().endswith(".pdf"): raise HTTPException(400,"PDF files only")
     if not db.get(ResearchTopic,topic_id): raise HTTPException(404,"Research topic not found")
+    original_path=None
+    committed=False
     try:
         payload = file.file.read(MAX_PDF_SIZE_BYTES + 1)
         if len(payload) > MAX_PDF_SIZE_BYTES:
             raise HTTPException(413, "PDF exceeds the 50 MB upload limit")
-        extracted=extract_paper_metadata(payload,filename) if not title or not doi or not abstract else {}
+        extracted={} if metadata_reviewed else extract_paper_metadata(payload,filename) if not title or not doi or not abstract or not authors else {}
+        if metadata_reviewed and not (title and title.strip()):
+            raise HTTPException(422,"A reviewed paper title is required.")
         effective_title=title.strip() if title and title.strip() else extracted.get("title")
-        effective_authors=authors.strip() if authors and authors.strip() else extracted.get("authors","")
-        effective_year=year if year is not None else extracted.get("year")
-        effective_doi=normalize_doi(doi) or extracted.get("doi")
-        effective_abstract=abstract.strip() if abstract and abstract.strip() else extracted.get("abstract")
+        effective_authors=(authors or "").strip() if metadata_reviewed else (authors or "").strip() or extracted.get("authors","")
+        try:
+            parsed_year=int(year) if year and year.strip() else None
+        except ValueError as exc:
+            raise HTTPException(422,"Publication year must be a whole number.") from exc
+        if parsed_year is not None and not 1500 <= parsed_year <= 2100:
+            raise HTTPException(422,"Publication year must be between 1500 and 2100.")
+        effective_year=parsed_year if metadata_reviewed or parsed_year is not None else extracted.get("year")
+        normalized_doi=normalize_doi(doi)
+        if doi and doi.strip() and not normalized_doi:
+            raise HTTPException(422,"DOI format is not recognized. Correct it or clear the field.")
+        effective_doi=(normalized_doi if doi and doi.strip() else None) if metadata_reviewed else normalized_doi or extracted.get("doi")
+        effective_abstract=((abstract or "").strip() or None) if metadata_reviewed else (abstract or "").strip() or extracted.get("abstract")
         try:
             submitted_sources=json.loads(metadata_sources) if metadata_sources else {}
         except (json.JSONDecodeError, TypeError):
@@ -1320,7 +1362,12 @@ def upload_paper(file:UploadFile=File(...),topic_id:int=Form(...),title:str|None
             for field,value in (("title",title),("authors",authors),("year",year),("doi",doi),("abstract",abstract)):
                 if value is not None and str(value).strip():
                     effective_sources[field]="user_edited"
+        storage_key,original_digest=_save_paper_original(payload)
+        original_path=DATA_ROOT/storage_key
         p=ingest_pdf(db,payload,filename,effective_title,effective_authors,effective_year,effective_doi,effective_abstract,effective_sources)
+        p.original_storage_key=storage_key
+        p.original_sha256=original_digest
+        p.original_size_bytes=len(payload)
         p.topic_id=topic_id; db.flush()
         chunks=db.query(EvidenceChunk).filter_by(paper_id=p.id).order_by(EvidenceChunk.chunk_index).all()
         # One compact catalog summary points back to exact source chunks. Full text
@@ -1347,11 +1394,16 @@ def upload_paper(file:UploadFile=File(...),topic_id:int=Form(...),title:str|None
                 semaphore.release()
         db.add(PaperSummary(paper_id=p.id,summary=summary_text,topics=topics,source_chunk_ids=source_ids,method=method))
         db.commit()
+        committed=True
         retrieval._fts_ready=False
     except HTTPException:
         db.rollback()
+        if original_path and not committed: original_path.unlink(missing_ok=True)
         raise
-    except Exception as exc: db.rollback(); raise HTTPException(400,f"Unable to parse PDF: {exc}")
+    except Exception as exc:
+        db.rollback()
+        if original_path and not committed: original_path.unlink(missing_ok=True)
+        raise HTTPException(400,f"Unable to parse PDF: {exc}") from exc
     return {"id":p.id,"title":p.title,"authors":p.authors,"year":p.year,"doi":p.doi,"abstract":p.abstract,"metadata_sources":p.metadata_sources,"filename":p.filename,"pages":len({c.page for c in chunks}),"chunks":len(chunks),"summary":summary_text,"summary_method":method,"topics":topics}
 @router.get("/papers")
 def papers(topic_id:int,db:Session=Depends(get_db)):
@@ -1367,7 +1419,12 @@ def papers(topic_id:int,db:Session=Depends(get_db)):
         source_pages=[]
         if summary and summary.source_chunk_ids:
             source_pages=sorted({row[0] for row in db.query(EvidenceChunk.page).filter(EvidenceChunk.id.in_(summary.source_chunk_ids)).all()})
-        items.append({"id":p.id,"title":p.title,"authors":p.authors,"year":p.year,"doi":p.doi,"abstract":p.abstract,"metadata_sources":p.metadata_sources or {},"filename":p.filename,"chunk_count":len(p.chunks),"summary":summary.summary if summary else None,"topics":summary.topics if summary else [],"summary_method":summary.method if summary else None,"summary_source_pages":source_pages})
+        original_exists=False
+        if p.original_storage_key:
+            relative=Path(p.original_storage_key)
+            candidate=DATA_ROOT/relative
+            original_exists=not relative.is_absolute() and ".." not in relative.parts and candidate.is_file()
+        items.append({"id":p.id,"title":p.title,"authors":p.authors,"year":p.year,"doi":p.doi,"abstract":p.abstract,"metadata_sources":p.metadata_sources or {},"filename":p.filename,"pdf_available":original_exists,"chunk_count":len(p.chunks),"summary":summary.summary if summary else None,"topics":summary.topics if summary else [],"summary_method":summary.method if summary else None,"summary_source_pages":source_pages})
     if added_summary:
         db.commit(); retrieval._fts_ready=False
     return items
@@ -1392,6 +1449,18 @@ def discover_papers(q:str):
         doi=record.get("DOI")
         results.append({"title":titles[0],"authors":authors,"year":date_parts[0][0] if date_parts and date_parts[0] else None,"journal":(record.get("container-title") or [None])[0],"doi":doi,"doi_url":f"https://doi.org/{doi}" if doi else record.get("URL"),"pdf_url":pdf})
     return {"query":query,"provider":"Crossref","results":results}
+@router.get("/papers/{paper_id}/pdf")
+def paper_original_pdf(paper_id:int,topic_id:int,db:Session=Depends(get_db)):
+    paper=db.get(Paper,paper_id)
+    if not paper or paper.topic_id!=topic_id: raise HTTPException(404,"Paper not found in this research topic")
+    try:
+        payload=_read_paper_original(paper)
+    except FileNotFoundError as exc:
+        raise HTTPException(404,"Original PDF is unavailable for this paper") from exc
+    except (ValueError,OSError) as exc:
+        raise HTTPException(409,"The stored PDF failed its integrity check") from exc
+    return Response(content=payload,media_type="application/pdf",headers={"Content-Disposition":"inline; filename=paper.pdf","X-Content-Type-Options":"nosniff","ETag":f'"{paper.original_sha256}"'})
+
 @router.get("/papers/{paper_id}/summary")
 def paper_summary(paper_id:int,db:Session=Depends(get_db)):
     paper=db.get(Paper,paper_id)
@@ -1401,8 +1470,9 @@ def paper_summary(paper_id:int,db:Session=Depends(get_db)):
     sources=db.query(EvidenceChunk).filter(EvidenceChunk.id.in_(summary.source_chunk_ids)).order_by(EvidenceChunk.page,EvidenceChunk.chunk_index).all()
     return {"paper_id":paper.id,"title":paper.title,"summary":summary.summary,"topics":summary.topics,"method":summary.method,"source_pages":sorted({chunk.page for chunk in sources}),"evidence_ids":[chunk.id for chunk in sources]}
 @router.get("/papers/{paper_id}/evidence")
-def paper_evidence(paper_id:int,db:Session=Depends(get_db)):
-    if not db.get(Paper,paper_id): raise HTTPException(404,"Paper not found")
+def paper_evidence(paper_id:int,topic_id:int|None=None,db:Session=Depends(get_db)):
+    paper=db.get(Paper,paper_id)
+    if not paper or (topic_id is not None and paper.topic_id!=topic_id): raise HTTPException(404,"Paper not found")
     return [{"evidence_id":c.id,"page":c.page,"section":c.section,"text":c.text} for c in db.query(EvidenceChunk).filter_by(paper_id=paper_id).order_by(EvidenceChunk.page,EvidenceChunk.chunk_index)]
 @router.get("/search")
 def search(q:str,limit:int=10,topic_id:int|None=None,db:Session=Depends(get_db)): return retrieval.search(db,q,limit,topic_id=topic_id)

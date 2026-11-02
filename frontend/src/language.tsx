@@ -18,6 +18,17 @@ const KoreanPapers: Record<string, string> = {
   'A reliable title was not found. Review the filename-based title.':'제목을 확실히 찾지 못해 파일명을 임시 제목으로 사용했습니다. 확인해 주세요.',
   'Crossref DOI lookup was unavailable; local PDF extraction was used.':'Crossref DOI 조회가 되지 않아 PDF 추출 정보를 사용했습니다.',
   'PDF and Crossref metadata differ. Review the conflicting fields.':'PDF와 Crossref 정보가 다릅니다. 서로 다른 항목을 확인해 주세요.',
+  'The DOI record title does not match the PDF title. Crossref values were not applied.':'DOI 레코드 제목이 PDF 제목과 일치하지 않아 Crossref 값을 적용하지 않았습니다.',
+  'PAPER READER':'논문 읽기','Back to papers':'논문 목록으로','Original PDF available':'원본 PDF 있음','Original PDF unavailable':'원본 PDF 없음',
+  'Read paper':'논문 열기','Details':'상세 정보','indexed excerpts':'색인된 근거 구절','Loading paper reader…':'논문 뷰어 여는 중…',
+  'Previous page':'이전 페이지','Next page':'다음 페이지','Page number':'페이지 번호','Zoom out':'축소','Zoom in':'확대','Fit width':'너비 맞춤',
+  'Loading PDF page…':'PDF 페이지 불러오는 중…','PDF unavailable':'PDF를 사용할 수 없습니다','PDF page':'PDF 페이지','That page number is outside this PDF.':'이 PDF에 없는 페이지 번호입니다.',
+  'The original PDF page is rendered as supplied. Extracted text and AI summary are shown separately.':'원본 PDF 페이지 그대로 표시합니다. 추출 텍스트와 AI 요약은 별도로 확인할 수 있습니다.',
+  'Paper details':'논문 정보','Overview':'개요','AI Summary':'AI 요약','Evidence':'근거','Research topic':'연구 주제','Current research space':'현재 연구 공간',
+  'No original abstract was recorded.':'저장된 원문 초록이 없습니다.','Available locally':'로컬에 보관됨','Original file not stored':'원본 파일이 보관되지 않았습니다.',
+  'No AI summary is available.':'AI 요약이 없습니다.','source pages':'출처 페이지','Page':'페이지','AI summary is a system-generated interpretation. The original abstract above is publisher or paper text.':'AI 요약은 시스템이 생성한 해석입니다. 위 원문 초록은 논문에 실린 텍스트입니다.',
+  'RAG evidence':'RAG 근거','Select a passage to open its source page.':'근거 구절을 누르면 원문 페이지를 엽니다.','No indexed evidence excerpts are available.':'색인된 근거 구절이 없습니다.',
+  'Original PDF is unavailable for this older paper.':'이전 논문에는 보관된 원본 PDF가 없습니다.','The PDF could not be opened.':'PDF를 열 수 없습니다.','The PDF page could not be rendered.':'PDF 페이지를 표시하지 못했습니다.','Canvas rendering is unavailable.':'페이지 표시 기능을 사용할 수 없습니다.',
   'AI summary':'AI 요약'
 };
 const Korean: Record<string, string> = {

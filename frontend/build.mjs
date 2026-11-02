@@ -5,6 +5,11 @@ await build({
   esbuild: { jsx: 'automatic' },
   build: {
     rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('/node_modules/pdfjs-dist/')) return 'pdfjs';
+        },
+      },
       onwarn(warning, defaultHandler) {
         // React Flow marks its entry as a client component for framework
         // integrations. This Vite app is already a browser-only React app, so

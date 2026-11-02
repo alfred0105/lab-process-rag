@@ -12,6 +12,10 @@ export default function PaperUploadFlow({ topicId, onSaved }: { topicId: number;
   const update = (field: keyof PaperMetadataPreview, value: string | number | null) => {
     setMetadata(current => current ? { ...current, [field]: value, metadata_sources: { ...current.metadata_sources, [field]: 'user_edited' } } : current);
   };
+  const chooseConflict = (field: string, value: unknown) => {
+    const selected = field === 'year' ? (typeof value === 'number' ? value : null) : Array.isArray(value) ? value.join('; ') : value == null ? '' : String(value);
+    update(field as keyof PaperMetadataPreview, selected);
+  };
   const select = async (next: File) => {
     setFile(next); setMetadata(null); setError(''); setBusy('extract');
     try { setMetadata(await previewPaperMetadata(next)); }
@@ -37,7 +41,7 @@ export default function PaperUploadFlow({ topicId, onSaved }: { topicId: number;
       <section className="paper-review-dialog" role="dialog" aria-modal="true" aria-labelledby="paper-review-title">
         <header><span className="paper-review-mark"><BookOpen size={18}/></span><div><h2 id="paper-review-title">{t('Review paper details')}</h2><small>{file.name} · {t('Extracted fields are editable before saving')}</small></div><button type="button" aria-label={t('Close')} className="paper-close" onClick={() => { setFile(null); setMetadata(null); setError(''); }}><X size={18}/></button></header>
         {!!metadata.warnings.length && <div className="paper-review-warnings"><b>{t('Review needed')}</b>{metadata.warnings.map((warning, index) => <p key={index}>{t(warning)}</p>)}</div>}
-        {!!Object.keys(metadata.conflicts).length && <div className="paper-review-warnings"><b>{t('PDF and Crossref values differ')}</b>{Object.entries(metadata.conflicts).map(([key, values]) => <div className="paper-conflict" key={key}><p><strong>{t(key)}:</strong> PDF · {String(values.pdf)} / Crossref · {String(values.crossref)}</p><div><button type="button" onClick={() => update(key as keyof PaperMetadataPreview, Array.isArray(values.pdf) ? values.pdf.join('; ') : values.pdf as string | number | null)}>{t('Use PDF value')}</button><button type="button" onClick={() => update(key as keyof PaperMetadataPreview, Array.isArray(values.crossref) ? values.crossref.join('; ') : values.crossref as string | number | null)}>{t('Use Crossref value')}</button></div></div>)}</div>}
+        {!!Object.keys(metadata.conflicts).length && <div className="paper-review-warnings"><b>{t('PDF and Crossref values differ')}</b>{Object.entries(metadata.conflicts).map(([key, values]) => <div className="paper-conflict" key={key}><p><strong>{t(key)}:</strong> PDF · {String(values.pdf)} / Crossref · {String(values.crossref)}</p><div><button type="button" onClick={() => chooseConflict(key, values.pdf)}>{t('Use PDF value')}</button><button type="button" onClick={() => chooseConflict(key, values.crossref)}>{t('Use Crossref value')}</button></div></div>)}</div>}
         <div className="paper-meta-grid">
           <label className="paper-meta-field paper-meta-wide"><span>{t('Title')} <em>*</em></span><input value={metadata.title} onChange={event => update('title', event.target.value)} required/>{metadata.metadata_sources.title && <small>{t('Source')}: {t(metadata.metadata_sources.title)}</small>}</label>
           <label className="paper-meta-field paper-meta-wide"><span>{t('Authors')}</span><input value={metadata.authors} onChange={event => update('authors', event.target.value)} placeholder={t('Authors not found')}/>{metadata.metadata_sources.authors && <small>{t('Source')}: {t(metadata.metadata_sources.authors)}</small>}</label>

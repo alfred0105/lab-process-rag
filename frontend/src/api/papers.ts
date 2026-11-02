@@ -21,10 +21,18 @@ export const previewPaperMetadata = (file: File) => {
 
 export const savePaperWithMetadata = (file: File, topicId: number, metadata: PaperMetadataPreview) => {
   const form = new FormData(); form.append('file', file); form.append('topic_id', String(topicId));
-  form.append('title', metadata.title); form.append('authors', metadata.authors);
-  if (metadata.year !== null) form.append('year', String(metadata.year));
-  if (metadata.doi) form.append('doi', metadata.doi);
-  if (metadata.abstract) form.append('abstract', metadata.abstract);
+  form.append('title', metadata.title); form.append('authors', metadata.authors ?? '');
+  form.append('year', metadata.year === null ? '' : String(metadata.year));
+  form.append('doi', metadata.doi ?? ''); form.append('abstract', metadata.abstract ?? '');
   form.append('metadata_sources', JSON.stringify(metadata.metadata_sources));
+  form.append('metadata_reviewed', 'true');
   return request<any>('/papers', form);
+};
+
+export type PaperEvidence = { evidence_id: number; page: number; section: string | null; text: string };
+export const paperPdfUrl = (paperId: number, topicId: number) => `/api/papers/${paperId}/pdf?topic_id=${topicId}`;
+export const fetchPaperEvidence = async (paperId: number, topicId: number): Promise<PaperEvidence[]> => {
+  const response = await fetch(`/api/papers/${paperId}/evidence?topic_id=${topicId}`);
+  if (!response.ok) throw new Error((await response.text()) || `Request failed (${response.status})`);
+  return response.json();
 };

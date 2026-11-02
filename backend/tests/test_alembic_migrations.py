@@ -42,7 +42,7 @@ def test_legacy_sqlite_schema_upgrades_twice_without_duplicate_columns(tmp_path)
     inspector=inspect(engine)
     expected={
         "experiments":{"topic_id","method_version_id","method_run_number","duration_minutes"},
-        "papers":{"topic_id","doi","abstract","metadata_sources"},
+        "papers":{"topic_id","doi","abstract","metadata_sources","original_storage_key","original_sha256","original_size_bytes"},
         "experiment_materials":{"source_material_id"},
         "papers":{"topic_id"},
         "material_analysis_runs":{"topic_id","analysis_status","result_key","process_step_id"},
@@ -65,7 +65,7 @@ def test_legacy_sqlite_schema_upgrades_twice_without_duplicate_columns(tmp_path)
     assert review_columns["analysis_run_id"]["nullable"] is True
     assert review_columns["observation_id"]["nullable"] is True
     with engine.connect() as connection:
-        assert connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one()=="0013_paper_metadata"
+        assert connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one()=="0014_paper_original_pdf"
         assert connection.exec_driver_sql("SELECT parameter_id FROM scientific_observations WHERE id=7").scalar_one()=="temperature"
         assert connection.exec_driver_sql("SELECT reviewer FROM measurement_review_events WHERE id=9").scalar_one()=="old reviewer"
     assert any(index["name"]=="uq_simulation_run_idempotency_key" and index["unique"] for index in inspector.get_indexes("simulation_runs"))
