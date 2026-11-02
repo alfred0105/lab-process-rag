@@ -1,6 +1,6 @@
 # Lab Process RAG — Master Roadmap
 
-**관리 기준일:** 2026-11-01
+**관리 기준일:** 2026-11-02
 **저장소:** [alfred0105/lab-process-rag](https://github.com/alfred0105/lab-process-rag)
 **검토 기준:** `main` at `86b8d84df7fbc748dffbfc2570ee7d6d068038f8` before Phase 5 Stage 2. Earlier entries preserve their historical commit references; the current Phase 4/5 state is recorded in the closure sections below.
 
@@ -12,6 +12,18 @@ Current development register is based on `main` after Phase 7 final integration 
 - **Phase 8:** `PHASE_8_CORE_IMPLEMENTED`, `PHASE_8_CORE_SMOKE_TESTED`, `PHASE_8_EXTENSION_DEFERRED_TO_PHASE_9`. The experiment-first workspace links process, analysis, decision, optimization, and Campaign views using the active topic and experiment context. Formal WCAG/user studies, performance at scale, and authentication remain incomplete. Details: [`PHASE8_CORE_IMPLEMENTATION.md`](PHASE8_CORE_IMPLEMENTATION.md), [`PHASE8_UX_PRINCIPLES.md`](PHASE8_UX_PRINCIPLES.md).
 - **Phase 9:** `REGISTERED_NOT_STARTED`. The master backlog and scope are [`PHASE9_MASTER_BACKLOG.md`](PHASE9_MASTER_BACKLOG.md) and [`PHASE9_SCOPE.md`](PHASE9_SCOPE.md). No Phase 9 feature development is claimed in this registration.
 - **External scientific validation:** `EXTERNAL_VALIDATION_PENDING`; unavailability of reviewed research data must never be reported as a passed validation.
+
+### Phase 8 dark workstation redesign addendum — 2026-11-02
+
+The experiment-first Phase 8 core remains complete. The requested dark workstation redesign is an additive UI implementation recorded in [`PHASE8_DARK_WORKSTATION_REDESIGN.md`](PHASE8_DARK_WORKSTATION_REDESIGN.md). It does not downgrade or replace the prior Phase 8 status.
+
+| Requirement ID and detailed requirement | Phase / Priority | Status | Related source files | Implementation / alternative | Completion condition and validation evidence | Commit | Remaining work / dependency |
+|---|---|---|---|---|---|---|---|
+| P8-UI-001 — Provide a dark scientific app shell with topic, method, version and run context while keeping all existing destinations reachable. | P8 / P1 | IMPLEMENTED | `frontend/src/pages/App.tsx`, `frontend/src/style.css`, `frontend/src/components/UnifiedLabWorkspace.tsx` | Persistent application sidebar, workspace context selector and responsive layout; existing destinations remain in sidebar. | Frontend production build and focused workspace E2E passed; broad viewport and assistive technology review remains. | Uncommitted working tree | Full WCAG and broad device verification remains P9-F. |
+| P8-UI-002 — Render saved Method Version stages in an interactive canvas and inspect recorded run conditions, source identifiers, stage logs and analyses without fabricating stage mappings. | P8 / P1 | VERIFIED (focused path) | `frontend/src/components/UnifiedLabWorkspace.tsx`, existing `frontend/src/components/MethodWorkspace.tsx` | Canvas uses the version `process_map`; run step association requires same order and name; unassigned analyses remain Run-level. | Isolated Playwright fixture verified saved method stages and recorded conditions in the Inspector; production build passed. | Uncommitted working tree | Sparse/mismatched legacy steps display as unassigned; additional data-shape coverage remains. |
+| P8-UI-003 — Compare Runs using the existing server comparison contract, with same-version default, explicit cross-version choice, server validation, and per-stage difference display. | P8 / P1 | VERIFIED (same-version focused path) | `frontend/src/api/client.ts`, `frontend/src/components/UnifiedLabWorkspace.tsx`, existing `backend/app/services/experiment/compare.py` | Optional comparison mode is sent to the existing API; same/different/missing/unresolved results drive the canvas/Inspector; no local scientific comparison is duplicated. | Isolated Playwright comparison returned a changed variable and highlighted its stage; production build passed. | Uncommitted working tree | Cross-version, missing/unresolved, and rejected compatibility browser cases are not separately covered. |
+| P8-UI-004 — Keep existing Analysis, Decision, Optimization and Campaign modules available within the workstation and retain existing approval policies. | P8 / P1 | IMPLEMENTED | `frontend/src/components/UnifiedLabWorkspace.tsx`, existing module panels | Existing panels are loaded through workstation navigation; no model activation, auto-approval, or equipment execution added. | Focused E2E opened Analysis and Campaign; no new backend or database change. | Uncommitted working tree | Full module regression and formal usability review remain. |
+| P8-UI-005 — Keep synthetic process data isolated from user research data for browser verification. | P8 / P1 | IMPLEMENTED | `frontend/e2e/run_environment.py`, `frontend/e2e/phase8_unified_workspace.spec.ts` | Added disposable synthetic topic/method/version/runs only to the temporary E2E database. | Focused E2E tests passed 2/2; the production database is not seeded by these tests. | Uncommitted working tree | None for this fixture. |
 
 ### Phase 8 core requirement register
 

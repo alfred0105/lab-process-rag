@@ -55,10 +55,23 @@ from pathlib import Path
 import hashlib
 from datetime import date
 from app.db.database import SessionLocal, DATA_ROOT
-from app.db.models import ResearchTopic, Experiment, MaterialAnalysisRun
+from app.db.models import ResearchTopic, Experiment, ExperimentMethod, MethodVersion, ProcessStep, ProcessVariable, MaterialAnalysisRun
 db=SessionLocal()
 topic=ResearchTopic(name="Playwright isolated synthetic topic",description="Disposable browser test data")
 db.add(topic);db.flush()
+process_topic=ResearchTopic(name="Playwright process canvas fixture",description="Disposable synthetic Method/Version/Run data for canvas interaction tests")
+db.add(process_topic);db.flush()
+method=ExperimentMethod(topic_id=process_topic.id,name="Canvas test method",description="Synthetic test method",category="custom")
+db.add(method);db.flush()
+version=MethodVersion(method_id=method.id,version_number=1,version_label="1",parent_version_id=None,process_map=[{"name":"Mixing","description":"Stir the mixture","step_type":"mixing"},{"name":"Heating","description":"Heat the sample","step_type":"heating"}],condition_definitions=[{"step_name":"Mixing","name":"stir_speed","unit":"rpm","value_type":"number","required":True},{"step_name":"Heating","name":"temperature","unit":"°C","value_type":"number","required":True}],material_definitions=[])
+db.add(version);db.flush()
+for code,name,speed in [("E2E-CANVAS-A","Canvas run A","300"),("E2E-CANVAS-B","Canvas run B","450")]:
+    record=Experiment(code=code,name=name,target="canvas interaction",date=date(2026,1,3),duration_minutes=10,status="success",demo=False,topic_id=process_topic.id,method_version_id=version.id,notes="SYNTHETIC TEST ONLY")
+    db.add(record);db.flush()
+    mixing=ProcessStep(experiment_id=record.id,name="Mixing",step_type="mixing",order_index=0,description="Recorded process stage")
+    heating=ProcessStep(experiment_id=record.id,name="Heating",step_type="heating",order_index=1,description="Recorded process stage")
+    db.add_all([mixing,heating]);db.flush()
+    db.add_all([ProcessVariable(process_step_id=mixing.id,name="stir_speed",value=speed,unit="rpm",source_type="lab"),ProcessVariable(process_step_id=heating.id,name="temperature",value="80",unit="°C",source_type="lab")])
 exp=Experiment(code="E2E-XRD-001",name="Synthetic XRD browser flow",target="XRD workflow",date=date(2026,1,1),duration_minutes=1,status="success",demo=False,topic_id=topic.id,notes="SYNTHETIC TEST ONLY")
 db.add(exp);db.flush()
 content="10 1\n20 2\n30 15\n40 2\n50 1\n60 14\n70 1\n"

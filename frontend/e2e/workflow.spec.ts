@@ -3,8 +3,7 @@ import { expect, test } from '@playwright/test';
 test('Phase 6 shared-transformer panel reads checkpoint status without enabling execution', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: /Playwright isolated synthetic topic/ }).click();
-  await page.locator('.primary-more > button').click();
-  await page.locator('.primary-more-menu [role="menuitem"]').filter({ hasText: /Decision|Next-step decision|다음 단계 판단/ }).click();
+  await page.locator('.app-nav-item').filter({ hasText: /Decision|Next-step decision|다음 단계 판단/ }).click();
   await expect(page.getByText('공유 Transformer 판단 실험')).toBeVisible();
   await expect(page.getByText(/체크포인트/)).toBeVisible();
   const models = await page.request.get('/api/decisions/hybrid/models');
@@ -16,7 +15,7 @@ test('isolated topic can plan, enqueue, reload, and inspect a durable XRD run', 
   await page.goto('/');
   await expect(page.getByRole('heading', { name: '연구 주제 선택' })).toBeVisible();
   await page.getByRole('button', { name: /Playwright isolated synthetic topic/ }).click();
-  await page.getByRole('button', { name: '분석', exact: true }).click();
+  await page.locator('.app-nav-item').filter({ hasText: /Analysis|분석/ }).click();
   await expect(page.getByText('저장형 과학 분석 흐름')).toBeVisible();
   await page.getByRole('textbox', { name: '연구 목표' }).fill('XRD 회절 피크 분석');
   await page.getByRole('button', { name: '계획 만들기' }).click();
@@ -52,7 +51,7 @@ test('isolated topic can plan, enqueue, reload, and inspect a durable XRD run', 
   expect(xrdNode).toMatchObject({status:'COMPLETED', result_type:'analysis_run'});
   expect(xrdNode.result_id).toBeTruthy();
   await page.reload();
-  await page.getByRole('button', { name: '분석', exact: true }).click();
+  await page.locator('.app-nav-item').filter({ hasText: /Analysis|분석/ }).click();
   const xrdAfterReload = await (await page.request.get(`/api/workflows/${xrdWorkflowId}?topic_id=${xrdTopicId}`)).json();
   expect(xrdAfterReload.id).toBe(xrdWorkflowId);
   expect(xrdAfterReload.status).toBe('COMPLETED');

@@ -3,8 +3,7 @@ import { expect, test } from '@playwright/test';
 test('isolated sandbox trains a GP, ranks candidates, and compares Branin baselines', async ({page})=>{
   await page.goto('/');
   await page.getByRole('button',{name:/Playwright isolated synthetic topic/}).click();
-  await page.getByRole('button',{name:'기타',exact:true}).click();
-  await page.getByRole('menuitem',{name:'Optimization'}).click();
+  await page.locator('.app-nav-item').filter({hasText:'Optimization'}).click();
   const trainResponse=page.waitForResponse(response=>response.url().includes('/optimization/models/train')&&response.request().method()==='POST');
   const recommendation=page.waitForResponse(response=>response.url().includes('/optimization/models/')&&response.url().endsWith('/recommend'));
   await page.getByRole('button',{name:'GP 학습 후 다음 조건 추천'}).click();
@@ -39,8 +38,7 @@ test('multiobjective sandbox trains two GPs, shows Pareto hypervolume and persis
   test.setTimeout(240_000);
   await page.goto('/');
   await page.getByRole('button',{name:/Playwright isolated synthetic topic/}).click();
-  await page.getByRole('button',{name:'기타',exact:true}).click();
-  await page.getByRole('menuitem',{name:'Optimization'}).click();
+  await page.locator('.app-nav-item').filter({hasText:'Optimization'}).click();
   await expect(page.getByText('다목적 최적화 · Pareto 추천')).toBeVisible();
   const trained=page.waitForResponse(response=>response.url().includes('/optimization/multiobjective/models/train')&&response.request().method()==='POST');
   const recommendationResponse=page.waitForResponse(response=>response.url().includes('/optimization/multiobjective/models/')&&response.url().endsWith('/recommend'));
@@ -71,8 +69,7 @@ test('multiobjective sandbox trains two GPs, shows Pareto hypervolume and persis
 test('decision feedback learning builds versions, compares shadow models and rolls back safely', async ({page})=>{
   await page.goto('/');
   await page.getByRole('button',{name:/Playwright isolated synthetic topic/}).click();
-  await page.getByRole('button',{name:'기타',exact:true}).click();
-  await page.getByRole('menuitem',{name:'Decision'}).click();
+  await page.locator('.app-nav-item').filter({hasText:'Decision'}).click();
   const seedResponse=page.waitForResponse(response=>response.url().includes('/decisions/learned/sandbox/seed')&&response.request().method()==='POST');
   await page.getByRole('button',{name:'합성 테스트 데이터 만들기'}).click();
   expect((await seedResponse).ok()).toBeTruthy();
